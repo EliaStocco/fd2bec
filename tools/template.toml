@@ -18,7 +18,8 @@ dependencies = [
     "tqdm",
     "pathlib",
     "pytest",
-    "spglib"
+    "spglib",
+    "ase"
 ]
 
 [build-system]
