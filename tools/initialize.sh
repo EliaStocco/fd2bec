@@ -8,7 +8,7 @@ if [ -f pyproject.toml ]; then
 fi
 
 # Generate scripts section
-python tools/generate_cli.py > tools/scripts.toml
+python tools/initialize.py > tools/scripts.toml
 
 # Rebuild pyproject.toml
 cat tools/template.toml tools/scripts.toml > pyproject.toml
