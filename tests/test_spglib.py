@@ -1,12 +1,13 @@
 # tests/test_structures.py
 import numpy as np
 from ase.io import read
-from ase import Atoms
 import pytest
 
 # Import the structures_path fixture from conftest
+from fd2bec import SYMPREC
 from fd2bec.conftest import structures_dir
-from fd2bec.tools import ase2spglib, wrap
+from fd2bec.tools import ase2spglib_dataset, wrap
+from fd2bec.atomic import AtomicStructure, structures_equal
 
 def test_spacegroup():
     """
@@ -24,7 +25,7 @@ def test_spacegroup():
         assert actual_atoms == expected_atoms, f"{file_path} has {actual_atoms} atoms, expected {expected_atoms}"
 
         # Prepare cell and positions for spglib
-        dataset = ase2spglib(atoms,symprec=1e-4)
+        dataset = ase2spglib_dataset(atoms,symprec=SYMPREC)
         assert dataset.number == 99, f"{file_path} detected space group {dataset.number}, expected 99"
             
 def test_number_operations():
@@ -42,7 +43,7 @@ def test_number_operations():
         factor = np.power(n, 3)
 
         # Prepare cell and positions for spglib
-        dataset = ase2spglib(atoms,symprec=1e-4)
+        dataset = ase2spglib_dataset(atoms,symprec=SYMPREC)
         
         if first:
             first_No = dataset.rotations.shape[0]
@@ -64,13 +65,17 @@ def test_structures_spacegroup_positions():
         N = atoms.get_global_number_of_atoms()
 
         # Get symmetry dataset from spglib
-        dataset = ase2spglib(atoms, symprec=1e-4)
+        dataset = ase2spglib_dataset(atoms, symprec=SYMPREC)
+        new_atoms = atoms.copy()
         
         # Check symmetry for each atom under each symmetry operation
         frac_pos = atoms.get_scaled_positions()
         new_frac = frac_pos.copy()
         for R, t in zip(dataset.rotations, dataset.translations):
             new_frac = (new_frac @ R + t[None,:])
+            new_atoms.set_scaled_positions(new_frac)
+            if not structures_equal(atoms,new_atoms):
+                raise ValueError("ops")
             
         diff = new_frac - frac_pos
         diff = wrap(diff)        
