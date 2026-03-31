@@ -3,7 +3,7 @@ from fd2bec.cli import cli
 from ase.io import read
 import numpy as np
 
-description = "Extract an 'info' from a extxyz file and convert it to a txt file."
+description = "Extract BEC from a extxyz file and convert it to a txt file."
 
 def prepare_args(description):
     import argparse
@@ -18,24 +18,20 @@ def prepare_args(description):
 def main(args):
     
     print(f"Reading input structure from {args.input} ... ",end="")
-    structures = read(args.input, index=":")
+    atoms = read(args.input, index=0)
     print("done")
     
     print(f"Extracting '{args.name}' from the 'info' of the structures ... ",end="")
-    data = [None]*len(structures)
-    for n,structure in enumerate(structures):
-        info = structure.info
-        if args.name not in info:
-            raise ValueError(f"'{args.name}' not found in the 'info' of the structure\n"
-                             f"Available keys: {list(info.keys())}")
-        data[n] = info[args.name]
+    arrays = atoms.arrays
+    if args.name not in arrays:
+        raise ValueError(f"'{args.name}' not found in the 'info' of the structure\n"
+                            f"Available keys: {list(arrays.keys())}")
+    bec = arrays[args.name]
     print("done")
+    bec = bec.reshape(len(atoms), 9)
     
-    data = np.asarray(data)
-    data = data.reshape(len(structures), -1) # flatten the last dimensions, if any
-    
-    print(f"Writing cartesian displacements to {args.output} ... ",end="")
-    np.savetxt(args.output, data,fmt=float_format)
+    print(f"Writing BEC to {args.output} ... ",end="")
+    np.savetxt(args.output, bec,fmt=float_format)
     print("done")
 
 if __name__ == "__main__":
