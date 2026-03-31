@@ -3,11 +3,11 @@ A python package to efficiently evaluate Born Effective Charges using Finite Dif
 
 # How to install
 ```bash
-pyenv install 3.10 -y
+pyenv install 3.10
 pyenv virtualenv 3.10 fd2bec
 pyenv activate fd2bec
 pyenv local fd2bec
-python -m pip install --upgrade pip
+pip install --upgrade pip
 ./tools/initialize.sh
 pip install -e .
 ```
