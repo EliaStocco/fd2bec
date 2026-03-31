@@ -3,18 +3,6 @@ from ase.io import read, write
 from ase.build import make_supercell
 import numpy as np
 
-choices = ['cell-major', 'atom-major']
-
-def prepare_args(description):
-    import argparse
-    parser = argparse.ArgumentParser(description=description)
-    argv = {"metavar":"\b"}
-    parser.add_argument("-i", "--input", **argv, type=str, required=True, help="path to input structure (e.g. unitcell.extxyz)")
-    parser.add_argument("-s", "--supercell",**argv,  type=ilist, required=True, help="supercell dimensions (e.g. -s 2 2 2)")
-    parser.add_argument("-t" , "--type"         , **argv, type=str, help=f"order type {choices}"+" (default: %(default)s)" , default="atom-major",choices=choices)
-    parser.add_argument("-o", "--output",**argv,  type=str,required=True, help="path to output structure (e.g. supercell.extxyz)")
-    return parser
-
 description = \
 """Generate supercell structures from a unit cell structure.
     -t/--type: 
@@ -32,19 +20,33 @@ description = \
     This may be the order preferred by most VASP users.
 """
 
+choices = ['cell-major', 'atom-major']
+
+def prepare_args(description):
+    import argparse
+    parser = argparse.ArgumentParser(description=description)
+    argv = {"metavar":"\b"}
+    parser.add_argument("-i", "--input", **argv, type=str, required=True, help="path to input structure (e.g. unitcell.extxyz)")
+    parser.add_argument("-s", "--supercell",**argv,  type=ilist, required=True, help="supercell dimensions (e.g. -s 2 2 2)")
+    parser.add_argument("-t" , "--type"         , **argv, type=str, help=f"order type {choices}"+" (default: %(default)s)" , default="atom-major",choices=choices)
+    parser.add_argument("-o", "--output",**argv,  type=str,required=True, help="path to output structure (e.g. supercell.extxyz)")
+    return parser
+
+
+
 @cli(prepare_args,description)
 def main(args):
     
-    print(f"Reading input structure from: {args.input} ... ",end="")
+    print(f"Reading input structure from {args.input} ... ",end="")
     atoms = read(args.input, index=0)
     print("done")
     
-    print(f"Generating supercell with dimensions: {args.supercell} ... ",end="")
+    print(f"Generating supercell with dimensions {args.supercell} ... ",end="")
     matrix = np.diag(args.supercell)
     supercell = make_supercell(atoms,matrix,wrap=False,order=args.type)
     print("done")
     
-    print(f"Writing supercell structure to: {args.output} ... ",end="")
+    print(f"Writing supercell structure to {args.output} ... ",end="")
     write(args.output, supercell)
     print("done")
 
