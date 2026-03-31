@@ -22,17 +22,18 @@ def main(args):
       
     print(f"Reading cartesian displacements from {args.displacements} ... ",end="")
     displacements = np.loadtxt(args.displacements)
+    number = displacements.shape[0]
     print("done")
-    assert displacements.shape == (args.number, atoms.get_global_number_of_atoms()*3), (
+    assert displacements.shape == (number, atoms.get_global_number_of_atoms()*3), (
         f"Displacement file shape mismatch\n"
-        f"Expected shape: ({args.number}, {atoms.get_global_number_of_atoms()*3})\n"
+        f"Expected shape: ({number}, {atoms.get_global_number_of_atoms()*3})\n"
         f"Got shape: {displacements.shape}\n"
         f"File: {args.displacements}"
     )
-    displacements = displacements.reshape(args.number, atoms.get_global_number_of_atoms(), 3)
+    displacements = displacements.reshape(number, atoms.get_global_number_of_atoms(), 3)
     
-    displaced_structures = [None]*args.number
-    for i in range(args.number):
+    displaced_structures = [None]*number
+    for i in range(number):
         displaced = atoms.copy()
         displaced.set_positions(displaced.get_positions() + displacements[i])
         displaced_structures[i] = displaced
