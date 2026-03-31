@@ -10,7 +10,7 @@ def prepare_args(description):
     parser = argparse.ArgumentParser(description=description)
     argv = {"metavar":"\b"}
     parser.add_argument("-i", "--input"    , **argv, type=str  , required=True, help="path to input structure (e.g. supercell.extxyz)")
-    parser.add_argument("-n", "--name"   , **argv, type=int  , required=True, help="name of the 'info' (e.g. dipole" )
+    parser.add_argument("-n", "--name"   , **argv, type=str  , required=True, help="name of the 'info' (e.g. dipole" )
     parser.add_argument("-o", "--output"   , **argv, type=str  , required=True, help="path to txt output file (e.g. dipole.txt)")
     return parser
 
