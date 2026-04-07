@@ -2,6 +2,7 @@ import numpy as np
 import json
 from ase.io import read
 from fd2bec import SYMPREC
+from fd2bec.tools import invert_mapping_to_list
 from fd2bec.cli import cli, str2bool
 from fd2bec.atomic import AtomicStructure
 
@@ -55,16 +56,6 @@ def main(args):
     else:
         use_supercell = False
     super_cell = AtomicStructure.from_ase(super_cell)
-        
-    #----------------------#
-    # Symmetries
-    #----------------------#
-    spg_uc = unit_cell.to_spglib_cell(symprec=args.symprec)
-    spg_sc = super_cell.to_spglib_cell(symprec=args.symprec)
-    
-    assert spg_uc.number == spg_sc.number, \
-        f"The unit cell and the super cell must have the same space group but they have space groups {spg_uc.number} and {spg_sc.number}."
-    
     
     #----------------------#
     # Coefficients
@@ -96,6 +87,46 @@ def main(args):
     if use_supercell:
         print("Using translations symmetries for supercells.")
         args.translations = True
+        
+    #----------------------#
+    # Symmetries
+    #----------------------#
+    if args.translations:
+        spg_uc = unit_cell.to_spglib_cell(symprec=args.symprec)
+        spg_sc = super_cell.to_spglib_cell(symprec=args.symprec)
+        
+        assert spg_uc.number == spg_sc.number, \
+            f"The unit cell and the super cell must have the same space group but they have space groups {spg_uc.number} and {spg_sc.number}."
+        
+        mapping = spg_sc.mapping_to_primitive
+        assert len(set(mapping)) == Na, \
+            f"The mapping from the super cell to the primitive cell must have {Na} unique values"
+        print(f"Mapping from super cell to primitive cell: {mapping}")
+        
+        map2sc = invert_mapping_to_list(mapping)
+        print(f"Mapping from super cell to primitive cell:")
+        for p, sc_list in enumerate(map2sc):
+            print(f" - Primitive atom {p} corresponds to super cell atoms {sc_list}")
+        supercell_size = len(map2sc[0])
+        assert all(len(sc_list) == supercell_size for sc_list in map2sc), \
+            "All primitive atoms must correspond to the same number of super cell atoms"
+        assert supercell_size == Nas // Na, \
+            f"The number of super cell atoms corresponding to each primitive atom ({supercell_size}) must be equal to the ratio of the number of atoms in the super cell and the unit cell ({Nas // Na})."
+        
+        map2sc = np.asarray(map2sc)
+        translational_symmetries = np.zeros((Nas,Na),dtype=int)
+        for col, sc_list in enumerate(map2sc):
+            for row in sc_list:
+                translational_symmetries[row,col] = 1
+            
+        assert np.allclose(mapping,translational_symmetries @ np.arange(Na)), \
+            "The mapping from the super cell to the primitive cell must be consistent with the translational symmetries."
+    
+        translational_symmetries = np.kron(translational_symmetries,np.eye(3)) / supercell_size
+            
+    #----------------------#
+    # Linear system
+    #----------------------#
     
     b_coeff = b.copy()
     A_coeff = A.copy()
@@ -111,8 +142,11 @@ def main(args):
     assert A.shape[1] == A_coeff.shape[1], \
         f"A and A_coeff must have the same number of columns but they have shapes {A.shape} and {A_coeff.shape}"
         
-    # assert A.shape[1] == x.shape[0], \
-    #     f"The number of columns in A ({A.shape[1]}) must be equal to the number of unknowns ({x.shape[0]})."
+    if args.translations:
+        A_coeff = A_coeff @ translational_symmetries
+        
+    assert A_coeff.shape[1] == x.shape[0], \
+        f"The number of columns in A ({A.shape[1]}) must be equal to the number of unknowns ({x.shape[0]})."
     
     system_type = "overdetermined" if A_coeff.shape[0] > x.shape[0] else "underdetermined" if A_coeff.shape[0] < x.shape[0] else "determined"
     print(f"System type: {system_type}")
@@ -130,6 +164,11 @@ def main(args):
             "b" : b.tolist(),
             "A" : A.tolist(),
         },
+        "symmetry" :{
+            "space_group_number" : spg_uc.number,
+            "transformation_matrix" : spg_sc.transformation_matrix.round(4).tolist(),
+            "translational_symmetries" : translational_symmetries.tolist() if args.translations else None,
+        },
         "linear_system" : {
             "type" : system_type,
             "n_rows" : b_coeff.shape[0],
@@ -140,8 +179,10 @@ def main(args):
         }
     }
     
+    print(f"Saving data to {args.output} ... ",end="")
     with open(args.output, "w") as f:
         json.dump(data, f, indent=4)
+    print("done")
     
 
 if __name__ == "__main__":
