@@ -3,8 +3,19 @@ import time
 import argparse
 from functools import wraps
 from fd2bec import DEBUG
+from typing import Union
 
 #---------------------------------------#
+def str2bool(v:Union[bool,str]):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "y", "1"):
+        return True
+    elif v.lower() in ("no", "false", "f", "n", "0"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+    
 def size_type(s: str, dtype=float, N=None):
     s = s.replace("[", "").replace("]", "")
     if "," in s:
