@@ -19,7 +19,8 @@ dependencies = [
     "pathlib",
     "pytest",
     "spglib",
-    "ase"
+    "ase",
+    "PyYAML>=6.0"
 ]
 
 [build-system]
@@ -43,5 +44,6 @@ generate_random_displacements = "fd2bec.cli.generate_random_displacements:main"
 generate_supercell = "fd2bec.cli.generate_supercell:main"
 info_extxyz2txt = "fd2bec.cli.info_extxyz2txt:main"
 overview = "fd2bec.cli.overview:main"
+prepare_linear_system = "fd2bec.cli.prepare_linear_system:main"
 solve_linear_system = "fd2bec.cli.solve_linear_system:main"
 
