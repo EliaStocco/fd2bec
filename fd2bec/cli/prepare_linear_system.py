@@ -12,8 +12,7 @@ def prepare_args(description):
     argv = {"metavar":"\b"}
     parser.add_argument("-b", "--coefficients" , **argv, type=str  , required=True, help="path to coefficients (e.g. dipole.txt)")
     parser.add_argument("-A", "--matrix"       , **argv, type=str  , required=True, help="path to displacement matrix (e.g. displacement.txt" )
-    parser.add_argument("-x", "--unknown"      , **argv, type=str  , required=True, help="path to output file (e.g. bec.txt)")
-    parser.add_argument("-m", "--method"       , **argv, type=str  , required=True, help=f"method: {choices}"+" (default: %(default)s)", default="pseudo-inverse", choices=choices)
+    
     return parser
 
 @cli(prepare_args,description)
