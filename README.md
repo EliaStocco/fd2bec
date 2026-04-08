@@ -8,7 +8,7 @@ pyenv virtualenv 3.10 fd2bec
 pyenv activate fd2bec
 pyenv local fd2bec
 pip install --upgrade pip
-./tools/initialize.sh
+./tools/initialize.sh # for developers only, harmless anyway otherwise
 pip install -e .
 ```
 
