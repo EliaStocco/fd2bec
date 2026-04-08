@@ -13,14 +13,15 @@ def prepare_args(description):
     parser = argparse.ArgumentParser(description=description)
     argv = {"metavar":"\b"}
     parser.add_argument("-uc", "--unit_cell"              , **argv, type=str     , required=True , help="path to unit cell structure (e.g. unitell.extxyz)")
-    parser.add_argument("-sc", "--super_cell"              , **argv, type=str     , required=True , help="path to unit super structure (e.g. supercell.extxyz)")
-    parser.add_argument("-b", "--coefficients"       , **argv, type=str     , required=True , help="path to coefficients (e.g. dipole.txt)")
-    parser.add_argument("-A", "--matrix"             , **argv, type=str     , required=True , help="path to displacement matrix (e.g. displacement.txt)" )
-    parser.add_argument("-asr", "--acoustic_sum_rule", **argv, type=float   , required=False, help="weight for the acoustic sum rule, -1: not used, positive number otherwise (default: %(default)s)", default=-1)
-    parser.add_argument("-tran", "--translations"    , **argv, type=str2bool, required=False, help="apply translational symmetries (default: %(default)s)", default=True)
-    parser.add_argument("-spg", "--space_group"      , **argv, type=str2bool, required=False, help="apply space group symmetries (default: %(default)s)", default=True)
-    parser.add_argument("-s"  , "--symprec"          , **argv, type=float   , required=False, help="symmetry precision for spglib (default: %(default)s)", default=SYMPREC)
-    parser.add_argument("-o"  , "--output"           , **argv, type=str     , required=True , help="JSON output file")
+    parser.add_argument("-sc", "--super_cell"             , **argv, type=str     , required=True , help="path to unit super structure (e.g. supercell.extxyz)")
+    parser.add_argument("-b", "--coefficients"            , **argv, type=str     , required=True , help="path to coefficients (e.g. dipole.txt)")
+    parser.add_argument("-A", "--matrix"                  , **argv, type=str     , required=True , help="path to displacement matrix (e.g. displacement.txt)" )
+    parser.add_argument("-asr"     , "--acoustic_sum_rule", **argv, type=float   , required=False, help="weight for the acoustic sum rule, -1: not used, positive number otherwise (default: %(default)s)", default=-1)
+    parser.add_argument("-is_delta", "--is_delta_dipole"  , **argv, type=str2bool, required=False, help="wheter the coefficients are delta dipole (default: %(default)s)", default=False)
+    parser.add_argument("-tran", "--translations"         , **argv, type=str2bool, required=False, help="apply translational symmetries (default: %(default)s)", default=True)
+    parser.add_argument("-spg", "--space_group"           , **argv, type=str2bool, required=False, help="apply space group symmetries (default: %(default)s)", default=True)
+    parser.add_argument("-s"  , "--symprec"               , **argv, type=float   , required=False, help="symmetry precision for spglib (default: %(default)s)", default=SYMPREC)
+    parser.add_argument("-o"  , "--output"                , **argv, type=str     , required=True , help="JSON output file")
     return parser
 
 @cli(prepare_args,description)
@@ -38,7 +39,10 @@ def main(args):
     n_unknowns = Na * 3
     print(f"Number of atoms in the unit cell: {Na}")
     unit_cell = AtomicStructure.from_ase(unit_cell)
-    x = np.zeros((Na*3, 3))
+    x = np.zeros((Na*3, 3),dtype=object)
+    for i in range(Na):
+        for j in range(3):
+            x[i,j] = f"Z^{i}_{j}"
     print("x.shape:", x.shape)
     
     # supercell 
@@ -122,7 +126,7 @@ def main(args):
         assert np.allclose(mapping,translational_symmetries @ np.arange(Na)), \
             "The mapping from the super cell to the primitive cell must be consistent with the translational symmetries."
     
-        translational_symmetries = np.kron(translational_symmetries,np.eye(3)) / supercell_size
+        translational_symmetries = np.kron(translational_symmetries,np.eye(3)) # / supercell_size
             
     #----------------------#
     # Linear system
@@ -134,7 +138,7 @@ def main(args):
     if args.acoustic_sum_rule >= 0:
         b_coeff = np.vstack([np.zeros((3,3)), b_coeff])
         id = np.eye(3)
-        A_coeff = np.vstack([np.tile(id, A_coeff.shape[1]//3), A_coeff])
+        A_coeff = np.vstack([args.acoustic_sum_rule*np.tile(id, A_coeff.shape[1]//3), A_coeff])
         
     assert b_coeff.shape[0] == A_coeff.shape[0], \
         f"'b_coeff' and 'A_coeff' must have the same number of rows but they have shapes {b_coeff.shape} and {A_coeff.shape}"
@@ -144,6 +148,10 @@ def main(args):
         
     if args.translations:
         A_coeff = A_coeff @ translational_symmetries
+        
+    if not args.is_delta_dipole:
+        x = np.vstack([np.zeros((1,3)),x])
+        A_coeff = np.hstack([np.full((A_coeff.shape[0],1),-1),A_coeff,])
         
     assert A_coeff.shape[1] == x.shape[0], \
         f"The number of columns in A ({A.shape[1]}) must be equal to the number of unknowns ({x.shape[0]})."
@@ -159,6 +167,7 @@ def main(args):
         "asr_weight" : float(args.acoustic_sum_rule),
         "apply_translations" : args.translations,
         "apply_space_group" : args.space_group,
+        "is_delta_dipole" : args.is_delta_dipole,
         "unitcell" : unit_cell.to_json(),
         "input" : {
             "b" : b.tolist(),
