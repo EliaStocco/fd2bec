@@ -3,7 +3,8 @@ import spglib
 from ase import Atoms
 from dataclasses import dataclass
 from functools import cached_property
-from fd2bec.hungarian import equal_rows_hungarian   
+from fd2bec import SYMPREC
+from fd2bec.mathematics import wrap, find_mapping
 from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
 
@@ -32,6 +33,26 @@ class AtomicStructure:
     symbols: tuple[str, ...]
     cellpar: np.ndarray
     frac_pos: np.ndarray
+    
+    def duplicate(self, **kwargs) -> "AtomicStructure":
+        """
+        Create a new AtomicStructure with some attributes modified.
+
+        Parameters
+        ----------
+        **kwargs
+            Any of the attributes (symbols, cellpar, frac_pos) can be overridden.
+
+        Returns
+        -------
+        AtomicStructure
+            New instance with updated attributes.
+        """
+        return AtomicStructure(
+            symbols=kwargs.get("symbols", self.symbols),
+            cellpar=kwargs.get("cellpar", self.cellpar),
+            frac_pos=kwargs.get("frac_pos", self.frac_pos),
+        )
 
     @classmethod
     def from_ase(cls, atoms: Atoms) -> "AtomicStructure":
@@ -73,6 +94,10 @@ class AtomicStructure:
         object.__setattr__(self, "frac_pos", frac_pos)
 
     def __eq__(self, other: "AtomicStructure") -> bool:
+        """Check if two AtomicStructure instances are equal."""
+        return self.is_equal_to(other)
+    
+    def is_equal_to(self, other: "AtomicStructure", atol=SYMPREC)-> bool:
         """
         Compare two structures for equality.
 
@@ -97,14 +122,63 @@ class AtomicStructure:
 
         if not np.allclose(self.cellpar, other.cellpar):
             return False
-
-        for s in self.species:
-            a = self.pos[s]
-            b = other.pos[s]
-            if not equal_rows_hungarian(a, b):
-                return False
+        
+        try:
+            mapping = self.get_atoms_mapping(other)  # will raise ValueError if not equal
+        except ValueError as e:
+            return False
+        diff = wrap(self.frac_pos[mapping] - other.frac_pos)
+        if not np.allclose(diff,0,atol=atol):
+            return False
 
         return True
+        
+    
+    def __len__(self):
+        """
+        Number of atoms in the structure.
+
+        Returns
+        -------
+        int
+        """
+        return len(self.symbols)
+
+    def get_atoms_mapping(self, other: "AtomicStructure") -> np.ndarray:
+        """
+        Build an atom index mapping from `other` to `self`, computed per species
+        using the provided `find_mapping` function.
+
+        Returns
+        -------
+        mapping : np.ndarray
+            mapping[i] = index in self corresponding to atom i in other
+        """
+        mapping = np.zeros(len(self), dtype=int)
+
+        for s in self.species:
+            idx_self = np.where(np.array(self.symbols) == s)[0]
+            idx_other = np.where(np.array(other.symbols) == s)[0]
+
+            a = self.pos[s]
+            b = other.pos[s]
+
+            local_map, ok = find_mapping(a, b)
+            if not ok:
+                raise ValueError(f"Mapping failed for species {s}")
+
+            mapping[idx_other] = idx_self[local_map]
+
+        assert np.all(np.sort(mapping) == np.arange(len(self))), \
+            "Invalid mapping: not a permutation"
+
+        return mapping
+        
+    @cached_property
+    def space_group(self) -> int:
+        """Space group number of the structure.
+        """
+        return self.to_spglib_cell().number
 
     @cached_property
     def species(self) -> set[str]:
@@ -169,7 +243,21 @@ class AtomicStructure:
         cell = cellpar_to_cell(self.cellpar), self.frac_pos, [atomic_numbers[s] for s in self.symbols]
         return spglib.get_symmetry_dataset(cell, **kwargs)
     
-def structures_equal(a1:Atoms, a2:Atoms):
-    info1 = AtomicStructure.from_ase(a1)
-    info2 = AtomicStructure.from_ase(a2)
-    return info1 == info2
+    def _test_symmetry(self,atol=SYMPREC,**kwargs)->bool:
+        spg = self.to_spglib_cell(**kwargs)
+        R = spg.rotations
+        T = spg.translations
+        for r,t in zip(R,T):
+            new_pos = self.frac_pos @ r + t
+            new_structure = self.duplicate(frac_pos=new_pos)
+            if self != new_structure:
+                self.is_equal_to(new_structure)
+                raise ValueError("Symmetry operation does not preserve the structure")
+            if self.space_group != new_structure.space_group:
+                raise ValueError("Symmetry operation does not preserve the space group")
+            mapping = self.get_atoms_mapping(new_structure)
+            diff = wrap(self.frac_pos[mapping] - new_structure.frac_pos)
+            if not np.allclose(diff,0,atol=atol):
+                raise ValueError("Symmetry operation does not preserve atomic positions")
+        return True
+    

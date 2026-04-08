@@ -99,6 +99,13 @@ def main(args):
         spg_uc = unit_cell.to_spglib_cell(symprec=args.symprec)
         spg_sc = super_cell.to_spglib_cell(symprec=args.symprec)
         
+        rot_uc = np.unique(spg_uc.rotations,axis=0)
+        rot_sc = np.unique(spg_sc.rotations,axis=0)
+        assert np.allclose(rot_uc,rot_sc), \
+            "The unit cell and the super cell must have the same space group symmetries but they have different rotation matrices."
+            
+        unit_cell.get_vector_symmetrizer()
+        
         assert spg_uc.number == spg_sc.number, \
             f"The unit cell and the super cell must have the same space group but they have space groups {spg_uc.number} and {spg_sc.number}."
         

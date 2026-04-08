@@ -9,9 +9,6 @@ def ase2spglib_dataset(atoms:Atoms,**kwargs) -> spglib.SpglibDataset:
     cell = ase2spglib_cell(atoms)
     return spglib.get_symmetry_dataset(cell, **kwargs)
 
-def wrap(x:np.ndarray):
-    return (x + 0.5) % 1.0 - 0.5
-
 def invert_mapping_to_list(mapping:list[int]) -> list[list[int]]:
     """
     Invert a mapping from supercell atoms to primitive atoms

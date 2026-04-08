@@ -3,8 +3,9 @@ import numpy as np
 from ase.io import read
 from fd2bec import SYMPREC
 from fd2bec.conftest import structures_dir
-from fd2bec.tools import ase2spglib_dataset, wrap
-from fd2bec.atomic import structures_equal
+from fd2bec.tools import ase2spglib_dataset
+from fd2bec.mathematics import wrap
+from fd2bec.atomic import AtomicStructure
 
 def test_spacegroup():
     """
@@ -84,12 +85,15 @@ def test_structures_spacegroup_positions():
 
         frac_pos = atoms.get_scaled_positions()
         new_frac = frac_pos.copy()
+        
+        tmp = AtomicStructure.from_ase(atoms)
+        assert tmp._test_symmetry(), "Error in AtomicStructure._test_symmetry() method"
 
         for op_idx, (R, t) in enumerate(zip(dataset.rotations, dataset.translations)):
             new_frac = (new_frac @ R + t[None, :])
             new_atoms.set_scaled_positions(new_frac)
 
-            if not structures_equal(atoms, new_atoms):
+            if AtomicStructure.from_ase(atoms) != AtomicStructure.from_ase(new_atoms):
                 # compute distances for debugging
                 diff = new_frac - frac_pos
                 diff = wrap(diff)
