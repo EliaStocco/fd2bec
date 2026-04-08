@@ -251,7 +251,6 @@ class AtomicStructure:
             new_pos = self.frac_pos @ r + t
             new_structure = self.duplicate(frac_pos=new_pos)
             if self != new_structure:
-                self.is_equal_to(new_structure)
                 raise ValueError("Symmetry operation does not preserve the structure")
             if self.space_group != new_structure.space_group:
                 raise ValueError("Symmetry operation does not preserve the space group")
