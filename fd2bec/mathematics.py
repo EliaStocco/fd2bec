@@ -31,3 +31,11 @@ def find_mapping(a: np.ndarray, b: np.ndarray, atol: float = SYMPREC):
         dists[i] = dist[j]
 
     return mapping, np.all(dists <= atol)
+
+def invert_indices(indices:np.ndarray,axis=None)->np.ndarray:
+    """
+    Given a list of indices that map atoms_A to atoms_B,
+    returns the reverted indices that would restore atoms_A from atoms_B.
+    """
+    inverted_indices = np.argsort(indices,axis=axis)
+    return inverted_indices

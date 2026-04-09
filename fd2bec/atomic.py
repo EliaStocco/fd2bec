@@ -3,8 +3,8 @@ import spglib
 from ase import Atoms
 from dataclasses import dataclass
 from functools import cached_property
-from fd2bec import SYMPREC
-from fd2bec.mathematics import wrap, find_mapping
+from fd2bec import SYMPREC, DEBUG
+from fd2bec.mathematics import wrap, find_mapping, invert_indices
 from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
 
@@ -124,7 +124,7 @@ class AtomicStructure:
             return False
         
         try:
-            mapping = self.get_atoms_mapping(other)  # will raise ValueError if not equal
+            mapping = self.__get_atoms_mapping(other)  # will raise ValueError if not equal
         except ValueError as e:
             return False
         diff = wrap(self.frac_pos[mapping] - other.frac_pos)
@@ -143,36 +143,6 @@ class AtomicStructure:
         int
         """
         return len(self.symbols)
-
-    def get_atoms_mapping(self, other: "AtomicStructure") -> np.ndarray:
-        """
-        Build an atom index mapping from `other` to `self`, computed per species
-        using the provided `find_mapping` function.
-
-        Returns
-        -------
-        mapping : np.ndarray
-            mapping[i] = index in self corresponding to atom i in other
-        """
-        mapping = np.zeros(len(self), dtype=int)
-
-        for s in self.species:
-            idx_self = np.where(np.array(self.symbols) == s)[0]
-            idx_other = np.where(np.array(other.symbols) == s)[0]
-
-            a = self.pos[s]
-            b = other.pos[s]
-
-            local_map, ok = find_mapping(a, b)
-            if not ok:
-                raise ValueError(f"Mapping failed for species {s}")
-
-            mapping[idx_other] = idx_self[local_map]
-
-        assert np.all(np.sort(mapping) == np.arange(len(self))), \
-            "Invalid mapping: not a permutation"
-
-        return mapping
         
     @cached_property
     def space_group(self) -> int:
@@ -254,9 +224,189 @@ class AtomicStructure:
                 raise ValueError("Symmetry operation does not preserve the structure")
             if self.space_group != new_structure.space_group:
                 raise ValueError("Symmetry operation does not preserve the space group")
-            mapping = self.get_atoms_mapping(new_structure)
+            mapping = self.__get_atoms_mapping(new_structure)
             diff = wrap(self.frac_pos[mapping] - new_structure.frac_pos)
             if not np.allclose(diff,0,atol=atol):
                 raise ValueError("Symmetry operation does not preserve atomic positions")
         return True
     
+    def __get_atoms_mapping(self, other: "AtomicStructure") -> np.ndarray:
+        """
+        Build an atom index mapping from `other` to `self`, computed per species
+        using the provided `find_mapping` function.
+
+        Returns
+        -------
+        mapping : np.ndarray
+            mapping[i] = index in self corresponding to atom i in other
+        """
+        mapping = np.zeros(len(self), dtype=int)
+
+        for s in self.species:
+            idx_self = np.where(np.array(self.symbols) == s)[0]
+            idx_other = np.where(np.array(other.symbols) == s)[0]
+
+            a = self.pos[s]
+            b = other.pos[s]
+
+            local_map, ok = find_mapping(a, b)
+            if not ok:
+                raise ValueError(f"Mapping failed for species {s}")
+
+            mapping[idx_other] = idx_self[local_map]
+
+        assert np.all(np.sort(mapping) == np.arange(len(self))), \
+            "Invalid mapping: not a permutation"
+
+        return mapping
+    
+    def __get_all_atoms_mapping(self,debug=DEBUG,**kwargs):
+        """
+        Compute inverse atom index mappings for all symmetry operations.
+
+        For each space-group operation (R, t), the function applies the transformation
+        to the fractional coordinates, builds the transformed structure, and determines
+        how atom indices map back to the original structure.
+
+        Returns an array inv_map such that for each operation k:
+            inv_map[k, i] gives the index in the transformed structure corresponding to
+            atom i in the original structure.
+
+        Parameters
+        ----------
+        debug : bool, optional
+            If True, performs consistency checks on the mappings.
+        **kwargs :
+            Passed to the spglib cell construction.
+
+        Returns
+        -------
+        inv_map : ndarray of shape (Nops, Natoms)
+            Inverse atom mappings for each symmetry operation.
+        """
+        spg = self.to_spglib_cell(**kwargs)
+        R = spg.rotations
+        T = spg.translations
+        mappings = []
+        for r,t in zip(R,T):
+            new_pos = self.frac_pos @ r + t
+            new_structure = self.duplicate(frac_pos=new_pos)
+            mapping = self.__get_atoms_mapping(new_structure)
+            mappings.append(mapping)
+        mappings = np.asarray(mappings)
+        inv_map = invert_indices(mappings, axis=1)
+        
+        if debug:
+            for r,t,m,im in zip(R,T,mappings,inv_map):
+                new_pos = self.frac_pos @ r + t
+                if not np.allclose(wrap(new_pos - self.frac_pos[m]), 0,atol=SYMPREC):
+                    raise ValueError("Error in computing atom mapping for symmetry operation.")
+                if not np.allclose(wrap(new_pos[im] - self.frac_pos), 0,atol=SYMPREC):
+                    raise ValueError("Error in computing atom mapping for symmetry operation.")
+                new_pos = self.frac_pos[im] @ r + t
+                if not np.allclose(wrap(new_pos - self.frac_pos), 0,atol=SYMPREC):
+                    raise ValueError("Error in computing atom mapping for symmetry operation.")
+                
+        return inv_map
+    
+    def get_flattened_symmetry_operations(self, atol=SYMPREC, debug=DEBUG, **kwargs):
+        """
+        Construct flattened symmetry operations acting on the full atomic coordinate vector.
+
+        Each symmetry operation (R, t), together with its induced atom mapping m, is converted
+        into an affine transformation acting on the flattened fractional coordinates:
+
+            x_flat -> R_flat @ x_flat + T_flat
+
+        where x_flat is a vector of shape (3 * Natoms,) obtained by concatenating all atomic
+        fractional positions. The flattened operators consistently combine:
+        - rotation in fractional coordinates,
+        - translation,
+        - permutation of atoms induced by the symmetry operation.
+
+        Parameters
+        ----------
+        atol : float, optional
+            Numerical tolerance used for validation checks (only if debug=True).
+        debug : bool, optional
+            If True, perform consistency checks to verify correctness of the flattened operators.
+        **kwargs :
+            Additional arguments passed to the spglib interface.
+
+        Returns
+        -------
+        R_flat : np.ndarray
+            Array of shape (Nops, 3*Natoms, 3*Natoms) containing flattened linear operators.
+
+        T_flat : np.ndarray
+            Array of shape (Nops, 3*Natoms) containing flattened translation vectors.
+
+        Raises
+        ------
+        ValueError
+            If debug=True and any constructed operation fails to reproduce the symmetry action
+            within the specified tolerance.
+        """
+        spg = self.to_spglib_cell(**kwargs)
+        R = spg.rotations
+        T = spg.translations
+        mappings = self.__get_all_atoms_mapping(**kwargs)
+
+        Natoms = len(self)
+        Nops = len(R)
+        ii = np.arange(Natoms)
+
+        R_flat = np.zeros((Nops, 3 * Natoms, 3 * Natoms))
+        T_flat = np.zeros((Nops, 3 * Natoms))
+
+        pos = self.frac_pos.copy()
+        pos_flat = pos.flatten()
+
+        for n, (r, t, m) in enumerate(zip(R, T, mappings)):
+
+            # Permutation matrix (maps reordered atoms)
+            P = np.zeros((Natoms, Natoms))
+            P[ii, m] = 1
+
+            # Flattened rotation (row-vector convention → use r.T)
+            r_flat = np.kron(P, r.T)
+
+            # Flattened translation (must be permuted)
+            t_flat = np.tile(t, Natoms)
+            t_flat = (P @ t_flat.reshape(Natoms, 3)).reshape(-1)
+
+            if debug:
+                # Validate against direct application
+                a = (r_flat @ pos_flat + t_flat)
+                b = (pos @ r + t)[m].flatten()
+                c = (pos[m] @ r + t).flatten()
+
+                if not np.allclose(wrap(a - b), 0):
+                    raise ValueError("Error in flattening symmetry operation.")
+                
+                if not np.allclose(wrap(b - c), 0):
+                    raise ValueError("Just a test.")
+
+            # # This check is redundant since in the next debug block we are going to do the same thing.
+            # if debug:
+            #     new_pos = np.asarray(r_flat @ pos_flat + t_flat).reshape((Natoms,3))
+            #     if not np.allclose(wrap(new_pos - pos), 0, atol=atol):
+            #         raise ValueError("Error in applying flattened symmetry operation.")               
+            
+            R_flat[n] = r_flat
+            T_flat[n] = t_flat
+            
+        new_pos = R_flat @ pos_flat + T_flat
+        diff = new_pos - pos_flat
+        T_flat -= diff
+        
+        if debug:
+            # positions are the same modulo 1
+            if not np.allclose(wrap(diff), 0, atol=atol):
+                raise ValueError("Error in applying flattened symmetry operation.")    
+            # positions are the same with the translation correction
+            new_pos = R_flat @ pos_flat + T_flat
+            if not np.allclose(new_pos, pos_flat, atol=atol):
+                raise ValueError("Error in applying flattened symmetry operation.")   
+            
+        return R_flat, T_flat

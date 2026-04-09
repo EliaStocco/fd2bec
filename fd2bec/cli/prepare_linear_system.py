@@ -103,8 +103,6 @@ def main(args):
         rot_sc = np.unique(spg_sc.rotations,axis=0)
         assert np.allclose(rot_uc,rot_sc), \
             "The unit cell and the super cell must have the same space group symmetries but they have different rotation matrices."
-            
-        unit_cell.get_vector_symmetrizer()
         
         assert spg_uc.number == spg_sc.number, \
             f"The unit cell and the super cell must have the same space group but they have space groups {spg_uc.number} and {spg_sc.number}."
@@ -134,6 +132,10 @@ def main(args):
             "The mapping from the super cell to the primitive cell must be consistent with the translational symmetries."
     
         translational_symmetries = np.kron(translational_symmetries,np.eye(3)) # / supercell_size
+        
+    if args.space_group:
+        R,T = unit_cell.get_flattened_symmetry_operations(atol=args.symprec,debug=True)
+        pass
             
     #----------------------#
     # Linear system
