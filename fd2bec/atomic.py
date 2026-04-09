@@ -425,43 +425,138 @@ class AtomicStructure:
         H = affine2homogeneous(R_flat, T_flat)
         return H
 
-    def get_symmetrizer(self, use_translations: bool = True, atol=ATOL, debug=DEBUG, **kwargs):
+    def get_symmetrizer(
+        self,
+        use_translations: bool = True,
+        method: str = "null_space",
+        atol=ATOL,
+        debug=DEBUG,
+        **kwargs
+    ):
         """
-        Returns a matrix S whose columns span the symmetric subspace such that:
+        Compute a symmetry-adapted basis for atomic coordinates.
+
+        This method returns a matrix S whose columns span the symmetric subspace
+        of atomic configurations such that any symmetry-invariant configuration
+        can be written as:
+
             x = S @ theta
+
+        where:
+        - x is the flattened atomic coordinate vector (dimension 3N or 3N+1)
+        - theta contains the independent (symmetry-allowed) degrees of freedom
+
+        Parameters
+        ----------
+        use_translations : bool, optional
+            If True, include translational components using homogeneous coordinates.
+            If False, use purely affine (linear) symmetry operations.
+
+        method : str, optional
+            Method used to construct the symmetric subspace:
+
+            - "null_space":
+                Construct the constraint matrix A by stacking (G_i - I) for all symmetry
+                operations and compute its null space.
+                WARNING: This approach can be very slow and memory intensive for large
+                systems, since A can become extremely large.
+
+            - "eigen":
+                Construct the averaging operator P = (1/N) sum_i G_i and compute its
+                eigen-decomposition. The symmetric subspace corresponds to eigenvectors
+                with eigenvalue 1. This method is significantly more efficient and
+                recommended for large systems.
+
+        atol : float, optional
+            Numerical tolerance used for eigenvalue selection and validation checks.
+
+        debug : bool, optional
+            If True, perform consistency checks to verify correctness of the result.
+
+        Returns
+        -------
+        S : np.ndarray
+            Matrix of shape (dim, k) whose columns form a basis of the symmetric subspace.
+
+        theta : np.ndarray
+            Reduced coordinates such that x ≈ S @ theta.
+
+        theta_real : np.ndarray
+            Real-space interpretation of the symmetry-adapted modes, with shape:
+                (k, Natoms, 3)
+            Each entry corresponds to the displacement pattern associated with one
+            independent degree of freedom.
         """
-        from scipy.linalg import null_space
+
+        import numpy as np
+
         if use_translations:
-            G = self.get_homogeneous_symmetry_operations(atol=atol,debug=debug,**kwargs)
-            x = np.append(self.frac_pos.copy(),1)
+            G = self.get_homogeneous_symmetry_operations(atol=atol, debug=debug, **kwargs)
+            x = np.append(self.frac_pos.copy(), 1.0)
         else:
-            G, _ = self.get_affine_symmetry_operations(atol=atol,debug=debug**kwargs)
+            G, _ = self.get_affine_symmetry_operations(atol=atol, debug=debug, **kwargs)
             x = self.frac_pos.copy()
 
-        Nops, dim, _ = G.shape
+        _, dim, _ = G.shape
 
-        # Build constraint matrix
-        A_blocks = []
+        # ------------------------
+        # Method 1: Null space
+        # ------------------------
+        if method == "null_space":
+            import warnings
+            warnings.warn(
+                "Using 'null_space' method: this can be very slow and memory intensive "
+                "for large systems. Consider using method='eigen' instead.",
+                RuntimeWarning
+            )
 
-        I = np.eye(dim)
+            from scipy.linalg import null_space
 
-        for g in G:
-            A_blocks.append(g - I)
+            A_blocks = []
+            I = np.eye(dim)
 
-        A = np.vstack(A_blocks)
+            for g in G:
+                A_blocks.append(g - I)
 
-        # Compute null space: solutions to A x = 0
-        S = null_space(A, rcond=atol)
-        
+            A = np.vstack(A_blocks)
+
+            S = null_space(A, rcond=atol)
+
+        # ------------------------
+        # Method 2: Eigen-decomposition
+        # ------------------------
+        elif method == "eigen":
+            P = np.mean(G, axis=0)
+
+            w, v = np.linalg.eig(P)
+
+            mask = np.isclose(w, 1.0, atol=atol)
+            S = v[:, mask]
+
+        else:
+            raise ValueError("method must be either 'null_space' or 'eigen'")
+
+        # Solve for theta
         theta = np.linalg.lstsq(S, x, rcond=None)[0]
-        
-        test = S @ theta
+
+        # ------------------------
+        # Debug checks
+        # ------------------------
         if debug:
+            test = S @ theta
             if use_translations:
-                assert np.allclose(test[-1],1.,atol=atol), \
+                assert np.allclose(test[-1], 1.0, atol=atol), \
                     f"Last component should be one but it is {test[-1]}."
             diff = test - x
-            assert np.allclose(diff,0),\
+            assert np.allclose(diff, 0, atol=atol), \
                 "There is a problem here."
-        
-        return S, theta
+
+        # ------------------------
+        # Real-space interpretation of modes
+        # ------------------------
+        if use_translations:
+            theta_real = S[:-1, :].T.reshape((len(theta), -1, 3))
+        else:
+            theta_real = S.T.reshape((len(theta), -1, 3))
+
+        return S, theta, theta_real

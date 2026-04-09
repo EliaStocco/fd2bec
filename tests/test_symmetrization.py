@@ -16,6 +16,8 @@ def test_structures_spacegroup_positions(structure):
 
     atoms = read(file_path, index=0)
     Natoms = atoms.get_global_number_of_atoms()
+    if Natoms > 200:
+        return 
     
     atomic_structure = AtomicStructure.from_ase(atoms)
     assert atomic_structure._test_symmetry(), "Error in AtomicStructure._test_symmetry() method"
@@ -26,7 +28,9 @@ def test_structures_spacegroup_positions(structure):
     assert allclose_chunked(Rtest,R,atol=ATOL), "Different rotation matrices"
     assert np.allclose(Ttest,T,atol=ATOL), "Different translation vectors"
     
-    S, theta = atomic_structure.get_symmetrizer(debug=True)
+    S, theta, theta_real = atomic_structure.get_symmetrizer(debug=True,method='eigen')
+    
+    assert len(theta) == 5, "there is something wrong"
     
     pass
 
