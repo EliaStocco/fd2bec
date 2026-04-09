@@ -134,7 +134,7 @@ def main(args):
         translational_symmetries = np.kron(translational_symmetries,np.eye(3)) # / supercell_size
         
     if args.space_group:
-        R,T = unit_cell.get_flattened_symmetry_operations(atol=args.symprec,debug=True)
+        R,T = unit_cell.get_affine_symmetry_operations(atol=args.symprec,debug=True)
         pass
             
     #----------------------#

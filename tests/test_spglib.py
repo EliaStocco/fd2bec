@@ -89,7 +89,7 @@ def test_structures_spacegroup_positions():
         tmp = AtomicStructure.from_ase(atoms)
         assert tmp._test_symmetry(), "Error in AtomicStructure._test_symmetry() method"
         
-        tmp.get_flattened_symmetry_operations(debug=True)
+        tmp.get_affine_symmetry_operations(debug=True)
 
         for op_idx, (R, t) in enumerate(zip(dataset.rotations, dataset.translations)):
             new_frac = (new_frac @ R + t[None, :])

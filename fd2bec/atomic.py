@@ -3,8 +3,8 @@ import spglib
 from ase import Atoms
 from dataclasses import dataclass
 from functools import cached_property
-from fd2bec import SYMPREC, DEBUG
-from fd2bec.mathematics import wrap, find_mapping, invert_indices
+from fd2bec import SYMPREC, DEBUG, ATOL
+from fd2bec.mathematics import wrap, find_mapping, invert_indices, affine2homogeneous
 from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
 
@@ -124,7 +124,7 @@ class AtomicStructure:
             return False
         
         try:
-            mapping = self.__get_atoms_mapping(other)  # will raise ValueError if not equal
+            mapping = self.__get_atoms_mapping(other,atol=atol)  # will raise ValueError if not equal
         except ValueError as e:
             return False
         diff = wrap(self.frac_pos[mapping] - other.frac_pos)
@@ -220,7 +220,8 @@ class AtomicStructure:
         for r,t in zip(R,T):
             new_pos = self.frac_pos @ r + t
             new_structure = self.duplicate(frac_pos=new_pos)
-            if self != new_structure:
+            if not self.is_equal_to(new_structure,atol=atol):
+                self.is_equal_to(new_structure,atol=atol)
                 raise ValueError("Symmetry operation does not preserve the structure")
             if self.space_group != new_structure.space_group:
                 raise ValueError("Symmetry operation does not preserve the space group")
@@ -230,7 +231,7 @@ class AtomicStructure:
                 raise ValueError("Symmetry operation does not preserve atomic positions")
         return True
     
-    def __get_atoms_mapping(self, other: "AtomicStructure") -> np.ndarray:
+    def __get_atoms_mapping(self, other: "AtomicStructure",atol=ATOL) -> np.ndarray:
         """
         Build an atom index mapping from `other` to `self`, computed per species
         using the provided `find_mapping` function.
@@ -249,7 +250,7 @@ class AtomicStructure:
             a = self.pos[s]
             b = other.pos[s]
 
-            local_map, ok = find_mapping(a, b)
+            local_map, ok = find_mapping(a, b, atol=atol)
             if not ok:
                 raise ValueError(f"Mapping failed for species {s}")
 
@@ -309,7 +310,7 @@ class AtomicStructure:
                 
         return inv_map
     
-    def get_flattened_symmetry_operations(self, atol=SYMPREC, debug=DEBUG, **kwargs):
+    def get_affine_symmetry_operations(self, atol=SYMPREC, debug=DEBUG, **kwargs):
         """
         Construct flattened symmetry operations acting on the full atomic coordinate vector.
 
@@ -410,3 +411,42 @@ class AtomicStructure:
                 raise ValueError("Error in applying flattened symmetry operation.")   
             
         return R_flat, T_flat
+
+    def get_homogeneous_symmetry_operations(self,**kwargs):
+        """
+        Construct homogeneous symmetry operations corresponding to the flattened affine operations.
+
+        Returns
+        -------
+        H_ops : np.ndarray
+            Array of shape (Nops, 3*Natoms+1, 3*Natoms+1) containing homogeneous transformation matrices.
+        """
+        R_flat, T_flat = self.get_affine_symmetry_operations(**kwargs)
+        H = affine2homogeneous(R_flat, T_flat)
+        return H
+    
+    def get_symmetrizer(self, use_translations:bool=True, **kwargs):
+        """
+        Compute the symmetrizer matrix that projects onto the symmetric subspace.
+
+        The symmetrizer is defined as:
+            S = (1/Nops) * sum_k R_flat[k]
+
+        where R_flat[k] are the flattened symmetry operations obtained from
+        `get_affine_symmetry_operations`.
+
+        Parameters
+        ----------
+        **kwargs :
+            Additional arguments passed to the spglib interface.
+
+        Returns
+        -------
+        S : np.ndarray
+            Symmetrizer matrix of shape (3*Natoms, 3*Natoms).
+        """
+        R_flat, T_flat = self.get_affine_symmetry_operations(**kwargs)
+        S = np.mean(R_flat, axis=0)
+        if use_translations:
+            S = affine2homogeneous(S, np.mean(T_flat, axis=0))
+        return S
