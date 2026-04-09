@@ -424,29 +424,44 @@ class AtomicStructure:
         R_flat, T_flat = self.get_affine_symmetry_operations(**kwargs)
         H = affine2homogeneous(R_flat, T_flat)
         return H
-    
-    def get_symmetrizer(self, use_translations:bool=True, **kwargs):
+
+    def get_symmetrizer(self, use_translations: bool = True, atol=ATOL, debug=DEBUG, **kwargs):
         """
-        Compute the symmetrizer matrix that projects onto the symmetric subspace.
-
-        The symmetrizer is defined as:
-            S = (1/Nops) * sum_k R_flat[k]
-
-        where R_flat[k] are the flattened symmetry operations obtained from
-        `get_affine_symmetry_operations`.
-
-        Parameters
-        ----------
-        **kwargs :
-            Additional arguments passed to the spglib interface.
-
-        Returns
-        -------
-        S : np.ndarray
-            Symmetrizer matrix of shape (3*Natoms, 3*Natoms).
+        Returns a matrix S whose columns span the symmetric subspace such that:
+            x = S @ theta
         """
-        R_flat, T_flat = self.get_affine_symmetry_operations(**kwargs)
-        S = np.mean(R_flat, axis=0)
+        from scipy.linalg import null_space
         if use_translations:
-            S = affine2homogeneous(S, np.mean(T_flat, axis=0))
-        return S
+            G = self.get_homogeneous_symmetry_operations(atol=atol,debug=debug,**kwargs)
+            x = np.append(self.frac_pos.copy(),1)
+        else:
+            G, _ = self.get_affine_symmetry_operations(atol=atol,debug=debug**kwargs)
+            x = self.frac_pos.copy()
+
+        Nops, dim, _ = G.shape
+
+        # Build constraint matrix
+        A_blocks = []
+
+        I = np.eye(dim)
+
+        for g in G:
+            A_blocks.append(g - I)
+
+        A = np.vstack(A_blocks)
+
+        # Compute null space: solutions to A x = 0
+        S = null_space(A, rcond=atol)
+        
+        theta = np.linalg.lstsq(S, x, rcond=None)[0]
+        
+        test = S @ theta
+        if debug:
+            if use_translations:
+                assert np.allclose(test[-1],1.,atol=atol), \
+                    f"Last component should be one but it is {test[-1]}."
+            diff = test - x
+            assert np.allclose(diff,0),\
+                "There is a problem here."
+        
+        return S, theta
