@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from ase.io import read
 from fd2bec import ATOL
+from fd2bec.tools import allclose_chunked
 from fd2bec.conftest import structures_dir
 from fd2bec.atomic import AtomicStructure
 from fd2bec.mathematics import homogeneous2affine
@@ -22,9 +23,8 @@ def test_structures_spacegroup_positions():
         R,T = atoms.get_affine_symmetry_operations(debug=True)
         H = atoms.get_homogeneous_symmetry_operations(debug=True)
         Rtest, Ttest = homogeneous2affine(H)
-        assert np.allclose(Rtest,R,atol=ATOL), "Different rotation matrices"
-        assert np.allclose(Ttest,T,atol=ATOL), "Different rotation matrices"
-        # atoms.get_symmetrizer(debug=True)
+        assert allclose_chunked(Rtest,R,atol=ATOL), "Different rotation matrices"
+        assert np.allclose(Ttest,T,atol=ATOL), "Different translation vectors"
 
 
 if __name__ == "__main__":

@@ -35,3 +35,9 @@ def invert_mapping_to_list(mapping:list[int]) -> list[list[int]]:
         reverse[prim_idx].append(super_idx)
 
     return reverse
+
+def allclose_chunked(a:np.ndarray, b:np.ndarray, atol:float)->bool:
+    for i in range(a.shape[0]):
+        if not np.all(np.abs(a[i] - b[i]) <= atol):
+            return False
+    return True
