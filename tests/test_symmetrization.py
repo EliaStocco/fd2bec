@@ -9,7 +9,7 @@ from fd2bec.mathematics import homogeneous2affine
 
 def test_structures_spacegroup_positions(structure):
     """
-    Test that BaTiO3 structures have the correct number of atoms,
+    Test that the structures have the correct number of atoms,
     correct space group, and that atomic positions are symmetric.
     """
     n, file_path = structure

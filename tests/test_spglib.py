@@ -9,7 +9,7 @@ from fd2bec.atomic import AtomicStructure
 
 def test_spacegroup(structure):
     """
-    Test that BaTiO3 structures have the correct number of atoms
+    Test that the structures have the correct number of atoms
     and all have space group 99.
     """
     n, file_path = structure
@@ -21,7 +21,6 @@ def test_spacegroup(structure):
     actual_atoms = atoms.get_global_number_of_atoms()
 
     assert actual_atoms == expected_atoms, (
-        f"[BaTiO3 {n}x{n}x{n}] Atom count mismatch\n"
         f"File: {file_path}\n"
         f"Expected atoms: {expected_atoms}\n"
         f"Actual atoms: {actual_atoms}"
@@ -30,7 +29,6 @@ def test_spacegroup(structure):
     dataset = ase2spglib_dataset(atoms, symprec=SYMPREC)
 
     assert dataset.number == 99, (
-        f"[BaTiO3 {n}x{n}x{n}] Wrong space group detected\n"
         f"File: {file_path}\n"
         f"Expected: 99\n"
         f"Got: {dataset.number}\n"
@@ -40,7 +38,7 @@ def test_spacegroup(structure):
             
 def test_number_operations():
     """
-    Test that BaTiO3 structures have the correct number of symmetry operations
+    Test that the structures have the correct number of symmetry operations
     across supercells.
     """
     first = True
@@ -62,7 +60,7 @@ def test_number_operations():
             expected = factor * first_No
 
             assert n_ops == expected, (
-                f"[BaTiO3 {n}x{n}x{n}] Unexpected number of symmetry operations\n"
+                f"{file_path}: Unexpected number of symmetry operations\n"
                 f"Expected: {expected}\n"
                 f"Got: {n_ops}\n"
                 f"Unit cell operations: {first_No}\n"
@@ -72,7 +70,7 @@ def test_number_operations():
             
 def test_structures_spacegroup_positions(structure):
     """
-    Test that BaTiO3 structures have the correct number of atoms,
+    Test that the structures have the correct number of atoms,
     correct space group, and that atomic positions are symmetric.
     """
     n, file_path = structure
@@ -102,7 +100,7 @@ def test_structures_spacegroup_positions(structure):
             max_dev = np.max(np.abs(diff))
 
             raise AssertionError(
-                f"[BaTiO3 {n}x{n}x{n}] Symmetry operation #{op_idx} failed\n"
+                f"{file_path}: Symmetry operation #{op_idx} failed\n"
                 f"Rotation:\n{R}\n"
                 f"Translation: {t}\n"
                 f"Max deviation after wrapping: {max_dev:.3e}\n"
@@ -115,7 +113,7 @@ def test_structures_spacegroup_positions(structure):
     max_dev = np.max(np.abs(diff))
 
     assert np.allclose(diff, 0, atol=1e-5 * N), (
-        f"[BaTiO3 {n}x{n}x{n}] Final symmetry mismatch\n"
+        f"{file_path}: Final symmetry mismatch\n"
         f"Max deviation: {max_dev:.3e}\n"
         f"Tolerance: {1e-5 * N:.3e}\n"
         f"Mean deviation: {np.mean(np.abs(diff)):.3e}"
