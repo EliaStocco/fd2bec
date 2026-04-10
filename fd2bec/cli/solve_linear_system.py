@@ -11,7 +11,7 @@ def prepare_args(description):
     parser = argparse.ArgumentParser(description=description)
     argv = {"metavar":"\b"}
     parser.add_argument("-i", "--input" , **argv, type=str  , required=True, help="JSON input file produced by 'prepare_linear_system.py'")
-    parser.add_argument("-m", "--method"       , **argv, type=str  , required=True, help=f"method: {choices}"+" (default: %(default)s)", default="pseudo-inverse", choices=choices)
+    parser.add_argument("-m", "--method"       , **argv, type=str  , required=True, help=f"method: {choices}"+" (default: %(default)s)", default="lstsq", choices=choices)
     parser.add_argument("-o", "--output" , **argv, type=str  , required=True, help="JSON output file")
     return parser
 
