@@ -19,8 +19,7 @@ dependencies = [
     "pathlib",
     "pytest",
     "spglib",
-    "ase",
-    "json"
+    "ase"
 ]
 
 [build-system]
