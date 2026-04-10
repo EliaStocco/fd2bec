@@ -7,3 +7,6 @@ Scripts:
 
 `pytest`:
  - add more structures
+
+Improvements:
+ - play around with `rcond`
