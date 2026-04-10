@@ -49,7 +49,7 @@ def test_symmetrizer(structure):
     assert np.allclose(frac_forces @ atomic_structure.cell, atoms.arrays["REF_forces"],atol=ATOL), "Error with fractional forces"
     
     forces = frac_forces.flatten()
-    R = atomic_structure.get_symmetry_operations()
+    R = atomic_structure.get_symmetry_operations(pos=frac_forces,debug=True)
     assert np.allclose(R @ forces, forces,atol=ATOL), "Error with the forces symmetrizer."
     
     S, theta, theta_real = atomic_structure.get_symmetrizer(what='vector',x=frac_forces,debug=True)

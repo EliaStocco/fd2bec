@@ -320,7 +320,7 @@ class AtomicStructure:
                 
         return inv_map
     
-    def __get_symmetry_operations(self, use_translations=True, atol=SYMPREC, debug=DEBUG, **kwargs):
+    def __get_symmetry_operations(self, use_translations=True, atol=SYMPREC, debug=DEBUG, pos:np.ndarray=None, **kwargs):
         """
         Construct flattened symmetry operations acting on the full atomic coordinate vector.
 
@@ -369,10 +369,20 @@ class AtomicStructure:
 
         R_flat = np.zeros((Nops, 3 * Natoms, 3 * Natoms))
         T_flat = np.zeros((Nops, 3 * Natoms))
-
-        if use_translations or debug:
+        
+        if pos is not None and use_translations:
+            warnings.warn(
+                "When 'use_translations' == True the variable 'pos' will be ignored and automatically set to the fractional coordinates.",
+                RuntimeWarning
+            )
+        if use_translations and debug:
             pos = self.frac_pos.copy()
+        if pos is not None:
+            if pos.ndim < 2:
+                raise ValueError("Please provide a non-flattened 'pos' array.")
             pos_flat = pos.flatten()
+        if debug and pos is None:
+            raise ValueError("To use 'debug' = True you need to provide 'pos'.")
 
         for n, (r, t, m) in enumerate(zip(R, T, mappings)):
             
@@ -411,7 +421,7 @@ class AtomicStructure:
             R_flat[n] = r_flat
             T_flat[n] = t_flat
             
-        if use_translations:
+        if use_translations or debug:
             new_pos = R_flat @ pos_flat + T_flat
             diff = new_pos - pos_flat
             T_flat -= diff
@@ -445,12 +455,12 @@ class AtomicStructure:
         """
         Flattened symmetry operations for the atomic vectors.
         """
-        if kwargs.get('debug',False):
-            warnings.warn(
-                "'debug' can only be False in 'get_symmetry_operations'.",
-                RuntimeWarning
-            )  
-        return self.__get_symmetry_operations(use_translations=False,debug=False,**kwargs)[0]
+        # if kwargs.get('debug',False):
+        #     warnings.warn(
+        #         "'debug' can only be False in 'get_symmetry_operations'.",
+        #         RuntimeWarning
+        #     )  
+        return self.__get_symmetry_operations(use_translations=False,**kwargs)[0]
 
     def get_symmetrizer(
         self,
@@ -560,7 +570,12 @@ class AtomicStructure:
             x = self.frac_pos.flatten().copy()
             x = append_one(x)
         elif what == 'vector':
-            G = self.get_symmetry_operations(atol=atol, **kwargs)
+            if debug and x is None:
+                warnings.warn(
+                    "To use 'debug' = True you need to provide 'x'.",
+                    RuntimeWarning
+                )
+            G = self.get_symmetry_operations(atol=atol,debug=debug and x is not None,pos=x,**kwargs)
         elif what == 'tensor':
             raise ValueError("'what' = 'tensor' has not been implemented yet.")
         
@@ -620,10 +635,11 @@ class AtomicStructure:
         # ------------------------
         # Debug checks
         # ------------------------
-        if debug and what == 'positions':
+        if debug:
             test = S @ theta
-            assert np.allclose(test[-1], 1.0, atol=atol), \
-                f"Last component should be one but it is {test[-1]}."
+            if what == 'positions':
+                assert np.allclose(test[-1], 1.0, atol=atol), \
+                    f"Last component should be one but it is {test[-1]}."
             diff = test - x
             if not np.allclose(diff, 0, atol=atol):
                 raise ValueError("There is a problem here.")
