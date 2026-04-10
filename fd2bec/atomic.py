@@ -86,6 +86,7 @@ class AtomicStructure:
         return Cell.fromcellpar(self.cellpar)
     
     def get_fractional(self,arr:np.ndarray)->np.ndarray:
+        # arr = arr.reshape(len(self),3,-1)
         return self.cell.scaled_positions(arr)
         
     def __post_init__(self):
@@ -323,7 +324,15 @@ class AtomicStructure:
                 
         return inv_map
     
-    def __get_symmetry_operations(self, use_translations=True, atol=SYMPREC, debug=DEBUG, x: np.ndarray = None, **kwargs):
+    def __get_symmetry_operations(
+        self, 
+        use_translations=True, 
+        atol=SYMPREC, 
+        debug=DEBUG, 
+        x: np.ndarray = None, 
+        rank: int = 1,
+        **kwargs
+        ):
         """
         Construct flattened symmetry operations acting on a vector representation.
 
@@ -362,6 +371,26 @@ class AtomicStructure:
         ValueError
             If debug=True and the flattened operations fail validation within tolerance.
         """
+        if rank not in [1,2]:
+            raise ValueError("Only rank 1 and 2 have been implemented.")
+            
+        if rank != 1 and use_translations:
+            raise ValueError("Translations only apply to rank-1 objects (positions).")
+        
+        # if x is not None and use_translations:
+        #     warnings.warn(
+        #         "When 'use_translations' == True the variable 'x' will be ignored and automatically set to the fractional coordinates.",
+        #         RuntimeWarning
+        #     )
+        if use_translations and debug and x is None:
+            x = self.frac_pos.copy()
+        if x is not None:
+            if x.ndim < 2:
+                raise ValueError("Please provide a non-flattened 'x' array.")
+            x_flat = x.flatten()
+        if debug and x is None:
+            raise ValueError("To use 'debug' = True you need to provide 'x'.")
+
         spg = self.to_spglib_cell(**kwargs)
         R = spg.rotations.copy()
         T = spg.translations.copy()
@@ -371,23 +400,10 @@ class AtomicStructure:
         Nops = len(R)
         ii = np.arange(Natoms)
 
-        R_flat = np.zeros((Nops, 3 * Natoms, 3 * Natoms))
-        T_flat = np.zeros((Nops, 3 * Natoms))
+        dim = Natoms * (3 ** rank)
+        R_flat = np.zeros((Nops, dim, dim))
+        T_flat = np.zeros((Nops, dim))
         
-        if x is not None and use_translations:
-            warnings.warn(
-                "When 'use_translations' == True the variable 'x' will be ignored and automatically set to the fractional coordinates.",
-                RuntimeWarning
-            )
-        if use_translations and debug:
-            x = self.frac_pos.copy()
-        if x is not None:
-            if x.ndim < 2:
-                raise ValueError("Please provide a non-flattened 'x' array.")
-            x_flat = x.flatten()
-        if debug and x is None:
-            raise ValueError("To use 'debug' = True you need to provide 'x'.")
-
         for n, (r, t, m) in enumerate(zip(R, T, mappings)):
             
             if not use_translations:
@@ -398,24 +414,28 @@ class AtomicStructure:
             P[ii, m] = 1
 
             # Flattened rotation (row-vector convention → use r.T)
-            r_flat = np.kron(P, r.T)
+            R_cart = r.T
+            for _ in range(rank - 1):
+                R_cart = np.kron(R_cart, r.T)
+
+            r_flat = np.kron(P, R_cart)
 
             # Flattened translation (must be permuted)
             t_flat = np.tile(t, Natoms)
             t_flat = (P @ t_flat.reshape(Natoms, 3)).reshape(-1)
 
             if debug:
-                # Validate against direct application
-                a = (r_flat @ x_flat + t_flat)
-                b = (x @ r + t)[m].flatten()
-                c = (x[m] @ r + t).flatten()
+                if rank == 1:
+                    a = (r_flat @ x_flat + t_flat)
+                    b = (x @ r + t)[m].flatten()
 
+                elif rank == 2:
+                    a = r_flat @ x_flat
+                    b = (x[m] @ r @ r.T).flatten()  # conceptual check
+                    
                 if not np.allclose(wrap(a - b), 0):
                     raise ValueError("Error in flattening symmetry operation.")
                 
-                if not np.allclose(wrap(b - c), 0):
-                    raise ValueError("Just a test.")
-
             # # This check is redundant since in the next debug block we are going to do the same thing.
             # if debug:
             #     x_new = np.asarray(r_flat @ x_flat + t_flat).reshape((Natoms,3))
@@ -435,9 +455,16 @@ class AtomicStructure:
             if not np.allclose(wrap(diff), 0, atol=atol):
                 raise ValueError("Error in applying flattened symmetry operation.")    
             # positions are the same with the translation correction
-            x_new = R_flat @ x_flat + T_flat
-            if not np.allclose(x_new, x_flat, atol=atol):
-                raise ValueError("Error in applying flattened symmetry operation.")   
+            if rank == 1:
+                x_new = R_flat @ x_flat + T_flat
+                ref = x_flat
+
+            elif rank == 2:
+                x_new = R_flat @ x_flat
+                ref = x_flat
+
+            if not np.allclose(x_new, ref, atol=atol):
+                raise ValueError(f"Error in rank-{rank} symmetry operation.")
             
         return R_flat, T_flat
 
@@ -580,14 +607,15 @@ class AtomicStructure:
             raise ValueError(f"'what' can only be one of {choices} but got '{what}'.")
         
         if what == 'positions':
-            G = self.get_homogeneous_symmetry_operations(atol=atol, debug=debug, **kwargs)
-            if x is not None:
-                warnings.warn(
-                    "When 'what' == 'positions' the variable 'x' will be ignored and automatically set to the fractional coordinates.",
-                    RuntimeWarning
-                )
-            x = self.frac_pos.flatten().copy()
-            x = append_one(x)
+            if x is None:
+                x = self.frac_pos.copy()
+            G = self.get_homogeneous_symmetry_operations(atol=atol, debug=debug,x=x, **kwargs)
+            # if x is not None:
+            #     warnings.warn(
+            #         "When 'what' == 'positions' the variable 'x' will be ignored and automatically set to the fractional coordinates.",
+            #         RuntimeWarning
+            #     )
+            x = append_one(x.flatten())
         elif what == 'vector':
             if debug and x is None:
                 warnings.warn(
