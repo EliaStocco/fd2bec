@@ -7,8 +7,11 @@ from dataclasses import dataclass
 from functools import cached_property
 from fd2bec import SYMPREC, DEBUG, ATOL
 from fd2bec.mathematics import wrap, find_mapping, invert_indices, affine2homogeneous, append_one
+from fd2bec.symmetry import SymmetryRepresentationBuilder
 from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
+
+BUILDER = "internal"
 
 @dataclass(frozen=True)
 class AtomicStructure:
@@ -438,11 +441,21 @@ class AtomicStructure:
             
         return R_flat, T_flat
 
-    def get_affine_symmetry_operations(self, **kwargs):
+    def get_affine_symmetry_operations(self,debug=DEBUG,**kwargs):
         """
         Flattened affine symmetry operations for the atomic coordinates.
         """
-        return self.__get_symmetry_operations(use_translations=True,**kwargs)
+        if BUILDER == "internal":
+            R_flat, T_flat = self.__get_symmetry_operations(use_translations=True,debug=debug,**kwargs)
+        else:
+            builder = SymmetryRepresentationBuilder(natoms=len(self))
+            spg = self.to_spglib_cell(**kwargs)
+            R = spg.rotations.copy()
+            T = spg.translations.copy()
+            mapping = self.__get_all_atoms_mapping(**kwargs)
+            R_flat = np.asarray([builder.build_R_flat(mapping, r, rank=1) for r in R])
+            T_flat = np.asarray([builder.build_T_flat(mapping, t) for t in T])
+        return R_flat, T_flat
     
     def get_homogeneous_symmetry_operations(self,**kwargs):
         """
@@ -452,16 +465,21 @@ class AtomicStructure:
         H = affine2homogeneous(R_flat, T_flat)
         return H
     
-    def get_symmetry_operations(self,**kwargs):
+    def get_symmetry_operations(self,rank=1,debug=DEBUG,**kwargs):
         """
-        Flattened symmetry operations for the atomic vectors.
+        Flattened symmetry operations for the atomic tensors.
         """
-        # if kwargs.get('debug',False):
-        #     warnings.warn(
-        #         "'debug' can only be False in 'get_symmetry_operations'.",
-        #         RuntimeWarning
-        #     )  
-        return self.__get_symmetry_operations(use_translations=False,**kwargs)[0]
+        if BUILDER == "internal":
+            return self.__get_symmetry_operations(use_translations=False,debug=debug,**kwargs)[0]
+        else:
+            builder = SymmetryRepresentationBuilder(natoms=len(self))
+            spg = self.to_spglib_cell(**kwargs)
+            R = spg.rotations.copy()
+            # T = spg.translations.copy()
+            mapping = self.__get_all_atoms_mapping(**kwargs)
+            R_flat = builder.build_R_flat(mapping, R, rank=rank)
+            return R_flat
+            
 
     def get_symmetrizer(
         self,
