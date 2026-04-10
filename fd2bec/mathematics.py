@@ -40,6 +40,19 @@ def invert_indices(indices:np.ndarray,axis=None)->np.ndarray:
     inverted_indices = np.argsort(indices,axis=axis)
     return inverted_indices
 
+def append_one(x: np.ndarray, axis: int = 0) -> np.ndarray:
+    """Append a slice of ones (1.) along the given axis."""
+    shape = list(x.shape)
+    shape[axis] = 1
+    ones = np.ones(shape, dtype=x.dtype)
+    return np.concatenate([x, ones], axis=axis)
+
+def remove_one(x: np.ndarray, axis: int = 0) -> np.ndarray:
+    """Remove the last slice along the given axis (inverse of append_one)."""
+    index = [slice(None)] * x.ndim
+    index[axis] = slice(0, -1)
+    return x[tuple(index)]
+    
 def affine2homogeneous(R_flat: np.ndarray, T_flat: np.ndarray) -> np.ndarray:
     """
     Convert a batch of affine transformations into homogeneous matrices.

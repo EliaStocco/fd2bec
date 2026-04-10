@@ -1,10 +1,12 @@
 import numpy as np
 import spglib
+import warnings
 from ase import Atoms
+from ase.cell import Cell
 from dataclasses import dataclass
 from functools import cached_property
 from fd2bec import SYMPREC, DEBUG, ATOL
-from fd2bec.mathematics import wrap, find_mapping, invert_indices, affine2homogeneous
+from fd2bec.mathematics import wrap, find_mapping, invert_indices, affine2homogeneous, append_one
 from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
 
@@ -55,7 +57,7 @@ class AtomicStructure:
         )
 
     @classmethod
-    def from_ase(cls, atoms: Atoms) -> "AtomicStructure":
+    def from_ase(cls, atoms: Atoms, keyword:str='positions') -> "AtomicStructure":
         """
         Create an AtomicStructure from an ASE Atoms object.
 
@@ -69,12 +71,20 @@ class AtomicStructure:
         AtomicStructure
             Immutable representation of the structure.
         """
+        frac_pos = atoms.cell.scaled_positions(atoms.arrays[keyword])
         return cls(
             symbols=tuple(atoms.get_chemical_symbols()),
-            frac_pos=atoms.get_scaled_positions(),
+            frac_pos=frac_pos,
             cellpar=atoms.cell.cellpar(),
         )
-
+    
+    @cached_property
+    def cell(self)->Cell:
+        return Cell.fromcellpar(self.cellpar)
+    
+    def get_fractional(self,arr:np.ndarray)->np.ndarray:
+        return self.cell.scaled_positions(arr)
+        
     def __post_init__(self):
         """
         Enforce immutability by:
@@ -310,7 +320,7 @@ class AtomicStructure:
                 
         return inv_map
     
-    def get_affine_symmetry_operations(self, atol=SYMPREC, debug=DEBUG, **kwargs):
+    def __get_symmetry_operations(self, use_translations=True, atol=SYMPREC, debug=DEBUG, **kwargs):
         """
         Construct flattened symmetry operations acting on the full atomic coordinate vector.
 
@@ -349,8 +359,8 @@ class AtomicStructure:
             within the specified tolerance.
         """
         spg = self.to_spglib_cell(**kwargs)
-        R = spg.rotations
-        T = spg.translations
+        R = spg.rotations.copy()
+        T = spg.translations.copy()
         mappings = self.__get_all_atoms_mapping(**kwargs)
 
         Natoms = len(self)
@@ -360,10 +370,14 @@ class AtomicStructure:
         R_flat = np.zeros((Nops, 3 * Natoms, 3 * Natoms))
         T_flat = np.zeros((Nops, 3 * Natoms))
 
-        pos = self.frac_pos.copy()
-        pos_flat = pos.flatten()
+        if use_translations or debug:
+            pos = self.frac_pos.copy()
+            pos_flat = pos.flatten()
 
         for n, (r, t, m) in enumerate(zip(R, T, mappings)):
+            
+            if not use_translations:
+                t[...] = 0.
 
             # Permutation matrix (maps reordered atoms)
             P = np.zeros((Natoms, Natoms))
@@ -397,9 +411,10 @@ class AtomicStructure:
             R_flat[n] = r_flat
             T_flat[n] = t_flat
             
-        new_pos = R_flat @ pos_flat + T_flat
-        diff = new_pos - pos_flat
-        T_flat -= diff
+        if use_translations:
+            new_pos = R_flat @ pos_flat + T_flat
+            diff = new_pos - pos_flat
+            T_flat -= diff
         
         if debug:
             # positions are the same modulo 1
@@ -412,90 +427,144 @@ class AtomicStructure:
             
         return R_flat, T_flat
 
+    def get_affine_symmetry_operations(self, **kwargs):
+        """
+        Flattened affine symmetry operations for the atomic coordinates.
+        """
+        return self.__get_symmetry_operations(use_translations=True,**kwargs)
+    
     def get_homogeneous_symmetry_operations(self,**kwargs):
         """
-        Construct homogeneous symmetry operations corresponding to the flattened affine operations.
-
-        Returns
-        -------
-        H_ops : np.ndarray
-            Array of shape (Nops, 3*Natoms+1, 3*Natoms+1) containing homogeneous transformation matrices.
+        Flattened homogeneous symmetry operations for the atomic coordinates.
         """
         R_flat, T_flat = self.get_affine_symmetry_operations(**kwargs)
         H = affine2homogeneous(R_flat, T_flat)
         return H
+    
+    def get_symmetry_operations(self,**kwargs):
+        """
+        Flattened symmetry operations for the atomic vectors.
+        """
+        if kwargs.get('debug',False):
+            warnings.warn(
+                "'debug' can only be False in 'get_symmetry_operations'.",
+                RuntimeWarning
+            )  
+        return self.__get_symmetry_operations(use_translations=False,debug=False,**kwargs)[0]
 
     def get_symmetrizer(
         self,
-        use_translations: bool = True,
-        method: str = "null_space",
+        what: str,
+        method: str = "eigen",
+        x: np.ndarray = None,
         atol=ATOL,
         debug=DEBUG,
         **kwargs
     ):
         """
-        Compute a symmetry-adapted basis for atomic coordinates.
+        Compute a symmetry-adapted basis for atomic or tensorial configurations.
 
-        This method returns a matrix S whose columns span the symmetric subspace
-        of atomic configurations such that any symmetry-invariant configuration
-        can be written as:
+        This method constructs a matrix S whose columns span the symmetry-invariant
+        subspace of a representation space. Any symmetry-invariant configuration can
+        be written as:
 
             x = S @ theta
 
         where:
-        - x is the flattened atomic coordinate vector (dimension 3N or 3N+1)
-        - theta contains the independent (symmetry-allowed) degrees of freedom
+        - x is the flattened configuration vector (e.g. 3N or 3N+1 in homogeneous form)
+        - theta contains the independent symmetry-allowed degrees of freedom
+
+        The symmetric subspace is defined as the eigenspace of eigenvalue 1 of the
+        group-averaging operator:
+
+            P = (1/|G|) ∑_g G_g
 
         Parameters
         ----------
-        use_translations : bool, optional
-            If True, include translational components using homogeneous coordinates.
-            If False, use purely affine (linear) symmetry operations.
+        what : str
+            Type of object the symmetry acts on:
+
+            - "positions":
+                Symmetry acts on atomic positions in fractional coordinates using
+                homogeneous representations (includes translation component).
+
+            - "vector":
+                Symmetry acts on vector-like quantities using standard linear
+                representation matrices.
+
+            - "tensor":
+                Not implemented.
 
         method : str, optional
             Method used to construct the symmetric subspace:
 
             - "null_space":
-                Construct the constraint matrix A by stacking (G_i - I) for all symmetry
-                operations and compute its null space.
-                WARNING: This approach can be very slow and memory intensive for large
-                systems, since A can become extremely large.
+                Builds the constraint matrix A = stack_g (G_g - I) and computes its
+                null space using SVD.
+                WARNING: This method can be very slow and memory intensive for large systems.
 
             - "eigen":
-                Construct the averaging operator P = (1/N) sum_i G_i and compute its
-                eigen-decomposition. The symmetric subspace corresponds to eigenvectors
-                with eigenvalue 1. This method is significantly more efficient and
-                recommended for large systems.
+                Builds the projection (averaging) operator:
+
+                    P = (1/N) ∑_g G_g
+
+                and computes its eigendecomposition. The symmetric subspace corresponds
+                to eigenvectors associated with eigenvalue 1.
+
+                Numerically, eigenvalues are validated to be close to {0, 1} within
+                tolerance atol.
+
+                This method is recommended for large systems.
+
+        x : np.ndarray, optional
+            Configuration vector to project onto the symmetric subspace. If None,
+            theta is not computed.
 
         atol : float, optional
-            Numerical tolerance used for eigenvalue selection and validation checks.
+            Numerical tolerance used for eigenvalue filtering and validation checks.
 
         debug : bool, optional
-            If True, perform consistency checks to verify correctness of the result.
+            If True, performs consistency checks on reconstructed configurations.
 
         Returns
         -------
         S : np.ndarray
-            Matrix of shape (dim, k) whose columns form a basis of the symmetric subspace.
+            Basis matrix of shape (dim, k), whose columns span the symmetry-invariant
+            subspace.
 
         theta : np.ndarray
-            Reduced coordinates such that x ≈ S @ theta.
+            Reduced symmetry-adapted coordinates such that x ≈ S @ theta.
 
         theta_real : np.ndarray
-            Real-space interpretation of the symmetry-adapted modes, with shape:
+            Real-space interpretation of symmetry-adapted modes with shape:
                 (k, Natoms, 3)
-            Each entry corresponds to the displacement pattern associated with one
-            independent degree of freedom.
+            Each mode corresponds to a symmetry-allowed displacement pattern.
+
+        Notes
+        -----
+        In eigen-method mode, the matrix P is a projection operator. Therefore:
+        - eigenvalues should be ~0 or ~1
+        - eigenvectors with eigenvalue ~1 span the invariant subspace
         """
-
-        import numpy as np
-
-        if use_translations:
+        choices = ['positions','vector','tensor']
+        if what not in choices:
+            raise ValueError(f"'what' can only be one of {choices} but got '{what}'.")
+        
+        if what == 'positions':
             G = self.get_homogeneous_symmetry_operations(atol=atol, debug=debug, **kwargs)
-            x = np.append(self.frac_pos.copy(), 1.0)
-        else:
-            G, _ = self.get_affine_symmetry_operations(atol=atol, debug=debug, **kwargs)
-            x = self.frac_pos.copy()
+            if x is not None:
+                warnings.warn(
+                    "When 'what' == 'positions' the variable 'x' will be ignored and automatically set to the fractional coordinates.",
+                    RuntimeWarning
+                )
+            x = self.frac_pos.flatten().copy()
+            x = append_one(x)
+        elif what == 'vector':
+            G = self.get_symmetry_operations(atol=atol, **kwargs)
+        elif what == 'tensor':
+            raise ValueError("'what' = 'tensor' has not been implemented yet.")
+        
+        x = x.flatten()
 
         _, dim, _ = G.shape
 
@@ -503,7 +572,6 @@ class AtomicStructure:
         # Method 1: Null space
         # ------------------------
         if method == "null_space":
-            import warnings
             warnings.warn(
                 "Using 'null_space' method: this can be very slow and memory intensive "
                 "for large systems. Consider using method='eigen' instead.",
@@ -529,34 +597,43 @@ class AtomicStructure:
             P = np.mean(G, axis=0)
 
             w, v = np.linalg.eig(P)
-
-            mask = np.isclose(w, 1.0, atol=atol)
+            
+            if not np.allclose(w.imag,0,atol=atol):
+                raise ValueError("Eigenvalues should be real")
+            w = w.real
+            
+            if not np.all((np.isclose(w, 0,atol=atol)) | (np.isclose(w, 1, atol=atol))):
+                raise ValueError("Eigenvalues should be 0 or 1.")
+        
+            mask = np.where(w > 0.5)[0]
             S = v[:, mask]
+            if not np.allclose(S.imag,0):
+                raise ValueError("Eigenvectors should be real")
+            S = S.real
 
         else:
             raise ValueError("method must be either 'null_space' or 'eigen'")
 
         # Solve for theta
-        theta = np.linalg.lstsq(S, x, rcond=None)[0]
+        theta = np.linalg.lstsq(S, x, rcond=None)[0] if x is not None else None
 
         # ------------------------
         # Debug checks
         # ------------------------
-        if debug:
+        if debug and what == 'positions':
             test = S @ theta
-            if use_translations:
-                assert np.allclose(test[-1], 1.0, atol=atol), \
-                    f"Last component should be one but it is {test[-1]}."
+            assert np.allclose(test[-1], 1.0, atol=atol), \
+                f"Last component should be one but it is {test[-1]}."
             diff = test - x
-            assert np.allclose(diff, 0, atol=atol), \
-                "There is a problem here."
+            if not np.allclose(diff, 0, atol=atol):
+                raise ValueError("There is a problem here.")
 
         # ------------------------
         # Real-space interpretation of modes
         # ------------------------
-        if use_translations:
+        if what == 'positions':
             theta_real = S[:-1, :].T.reshape((len(theta), -1, 3))
-        else:
+        elif theta is not None:
             theta_real = S.T.reshape((len(theta), -1, 3))
 
         return S, theta, theta_real
