@@ -551,27 +551,6 @@ class AtomicStructure:
             - "tensor":
                 Not implemented.
 
-        method : str, optional
-            Method used to construct the symmetric subspace:
-
-            - "null_space":
-                Builds the constraint matrix A = stack_g (G_g - I) and computes its
-                null space using SVD.
-                WARNING: This method can be very slow and memory intensive for large systems.
-
-            - "eigen":
-                Builds the projection (averaging) operator:
-
-                    P = (1/N) ∑_g G_g
-
-                and computes its eigendecomposition. The symmetric subspace corresponds
-                to eigenvectors associated with eigenvalue 1.
-
-                Numerically, eigenvalues are validated to be close to {0, 1} within
-                tolerance atol.
-
-                This method is recommended for large systems.
-
         x : np.ndarray, optional
             Configuration vector to project onto the symmetric subspace. If None,
             theta is not computed.
@@ -630,51 +609,26 @@ class AtomicStructure:
 
         _, dim, _ = G.shape
 
-        # ------------------------
-        # Method 1: Null space
-        # ------------------------
-        if method == "null_space":
-            warnings.warn(
-                "Using 'null_space' method: this can be very slow and memory intensive "
-                "for large systems. Consider using method='eigen' instead.",
-                RuntimeWarning
-            )
-
-            from scipy.linalg import null_space
-
-            A_blocks = []
-            I = np.eye(dim)
-
-            for g in G:
-                A_blocks.append(g - I)
-
-            A = np.vstack(A_blocks)
-
-            S = null_space(A, rcond=atol)
 
         # ------------------------
-        # Method 2: Eigen-decomposition
+        # Eigen-decomposition
         # ------------------------
-        elif method == "eigen":
-            P = np.mean(G, axis=0)
+        P = np.mean(G, axis=0)
 
-            w, v = np.linalg.eig(P)
-            
-            if not np.allclose(w.imag,0,atol=atol):
-                raise ValueError("Eigenvalues should be real")
-            w = w.real
-            
-            if not np.all((np.isclose(w, 0,atol=atol)) | (np.isclose(w, 1, atol=atol))):
-                raise ValueError("Eigenvalues should be 0 or 1.")
+        w, v = np.linalg.eig(P)
         
-            mask = np.where(w > 0.5)[0]
-            S = v[:, mask]
-            if not np.allclose(S.imag,0):
-                raise ValueError("Eigenvectors should be real")
-            S = S.real
-
-        else:
-            raise ValueError("method must be either 'null_space' or 'eigen'")
+        if not np.allclose(w.imag,0,atol=atol):
+            raise ValueError("Eigenvalues should be real")
+        w = w.real
+        
+        if not np.all((np.isclose(w, 0,atol=atol)) | (np.isclose(w, 1, atol=atol))):
+            raise ValueError("Eigenvalues should be 0 or 1.")
+    
+        mask = np.where(w > 0.5)[0]
+        S = v[:, mask]
+        if not np.allclose(S.imag,0):
+            raise ValueError("Eigenvectors should be real")
+        S = S.real
 
         # Solve for theta
         theta = np.linalg.lstsq(S, x, rcond=None)[0] if x is not None else None
