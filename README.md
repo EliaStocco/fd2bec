@@ -11,5 +11,8 @@ pip install --upgrade pip
 ./tools/initialize.sh # for developers only, harmless anyway otherwise
 pip install -e .
 ```
-
-
+# Testing
+We would recommend running test using
+```bash
+pytest --ff --nf
+``` 
