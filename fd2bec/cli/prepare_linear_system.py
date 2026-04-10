@@ -19,7 +19,7 @@ def prepare_args(description):
     parser.add_argument("-asr"     , "--acoustic_sum_rule", **argv, type=float   , required=False, help="weight for the acoustic sum rule, -1: not used, positive number otherwise (default: %(default)s)", default=-1)
     parser.add_argument("-is_delta", "--is_delta_dipole"  , **argv, type=str2bool, required=False, help="wheter the coefficients are delta dipole (default: %(default)s)", default=False)
     parser.add_argument("-tran", "--translations"         , **argv, type=str2bool, required=False, help="apply translational symmetries (default: %(default)s)", default=True)
-    parser.add_argument("-spg", "--space_group"           , **argv, type=str2bool, required=False, help="apply space group symmetries (default: %(default)s)", default=True)
+    parser.add_argument("-spg", "--space_group"           , **argv, type=str2bool, required=False, help="apply space group symmetries (default: %(default)s)", default=False)
     parser.add_argument("-s"  , "--symprec"               , **argv, type=float   , required=False, help="symmetry precision for spglib (default: %(default)s)", default=SYMPREC)
     parser.add_argument("-o"  , "--output"                , **argv, type=str     , required=True , help="JSON output file")
     return parser
@@ -39,11 +39,6 @@ def main(args):
     n_unknowns = Na * 3
     print(f"Number of atoms in the unit cell: {Na}")
     unit_cell = AtomicStructure.from_ase(unit_cell)
-    x = np.zeros((Na*3, 3),dtype=object)
-    for i in range(Na):
-        for j in range(3):
-            x[i,j] = f"Z^{i}_{j}"
-    print("x.shape:", x.shape)
     
     # supercell 
     print(f"Reading unit cell structure from {args.super_cell} ... ",end="")
@@ -95,7 +90,20 @@ def main(args):
     #----------------------#
     # Symmetries
     #----------------------#
+    if args.space_group:
+        args.translations = False
+        
+    x = None
+        
     if args.translations:
+        
+        x = np.zeros((Na*3, 3),dtype=object)
+        for i in range(Na):
+            for k,kstr in enumerate(["x","y","z"]):
+                for j,jstr in enumerate(["x","y","z"]):
+                    x[i*3+k,j] = f"d mu_{jstr} / d R^{i}_{kstr}"
+        print("x.shape:", x.shape)
+    
         spg_uc = unit_cell.to_spglib_cell(symprec=args.symprec)
         spg_sc = super_cell.to_spglib_cell(symprec=args.symprec)
         
@@ -134,6 +142,7 @@ def main(args):
         translational_symmetries = np.kron(translational_symmetries,np.eye(3)) # / supercell_size
         
     if args.space_group:
+        S, theta, theta_real = unit_cell.get_symmetrizer(method='eigen')
         R,T = unit_cell.get_affine_symmetry_operations(atol=args.symprec,debug=True)
         pass
             
@@ -159,8 +168,8 @@ def main(args):
         A_coeff = A_coeff @ translational_symmetries
         
     if not args.is_delta_dipole:
-        x = np.vstack([np.zeros((1,3)),x])
-        A_coeff = np.hstack([np.full((A_coeff.shape[0],1),-1),A_coeff,])
+        x = np.vstack([np.asarray(["mu_x","mu_y","mu_z"],dtype=object),x])
+        A_coeff = np.hstack([np.full((A_coeff.shape[0],1),-1),A_coeff])
         
     assert A_coeff.shape[1] == x.shape[0], \
         f"The number of columns in A ({A.shape[1]}) must be equal to the number of unknowns ({x.shape[0]})."
@@ -192,6 +201,7 @@ def main(args):
             "n_rows" : b_coeff.shape[0],
             "n_cols" : A_coeff.shape[1],
             "n_unknowns" : n_unknowns,
+            "x" : x.tolist() if x is not None else None,
             "b" : b_coeff.tolist(),
             "A" : A_coeff.tolist(),
         }
