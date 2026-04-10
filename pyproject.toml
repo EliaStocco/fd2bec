@@ -19,8 +19,7 @@ dependencies = [
     "pathlib",
     "pytest",
     "spglib",
-    "ase",
-    "PyYAML>=6.0"
+    "ase"
 ]
 
 [build-system]
@@ -45,5 +44,6 @@ generate_supercell = "fd2bec.cli.generate_supercell:main"
 info_extxyz2txt = "fd2bec.cli.info_extxyz2txt:main"
 overview = "fd2bec.cli.overview:main"
 prepare_linear_system = "fd2bec.cli.prepare_linear_system:main"
+solution2bec_txt = "fd2bec.cli.solution2bec_txt:main"
 solve_linear_system = "fd2bec.cli.solve_linear_system:main"
 
