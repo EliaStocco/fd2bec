@@ -320,43 +320,44 @@ class AtomicStructure:
                 
         return inv_map
     
-    def __get_symmetry_operations(self, use_translations=True, atol=SYMPREC, debug=DEBUG, pos:np.ndarray=None, **kwargs):
+    def __get_symmetry_operations(self, use_translations=True, atol=SYMPREC, debug=DEBUG, x: np.ndarray = None, **kwargs):
         """
-        Construct flattened symmetry operations acting on the full atomic coordinate vector.
+        Construct flattened symmetry operations acting on a vector representation.
 
-        Each symmetry operation (R, t), together with its induced atom mapping m, is converted
-        into an affine transformation acting on the flattened fractional coordinates:
+        Each space-group operation (R, t) together with its atom mapping is converted into an
+        affine transformation on a flattened state vector:
 
             x_flat -> R_flat @ x_flat + T_flat
 
-        where x_flat is a vector of shape (3 * Natoms,) obtained by concatenating all atomic
-        fractional positions. The flattened operators consistently combine:
-        - rotation in fractional coordinates,
-        - translation,
-        - permutation of atoms induced by the symmetry operation.
+        where x_flat stacks all components of the input representation. This construction
+        combines rotation, translation, and permutation induced by symmetry.
 
         Parameters
         ----------
+        use_translations : bool, optional
+            If False, translation components are ignored (purely linear action).
         atol : float, optional
-            Numerical tolerance used for validation checks (only if debug=True).
+            Numerical tolerance used in debug validation.
         debug : bool, optional
-            If True, perform consistency checks to verify correctness of the flattened operators.
+            If True, verifies correctness of the flattened operators using x.
+        x : np.ndarray, optional
+            Reference state used only for debug validation (can represent positions or other
+            compatible vector fields).
         **kwargs :
-            Additional arguments passed to the spglib interface.
+            Passed to the spglib interface.
 
         Returns
         -------
         R_flat : np.ndarray
-            Array of shape (Nops, 3*Natoms, 3*Natoms) containing flattened linear operators.
+            Shape (Nops, dim, dim) linear symmetry operators in flattened form.
 
         T_flat : np.ndarray
-            Array of shape (Nops, 3*Natoms) containing flattened translation vectors.
+            Shape (Nops, dim) translation vectors in flattened form.
 
         Raises
         ------
         ValueError
-            If debug=True and any constructed operation fails to reproduce the symmetry action
-            within the specified tolerance.
+            If debug=True and the flattened operations fail validation within tolerance.
         """
         spg = self.to_spglib_cell(**kwargs)
         R = spg.rotations.copy()
@@ -370,19 +371,19 @@ class AtomicStructure:
         R_flat = np.zeros((Nops, 3 * Natoms, 3 * Natoms))
         T_flat = np.zeros((Nops, 3 * Natoms))
         
-        if pos is not None and use_translations:
+        if x is not None and use_translations:
             warnings.warn(
-                "When 'use_translations' == True the variable 'pos' will be ignored and automatically set to the fractional coordinates.",
+                "When 'use_translations' == True the variable 'x' will be ignored and automatically set to the fractional coordinates.",
                 RuntimeWarning
             )
         if use_translations and debug:
-            pos = self.frac_pos.copy()
-        if pos is not None:
-            if pos.ndim < 2:
-                raise ValueError("Please provide a non-flattened 'pos' array.")
-            pos_flat = pos.flatten()
-        if debug and pos is None:
-            raise ValueError("To use 'debug' = True you need to provide 'pos'.")
+            x = self.frac_pos.copy()
+        if x is not None:
+            if x.ndim < 2:
+                raise ValueError("Please provide a non-flattened 'x' array.")
+            x_flat = x.flatten()
+        if debug and x is None:
+            raise ValueError("To use 'debug' = True you need to provide 'x'.")
 
         for n, (r, t, m) in enumerate(zip(R, T, mappings)):
             
@@ -402,9 +403,9 @@ class AtomicStructure:
 
             if debug:
                 # Validate against direct application
-                a = (r_flat @ pos_flat + t_flat)
-                b = (pos @ r + t)[m].flatten()
-                c = (pos[m] @ r + t).flatten()
+                a = (r_flat @ x_flat + t_flat)
+                b = (x @ r + t)[m].flatten()
+                c = (x[m] @ r + t).flatten()
 
                 if not np.allclose(wrap(a - b), 0):
                     raise ValueError("Error in flattening symmetry operation.")
@@ -414,16 +415,16 @@ class AtomicStructure:
 
             # # This check is redundant since in the next debug block we are going to do the same thing.
             # if debug:
-            #     new_pos = np.asarray(r_flat @ pos_flat + t_flat).reshape((Natoms,3))
-            #     if not np.allclose(wrap(new_pos - pos), 0, atol=atol):
+            #     x_new = np.asarray(r_flat @ x_flat + t_flat).reshape((Natoms,3))
+            #     if not np.allclose(wrap(x_new - x), 0, atol=atol):
             #         raise ValueError("Error in applying flattened symmetry operation.")               
             
             R_flat[n] = r_flat
             T_flat[n] = t_flat
             
         if use_translations or debug:
-            new_pos = R_flat @ pos_flat + T_flat
-            diff = new_pos - pos_flat
+            x_new = R_flat @ x_flat + T_flat
+            diff = x_new - x_flat
             T_flat -= diff
         
         if debug:
@@ -431,8 +432,8 @@ class AtomicStructure:
             if not np.allclose(wrap(diff), 0, atol=atol):
                 raise ValueError("Error in applying flattened symmetry operation.")    
             # positions are the same with the translation correction
-            new_pos = R_flat @ pos_flat + T_flat
-            if not np.allclose(new_pos, pos_flat, atol=atol):
+            x_new = R_flat @ x_flat + T_flat
+            if not np.allclose(x_new, x_flat, atol=atol):
                 raise ValueError("Error in applying flattened symmetry operation.")   
             
         return R_flat, T_flat
@@ -575,7 +576,7 @@ class AtomicStructure:
                     "To use 'debug' = True you need to provide 'x'.",
                     RuntimeWarning
                 )
-            G = self.get_symmetry_operations(atol=atol,debug=debug and x is not None,pos=x,**kwargs)
+            G = self.get_symmetry_operations(atol=atol,debug=debug and x is not None,x=x,**kwargs)
         elif what == 'tensor':
             raise ValueError("'what' = 'tensor' has not been implemented yet.")
         
