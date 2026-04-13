@@ -1,17 +1,15 @@
 import numpy as np
 import spglib
 import warnings
+from typing import Union, Tuple
 from ase import Atoms
 from ase.cell import Cell
 from dataclasses import dataclass
 from functools import cached_property
 from fd2bec import SYMPREC, DEBUG, ATOL
 from fd2bec.mathematics import wrap, find_mapping, invert_indices, affine2homogeneous, append_one
-from fd2bec.symmetry import SymmetryRepresentationBuilder
 from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
-
-BUILDER = "internal"
 
 @dataclass(frozen=True)
 class AtomicStructure:
@@ -378,11 +376,9 @@ class AtomicStructure:
     
     def __get_symmetry_operations(
         self, 
-        use_translations=True, 
-        atol=SYMPREC, 
-        debug=DEBUG, 
-        x: np.ndarray = None, 
-        rank: int = 1,
+        rank:int, 
+        atomic:bool,
+        affine:bool,
         **kwargs
         ):
         """
@@ -398,15 +394,8 @@ class AtomicStructure:
 
         Parameters
         ----------
-        use_translations : bool, optional
+        affine : bool, optional
             If False, translation components are ignored (purely linear action).
-        atol : float, optional
-            Numerical tolerance used in debug validation.
-        debug : bool, optional
-            If True, verifies correctness of the flattened operators using x.
-        x : np.ndarray, optional
-            Reference state used only for debug validation (can represent positions or other
-            compatible vector fields).
         **kwargs :
             Passed to the spglib interface.
 
@@ -418,30 +407,30 @@ class AtomicStructure:
         T_flat : np.ndarray
             Shape (Nops, dim) translation vectors in flattened form.
 
-        Raises
-        ------
-        ValueError
-            If debug=True and the flattened operations fail validation within tolerance.
         """
         if rank not in [1,2]:
             raise ValueError("Only rank 1 and 2 have been implemented.")
             
-        if rank != 1 and use_translations:
+        if rank != 1 and affine:
             raise ValueError("Translations only apply to rank-1 objects (positions).")
         
-        if use_translations and debug and x is None:
+        if affine: #and debug and x is None:
             x = self.frac_pos.copy()
-        if x is not None:
-            if x.ndim < 2:
-                raise ValueError("Please provide a non-flattened 'x' array.")
             x_flat = x.flatten()
-        if debug and x is None:
-            raise ValueError("To use 'debug' = True you need to provide 'x'.")
+        # if x is not None:
+        #     if x.ndim < 2:
+        #         raise ValueError("Please provide a non-flattened 'x' array.")
+        #     x_flat = x.flatten()
+        # if debug and x is None:
+        #     raise ValueError("To use 'debug' = True you need to provide 'x'.")
 
         spg = self.to_spglib_cell(**kwargs)
         R = spg.rotations.copy()
         T = spg.translations.copy()
-        mappings = self.__get_all_atoms_mapping(**kwargs)
+        if atomic:
+            mappings = self.__get_all_atoms_mapping(**kwargs)
+        else:
+            mappings = [None]*len(R)
 
         Natoms = len(self)
         Nops = len(R)
@@ -453,12 +442,15 @@ class AtomicStructure:
         
         for n, (r, t, m) in enumerate(zip(R, T, mappings)):
             
-            if not use_translations:
+            if not affine:
                 t[...] = 0.
 
-            # Permutation matrix (maps reordered atoms)
-            P = np.zeros((Natoms, Natoms))
-            P[ii, m] = 1
+            if atomic:
+                # Permutation matrix (maps reordered atoms)
+                P = np.zeros((Natoms, Natoms))
+                P[ii, m] = 1
+            else:
+                P = np.ones(1)
 
             # Flattened rotation (row-vector convention → use r.T)
             R_cart = r.T
@@ -467,69 +459,44 @@ class AtomicStructure:
 
             r_flat = np.kron(P, R_cart)
 
-            # Flattened translation (must be permuted)
-            t_flat = np.tile(t, Natoms)
-            t_flat = (P @ t_flat.reshape(Natoms, 3)).reshape(-1)
-
-            if debug:
-                if rank == 1:
-                    a = (r_flat @ x_flat + t_flat)
-                    b = (x @ r + t)[m].flatten()
-
-                elif rank == 2:
-                    a = r_flat @ x_flat
-                    b = (x[m] @ r @ r.T).flatten()  # conceptual check
-                    
-                if not np.allclose(wrap(a - b), 0):
-                    raise ValueError("Error in flattening symmetry operation.")
-                
-            # # This check is redundant since in the next debug block we are going to do the same thing.
-            # if debug:
-            #     x_new = np.asarray(r_flat @ x_flat + t_flat).reshape((Natoms,3))
-            #     if not np.allclose(wrap(x_new - x), 0, atol=atol):
-            #         raise ValueError("Error in applying flattened symmetry operation.")               
+            if affine:
+                # Flattened translation (must be permuted)
+                t_flat = np.tile(t, Natoms)
+                t_flat = (P @ t_flat.reshape(Natoms, 3)).reshape(-1)
+            else:
+                t_flat = np.zeros(dim)
             
             R_flat[n] = r_flat
             T_flat[n] = t_flat
             
-        if use_translations or debug:
+        if affine: # or debug:
             x_new = R_flat @ x_flat + T_flat
             diff = x_new - x_flat
             T_flat -= diff
         
-        if debug:
-            # positions are the same modulo 1
-            if not np.allclose(wrap(diff), 0, atol=atol):
-                raise ValueError("Error in applying flattened symmetry operation.")    
-            # positions are the same with the translation correction
-            if rank == 1:
-                x_new = R_flat @ x_flat + T_flat
-                ref = x_flat
+        # if debug:
+        #     # positions are the same modulo 1
+        #     if not np.allclose(wrap(diff), 0, atol=atol):
+        #         raise ValueError("Error in applying flattened symmetry operation.")    
+        #     # positions are the same with the translation correction
+        #     if rank == 1:
+        #         x_new = R_flat @ x_flat + T_flat
+        #         ref = x_flat
 
-            elif rank == 2:
-                x_new = R_flat @ x_flat
-                ref = x_flat
+        #     elif rank == 2:
+        #         x_new = R_flat @ x_flat
+        #         ref = x_flat
 
-            if not np.allclose(x_new, ref, atol=atol):
-                raise ValueError(f"Error in rank-{rank} symmetry operation.")
+        #     if not np.allclose(x_new, ref, atol=atol):
+        #         raise ValueError(f"Error in rank-{rank} symmetry operation.")
             
         return R_flat, T_flat
 
-    def get_affine_symmetry_operations(self,debug=DEBUG,**kwargs):
+    def get_affine_symmetry_operations(self,**kwargs):
         """
         Flattened affine symmetry operations for the atomic coordinates.
         """
-        if BUILDER == "internal":
-            R_flat, T_flat = self.__get_symmetry_operations(use_translations=True,debug=debug,**kwargs)
-        else:
-            builder = SymmetryRepresentationBuilder(natoms=len(self))
-            spg = self.to_spglib_cell(**kwargs)
-            R = spg.rotations.copy()
-            T = spg.translations.copy()
-            mapping = self.__get_all_atoms_mapping(**kwargs)
-            R_flat = np.asarray([builder.build_R_flat(mapping, r, rank=1) for r in R])
-            T_flat = np.asarray([builder.build_T_flat(mapping, t) for t in T])
-        return R_flat, T_flat
+        return self.__get_symmetry_operations(rank=1,atomic=True,affine=True,**kwargs)
     
     def get_homogeneous_symmetry_operations(self,**kwargs):
         """
@@ -539,115 +506,39 @@ class AtomicStructure:
         H = affine2homogeneous(R_flat, T_flat)
         return H
     
-    def get_symmetry_operations(self,rank=1,debug=DEBUG,**kwargs):
+    def get_symmetry_operations(self,rank=1,**kwargs):
         """
         Flattened symmetry operations for the atomic tensors.
         """
-        if BUILDER == "internal":
-            return self.__get_symmetry_operations(use_translations=False,debug=debug,**kwargs)[0]
-        else:
-            builder = SymmetryRepresentationBuilder(natoms=len(self))
-            spg = self.to_spglib_cell(**kwargs)
-            R = spg.rotations.copy()
-            # T = spg.translations.copy()
-            mapping = self.__get_all_atoms_mapping(**kwargs)
-            R_flat = builder.build_R_flat(mapping, R, rank=rank)
-            return R_flat
-            
+        return self.__get_symmetry_operations(rank=1,atomic=True,affine=False,**kwargs)[0]
 
     def get_symmetrizer(
         self,
-        what: str,
-        method: str = "eigen",
-        x: np.ndarray = None,
-        atol=ATOL,
-        debug=DEBUG,
-        **kwargs
+        x:np.ndarray,
+        rank:int=1, 
+        atomic:bool=True,
+        affine:bool=True,
+        debug:bool = DEBUG,
+        atol : float = ATOL
     ):
-        """
-        Compute a symmetry-adapted basis for atomic or tensorial configurations.
-
-        This method constructs a matrix S whose columns span the symmetry-invariant
-        subspace of a representation space. Any symmetry-invariant configuration can
-        be written as:
-
-            x = S @ theta
-
-        where:
-        - x is the flattened configuration vector (e.g. 3N or 3N+1 in homogeneous form)
-        - theta contains the independent symmetry-allowed degrees of freedom
-
-        The symmetric subspace is defined as the eigenspace of eigenvalue 1 of the
-        group-averaging operator:
-
-            P = (1/|G|) ∑_g G_g
-
-        Parameters
-        ----------
-        what : str
-            Type of object the symmetry acts on:
-
-            - "positions":
-                Symmetry acts on atomic positions in fractional coordinates using
-                homogeneous representations (includes translation component).
-
-            - "vector":
-                Symmetry acts on vector-like quantities using standard linear
-                representation matrices.
-
-            - "tensor":
-                Not implemented.
-
-        x : np.ndarray, optional
-            Configuration vector to project onto the symmetric subspace. If None,
-            theta is not computed.
-
-        atol : float, optional
-            Numerical tolerance used for eigenvalue filtering and validation checks.
-
-        debug : bool, optional
-            If True, performs consistency checks on reconstructed configurations.
-
-        Returns
-        -------
-        S : np.ndarray
-            Basis matrix of shape (dim, k), whose columns span the symmetry-invariant
-            subspace.
-
-        theta : np.ndarray
-            Reduced symmetry-adapted coordinates such that x ≈ S @ theta.
-
-        theta_real : np.ndarray
-            Real-space interpretation of symmetry-adapted modes with shape:
-                (k, Natoms, 3)
-            Each mode corresponds to a symmetry-allowed displacement pattern.
-
-        Notes
-        -----
-        In eigen-method mode, the matrix P is a projection operator. Therefore:
-        - eigenvalues should be ~0 or ~1
-        - eigenvectors with eigenvalue ~1 span the invariant subspace
-        """
-        choices = ['positions','vector','tensor']
-        if what not in choices:
-            raise ValueError(f"'what' can only be one of {choices} but got '{what}'.")
         
-        if what == 'positions':
-            if x is None:
-                x = self.frac_pos.copy()
-            G = self.get_homogeneous_symmetry_operations(atol=atol, debug=debug,x=x, **kwargs)
-            x = append_one(x.flatten())
-        elif what == 'vector':
-            if debug and x is None:
-                warnings.warn(
-                    "To use 'debug' = True you need to provide 'x'.",
-                    RuntimeWarning
-                )
-            G = self.get_symmetry_operations(atol=atol,debug=debug and x is not None,x=x,**kwargs)
-        elif what == 'tensor':
-            raise ValueError("'what' = 'tensor' has not been implemented yet.")
+        if not atomic and affine:
+            raise ValueError(
+                "Affine attributes are available only for positions (atomic=True case)."
+            )            
+        G,T = self.__get_symmetry_operations(rank=rank,atomic=atomic,affine=affine)
+        if affine:
+            G = affine2homogeneous(G, T)
+            
+        shape = (3,)*rank
+        if atomic:
+            shape = (len(self),*shape)
+        assert x.shape == shape, f"Wrong shape, expected {shape} but got {x.shape}."
         
         x = x.flatten()
+        
+        if affine:
+            x = append_one(x)
 
         # ------------------------
         # Eigen-decomposition
@@ -656,16 +547,16 @@ class AtomicStructure:
 
         w, v = np.linalg.eig(P)
         
-        if not np.allclose(w.imag,0,atol=atol):
+        if debug and not np.allclose(w.imag,0,atol=atol):
             raise ValueError("Eigenvalues should be real")
         w = w.real
         
-        if not np.all((np.isclose(w, 0,atol=atol)) | (np.isclose(w, 1, atol=atol))):
+        if debug and not np.all((np.isclose(w, 0,atol=atol)) | (np.isclose(w, 1, atol=atol))):
             raise ValueError("Eigenvalues should be 0 or 1.")
     
         mask = np.where(w > 0.5)[0]
         S = v[:, mask]
-        if not np.allclose(S.imag,0):
+        if debug and not np.allclose(S.imag,0):
             raise ValueError("Eigenvectors should be real")
         S = np.real(S)
 
@@ -673,23 +564,11 @@ class AtomicStructure:
         theta = np.linalg.lstsq(S, x, rcond=None)[0] if x is not None else None
 
         # ------------------------
-        # Debug checks
-        # ------------------------
-        if debug:
-            test = S @ theta
-            if what == 'positions':
-                assert np.allclose(test[-1], 1.0, atol=atol), \
-                    f"Last component should be one but it is {test[-1]}."
-            diff = test - x
-            if not np.allclose(diff, 0, atol=atol):
-                raise ValueError("There is a problem here.")
-
-        # ------------------------
         # Real-space interpretation of modes
         # ------------------------
-        if what == 'positions':
+        if affine:
             theta_real = S[:-1, :].T.reshape((len(theta), -1, 3))
-        elif theta is not None:
+        else:
             theta_real = S.T.reshape((len(theta), -1, 3))
 
         return S, theta, theta_real
