@@ -72,7 +72,7 @@ def test_affine_fields(structure, name):
     atoms = read(file_path, index=0)
     atomic_structure = AtomicStructure.from_ase(atoms)
 
-    frac = atomic_structure.get_fractional(atoms.arrays[name])
+    frac = atomic_structure.to_fractional(atoms.arrays[name])
 
     assert np.allclose(
         frac @ atomic_structure.cell,
@@ -109,7 +109,7 @@ def test_affine_fields(structure, name):
 #     atoms = read(file_path, index=0)
 #     atomic_structure = AtomicStructure.from_ase(atoms)
 
-#     frac = atomic_structure.get_fractional(atoms.arrays[name])
+#     frac = atomic_structure.to_fractional(atoms.arrays[name])
 
 #     assert np.allclose(
 #         frac @ atomic_structure.cell,
@@ -148,7 +148,7 @@ def test_affine_fields(structure, name):
 #     if "REF_BEC" not in atoms.arrays:
 #         return
 
-#     bec = atomic_structure.get_fractional(atoms.arrays["REF_BEC"])
+#     bec = atomic_structure.to_fractional(atoms.arrays["REF_BEC"])
 #     x = bec.flatten()
 
 #     R = atomic_structure.get_symmetry_operations(x=bec, debug=True)

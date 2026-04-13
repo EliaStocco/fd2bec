@@ -46,7 +46,7 @@ def test_symmetrizer(structure):
     # affine
     #----------------------#
     for name in ["positions"]: # "REF_atomic-oxn-dipole" 
-        frac_forces = atomic_structure.get_fractional(atoms.arrays[name])
+        frac_forces = atomic_structure.to_fractional(atoms.arrays[name])
         assert np.allclose(frac_forces @ atomic_structure.cell, atoms.arrays[name],atol=ATOL*len(atomic_structure)), f"Error with fractional {name}"
         
         forces = frac_forces.flatten()
@@ -63,7 +63,7 @@ def test_symmetrizer(structure):
     # vectors
     #----------------------#   
     for name in ["REF_forces","REF_atomic_dipoles"]:
-        frac_forces = atomic_structure.get_fractional(atoms.arrays[name])
+        frac_forces = atomic_structure.to_fractional(atoms.arrays[name])
         assert np.allclose(frac_forces @ atomic_structure.cell, atoms.arrays[name],atol=ATOL*len(atomic_structure)), f"Error with fractional {name}"
         
         forces = frac_forces.flatten()
@@ -73,20 +73,20 @@ def test_symmetrizer(structure):
         S, theta, theta_real = atomic_structure.get_symmetrizer(what='vector',x=frac_forces,debug=True)
         assert np.allclose(S @ theta, forces,atol=ATOL*len(atomic_structure)), f"Error with symmetrizer when using {name}."
     
-    # #----------------------#
-    # # Born Charges
-    # #----------------------#   
-    # frac_forces = atomic_structure.get_fractional(atoms.arrays["REF_BEC"])
-    # assert np.allclose(frac_forces @ atomic_structure.cell, atoms.arrays["REF_forces"],atol=ATOL*len(atomic_structure)), "Error with fractional forces"
+    #----------------------#
+    # Born Charges
+    #----------------------#   
+    bec = atoms.arrays["REF_BEC"].reshape((Natoms,3,3))
+    frac_bec = atomic_structure.to_fractional(bec)
     
-    # forces = frac_forces.flatten()
-    # R = atomic_structure.get_symmetry_operations(x=frac_forces,debug=True)
-    # assert np.allclose(R @ forces, forces,atol=ATOL*len(atomic_structure)), "Error with the forces symmetrizer."
+    bec = frac_bec.flatten()
+    R = atomic_structure.get_symmetry_operations(x=frac_bec,debug=True)
+    assert np.allclose(R @ bec, bec,atol=ATOL*len(atomic_structure)), "Error with the forces symmetrizer."
     
-    # S, theta, theta_real = atomic_structure.get_symmetrizer(what='vector',x=frac_forces,debug=True)
-    # assert np.allclose(S @ theta, forces,atol=ATOL*len(atomic_structure)), "Error with the forces symmetrizer."
+    S, theta, theta_real = atomic_structure.get_symmetrizer(what='vector',x=frac_bec,debug=True)
+    assert np.allclose(S @ theta, bec,atol=ATOL*len(atomic_structure)), "Error with the forces symmetrizer."
     
-    # pass
+    pass
 
 
 if __name__ == "__main__":

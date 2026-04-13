@@ -82,12 +82,64 @@ class AtomicStructure:
         )
     
     @cached_property
+    def inv_cell(self)->Cell:
+        return np.linalg.inv(self.cell.array)
+
+    @cached_property
     def cell(self)->Cell:
         return Cell.fromcellpar(self.cellpar)
     
-    def get_fractional(self,arr:np.ndarray)->np.ndarray:
-        # arr = arr.reshape(len(self),3,-1)
-        return self.cell.scaled_positions(arr)
+    def to_fractional(self, arr: np.ndarray, rank: int = 1) -> np.ndarray:
+        """
+        Convert Cartesian tensor(s) to fractional coordinates.
+
+        Parameters
+        ----------
+        arr : np.ndarray
+            Input array containing tensor(s). The last `rank` axes are
+            interpreted as Cartesian indices (size 3).
+        rank : int
+            Number of Cartesian tensor indices (1 = vector, 2 = matrix, etc.)
+
+        Returns
+        -------
+        np.ndarray
+            Tensor expressed in fractional coordinates.
+        """
+        Ainv = self.inv_cell
+
+        result = arr
+        for i in range(rank):
+            # Always contract the last axis with Ainv
+            result = np.tensordot(result, Ainv, axes=([-1], [1]))
+
+        return result
+    
+    def to_cartesian(self, arr: np.ndarray, rank: int = 1) -> np.ndarray:
+        """
+        Convert fractional tensor(s) to Cartesian coordinates.
+
+        Parameters
+        ----------
+        arr : np.ndarray
+            Input array containing tensor(s). The last `rank` axes are
+            interpreted as fractional (lattice) indices (size 3).
+        rank : int
+            Number of tensor indices (1 = vector, 2 = matrix, etc.)
+
+        Returns
+        -------
+        np.ndarray
+            Tensor expressed in Cartesian coordinates.
+        """
+        A = self.cell.array
+
+        result = arr
+        for i in range(rank):
+            # Contract last axis with A (inverse of Ainv)
+            result = np.tensordot(result, A, axes=([-1], [0]))
+
+        return result
         
     def __post_init__(self):
         """
@@ -377,11 +429,6 @@ class AtomicStructure:
         if rank != 1 and use_translations:
             raise ValueError("Translations only apply to rank-1 objects (positions).")
         
-        # if x is not None and use_translations:
-        #     warnings.warn(
-        #         "When 'use_translations' == True the variable 'x' will be ignored and automatically set to the fractional coordinates.",
-        #         RuntimeWarning
-        #     )
         if use_translations and debug and x is None:
             x = self.frac_pos.copy()
         if x is not None:
@@ -589,11 +636,6 @@ class AtomicStructure:
             if x is None:
                 x = self.frac_pos.copy()
             G = self.get_homogeneous_symmetry_operations(atol=atol, debug=debug,x=x, **kwargs)
-            # if x is not None:
-            #     warnings.warn(
-            #         "When 'what' == 'positions' the variable 'x' will be ignored and automatically set to the fractional coordinates.",
-            #         RuntimeWarning
-            #     )
             x = append_one(x.flatten())
         elif what == 'vector':
             if debug and x is None:
@@ -606,9 +648,6 @@ class AtomicStructure:
             raise ValueError("'what' = 'tensor' has not been implemented yet.")
         
         x = x.flatten()
-
-        _, dim, _ = G.shape
-
 
         # ------------------------
         # Eigen-decomposition
@@ -628,7 +667,7 @@ class AtomicStructure:
         S = v[:, mask]
         if not np.allclose(S.imag,0):
             raise ValueError("Eigenvectors should be real")
-        S = S.real
+        S = np.real(S)
 
         # Solve for theta
         theta = np.linalg.lstsq(S, x, rcond=None)[0] if x is not None else None
