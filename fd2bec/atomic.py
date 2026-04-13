@@ -408,22 +408,13 @@ class AtomicStructure:
             Shape (Nops, dim) translation vectors in flattened form.
 
         """
-        if rank not in [1,2]:
-            raise ValueError("Only rank 1 and 2 have been implemented.")
-            
         if rank != 1 and affine:
             raise ValueError("Translations only apply to rank-1 objects (positions).")
         
-        if affine: #and debug and x is None:
+        if affine:
             x = self.frac_pos.copy()
             x_flat = x.flatten()
-        # if x is not None:
-        #     if x.ndim < 2:
-        #         raise ValueError("Please provide a non-flattened 'x' array.")
-        #     x_flat = x.flatten()
-        # if debug and x is None:
-        #     raise ValueError("To use 'debug' = True you need to provide 'x'.")
-
+            
         spg = self.to_spglib_cell(**kwargs)
         R = spg.rotations.copy()
         T = spg.translations.copy()
@@ -469,33 +460,27 @@ class AtomicStructure:
             R_flat[n] = r_flat
             T_flat[n] = t_flat
             
-        if affine: # or debug:
+        if affine:
             x_new = R_flat @ x_flat + T_flat
             diff = x_new - x_flat
             T_flat -= diff
-        
-        # if debug:
-        #     # positions are the same modulo 1
-        #     if not np.allclose(wrap(diff), 0, atol=atol):
-        #         raise ValueError("Error in applying flattened symmetry operation.")    
-        #     # positions are the same with the translation correction
-        #     if rank == 1:
-        #         x_new = R_flat @ x_flat + T_flat
-        #         ref = x_flat
-
-        #     elif rank == 2:
-        #         x_new = R_flat @ x_flat
-        #         ref = x_flat
-
-        #     if not np.allclose(x_new, ref, atol=atol):
-        #         raise ValueError(f"Error in rank-{rank} symmetry operation.")
             
         return R_flat, T_flat
+    
+    def get_symmetry_operations(self,**kwargs):
+        """
+        Flattened symmetry operations for the atomic tensors.
+        """
+        assert kwargs.pop('affine',False) == False, "error"
+        return self.__get_symmetry_operations(affine=False,**kwargs)[0]
 
     def get_affine_symmetry_operations(self,**kwargs):
         """
         Flattened affine symmetry operations for the atomic coordinates.
         """
+        assert kwargs.pop('rank',1) == 1, "error"
+        assert kwargs.pop('atomic',True) == True, "error"
+        assert kwargs.pop('affine',True) == True, "error"
         return self.__get_symmetry_operations(rank=1,atomic=True,affine=True,**kwargs)
     
     def get_homogeneous_symmetry_operations(self,**kwargs):
@@ -505,12 +490,6 @@ class AtomicStructure:
         R_flat, T_flat = self.get_affine_symmetry_operations(**kwargs)
         H = affine2homogeneous(R_flat, T_flat)
         return H
-    
-    def get_symmetry_operations(self,rank=1,**kwargs):
-        """
-        Flattened symmetry operations for the atomic tensors.
-        """
-        return self.__get_symmetry_operations(rank=1,atomic=True,affine=False,**kwargs)[0]
 
     def get_symmetrizer(
         self,
