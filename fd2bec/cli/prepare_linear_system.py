@@ -27,6 +27,9 @@ def prepare_args(description):
 @cli(prepare_args,description)
 def main(args):
     
+    if args.space_group:
+        assert args.acoustic_sum_rule == -1, "ASR and space groups are incompatible."
+    
     #----------------------#
     # Structures
     #----------------------#
