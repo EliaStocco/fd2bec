@@ -14,8 +14,8 @@ def prepare_args(description):
     argv = {"metavar":"\b"}
     parser.add_argument("-uc", "--unit_cell"              , **argv, type=str     , required=True , help="path to unit cell structure (e.g. unitell.extxyz)")
     parser.add_argument("-sc", "--super_cell"             , **argv, type=str     , required=True , help="path to unit super structure (e.g. supercell.extxyz)")
-    parser.add_argument("-b", "--coefficients"            , **argv, type=str     , required=True , help="path to coefficients (e.g. dipole.txt)")
-    parser.add_argument("-A", "--matrix"                  , **argv, type=str     , required=True , help="path to displacement matrix (e.g. displacement.txt)" )
+    parser.add_argument("-b", "--coefficients"            , **argv, type=str     , required=True , help="path to coefficients (e.g. dipole.txt, default: %(default)s)", default=None)
+    parser.add_argument("-A", "--matrix"                  , **argv, type=str     , required=True , help="path to displacement matrix (e.g. displacement.txt, efault: %(default)s)", default=None)
     parser.add_argument("-asr"     , "--acoustic_sum_rule", **argv, type=float   , required=False, help="weight for the acoustic sum rule, -1: not used, positive number otherwise (default: %(default)s)", default=-1)
     parser.add_argument("-is_delta", "--is_delta_dipole"  , **argv, type=str2bool, required=False, help="wheter the coefficients are delta dipole (default: %(default)s)", default=False)
     parser.add_argument("-tran", "--translations"         , **argv, type=str2bool, required=False, help="apply translational symmetries (default: %(default)s)", default=True)
@@ -67,17 +67,23 @@ def main(args):
     #----------------------#
     
     # b
-    print(f"Reading the coefficients b from file {args.coefficients} ... ",end="")
-    b = np.loadtxt(args.coefficients)
-    print("done")
-    print("b.shape:", b.shape)
-    assert b.shape[1] == 3, f"'b' must have 3 columns but it has shape {b.shape}"
+    if args.coefficients is not None:
+        print(f"Reading the coefficients b from file {args.coefficients} ... ",end="")
+        b = np.loadtxt(args.coefficients)
+        print("done")
+        print("b.shape:", b.shape)
+        assert b.shape[1] == 3, f"'b' must have 3 columns but it has shape {b.shape}"
+    else:
+        b = np.zeros((1,3))
     
     # A
-    print(f"Reading the matrix A from file {args.matrix} ... ",end="")
-    A = np.loadtxt(args.matrix)
-    print("done")
-    print("A.shape:", A.shape)    
+    if args.matrix is not None:
+        print(f"Reading the matrix A from file {args.matrix} ... ",end="")
+        A = np.loadtxt(args.matrix)
+        print("done")
+        print("A.shape:", A.shape)    
+    else:
+        A = np.zeros((1,len(super_cell)*3))
     
     #----------------------#
     # Sanity checks
@@ -206,6 +212,8 @@ def main(args):
     
     system_type = "overdetermined" if A_coeff.shape[0] > x.shape[0] else "underdetermined" if A_coeff.shape[0] < x.shape[0] else "determined"
     print(f"System type: {system_type}")
+    
+    print("Minimum number of necessary configurations: ",x.shape[0])
     
     #----------------------#
     # Save data
