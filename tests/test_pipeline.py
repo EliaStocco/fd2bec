@@ -62,7 +62,7 @@ COMBOS = [
                  id=f"{folder.name}_asr={asr}_{method}_spg={spg}")
     for folder in DATASETS
     for asr in [-1, 0, 1, 10, 100, 1e3, 1e4]
-    for method in ["lstsq","pseudo-inverse"]
+    for method in ["lstsq"] # "pseudo-inverse"
     for spg in ["true", "false"]
     if not (spg == "true" and asr != -1)
 ]
