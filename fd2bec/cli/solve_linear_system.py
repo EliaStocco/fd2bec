@@ -1,6 +1,8 @@
 import json
 import numpy as np
 from fd2bec.cli import cli
+from fd2bec.atomic import AtomicStructure
+from fd2bec.mathematics import remove_one
 
 description = "Solve a linear system."
 
@@ -52,8 +54,26 @@ def main(args):
         assert rank == rank_lstsq, f"Rank mismatch: np.linalg.matrix_rank(A)={rank} vs np.linalg.lstsq(A,b)[2]={rank_lstsq}"
         print("done")
         
+    unit_cell = AtomicStructure(**problem["unitcell"])
+    Natoms = len(unit_cell)
+    
+    if "symmetrizer" in problem["symmetry"] and problem["symmetry"]["symmetrizer"] is not None:
+        S = np.asarray(problem["symmetry"]["symmetrizer"])
+        if not problem["is_delta_dipole"]:
+            x = x[3:]
+        Su, _, _, _ = unit_cell.get_symmetrizer(rank=2,atomic=True,affine=False)
+        bec = Su @ x
+    else:        
+        if not problem["is_delta_dipole"]:
+            bec = remove_one(x.copy())
+        else:
+            bec = x.copy()
+    
+    bec = bec.reshape((Natoms,3,3))
+        
     output = {
         "results" : {
+            "bec" : bec.tolist(),
             "x.shape" : x.shape,
             "x" : x.tolist(),
             "A+" : A_pinv.tolist() if args.method == "pseudo-inverse" else None,

@@ -493,7 +493,7 @@ class AtomicStructure:
 
     def get_symmetrizer(
         self,
-        x:np.ndarray,
+        x:np.ndarray=None,
         rank:int=1, 
         atomic:bool=True,
         affine:bool=True,
@@ -508,16 +508,23 @@ class AtomicStructure:
         G,T = self.__get_symmetry_operations(rank=rank,atomic=atomic,affine=affine)
         if affine:
             G = affine2homogeneous(G, T)
-            
+        
+        # ------------------------
+        # Vector construction
+        # ------------------------
         shape = (3,)*rank
         if atomic:
             shape = (len(self),*shape)
+        if x is None:
+            x = np.zeros(shape)
+            
         assert x.shape == shape, f"Wrong shape, expected {shape} but got {x.shape}."
-        
+            
         x = x.flatten()
         
         if affine:
             x = append_one(x)
+        
 
         # ------------------------
         # Eigen-decomposition
@@ -546,8 +553,8 @@ class AtomicStructure:
         # Real-space interpretation of modes
         # ------------------------
         if affine:
-            theta_real = S[:-1, :].T.reshape((len(theta), -1, 3))
+            theta_real = S[:-1, :].T#.reshape((len(theta), -1, 3))
         else:
-            theta_real = S.T.reshape((len(theta), -1, 3))
+            theta_real = S.T#.reshape((len(theta), -1, 3))
 
-        return S, theta, theta_real
+        return S, theta, theta_real, shape

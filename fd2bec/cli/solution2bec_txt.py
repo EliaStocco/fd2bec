@@ -24,17 +24,17 @@ def main(args):
         solution = json.load(f)
     print("done")
     
-    x = np.asarray(solution['results']['x'])
-    print(f"x.shape: {x.shape}")
+    bec = np.asarray(solution['results']['bec'])
+    print(f"bec.shape: {bec.shape}")
     
     Natoms = len(solution['equation']['unitcell']['symbols'])
     
-    if solution['equation']['asr_weight'] > 0:
-        bec = x[1:,:]
-    else:
-        bec = x    
+    # if solution['equation']['asr_weight'] > 0:
+    #     bec = bec[1:,:]
+    # else:
+    #     bec = bec    
     
-    assert bec.shape == (Natoms*3, 3), f"Expected shape {(Natoms*3, 3)}, got {bec.shape}"
+    assert bec.shape == (Natoms,3, 3), f"Expected shape {(Natoms,3, 3)}, got {bec.shape}"
     
     bec = bec.reshape((Natoms,9))
     print(f"Writing cartesian displacements to {args.output} ... ",end="")

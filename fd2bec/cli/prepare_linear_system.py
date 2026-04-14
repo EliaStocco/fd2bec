@@ -36,7 +36,7 @@ def main(args):
     unit_cell = read(args.unit_cell, index=0)
     print("done")
     Na = unit_cell.get_global_number_of_atoms()
-    n_unknowns = Na * 3
+    n_unknowns = Na * 9
     print(f"Number of atoms in the unit cell: {Na}")
     unit_cell = AtomicStructure.from_ase(unit_cell)
     
@@ -56,6 +56,9 @@ def main(args):
         use_supercell = False
     super_cell = AtomicStructure.from_ase(super_cell)
     
+    spg_uc = unit_cell.to_spglib_cell(symprec=args.symprec)
+    spg_sc = super_cell.to_spglib_cell(symprec=args.symprec)
+    
     #----------------------#
     # Coefficients
     #----------------------#
@@ -71,8 +74,7 @@ def main(args):
     print(f"Reading the matrix A from file {args.matrix} ... ",end="")
     A = np.loadtxt(args.matrix)
     print("done")
-    print("A.shape:", A.shape)
-    
+    print("A.shape:", A.shape)    
     
     #----------------------#
     # Sanity checks
@@ -88,13 +90,22 @@ def main(args):
         args.translations = True
         
     #----------------------#
+    # Fractional coordinates
+    #----------------------#
+    assert A.shape[1] == len(super_cell)*3, "error"
+    nr = len(A)
+    A = super_cell.to_fractional(A.reshape((nr,len(super_cell),3)),rank=1).reshape((nr,-1))
+    b = super_cell.to_fractional(b,rank=1)
+    pass
+        
+    #----------------------#
     # Symmetries
     #----------------------#
     if args.space_group:
         args.translations = False
         
     x = None
-        
+    
     if args.translations:
         
         x = np.zeros((Na*3, 3),dtype=object)
@@ -103,9 +114,6 @@ def main(args):
                 for j,jstr in enumerate(["x","y","z"]):
                     x[i*3+k,j] = f"d mu_{jstr} / d R^{i}_{kstr}"
         print("x.shape:", x.shape)
-    
-        spg_uc = unit_cell.to_spglib_cell(symprec=args.symprec)
-        spg_sc = super_cell.to_spglib_cell(symprec=args.symprec)
         
         rot_uc = np.unique(spg_uc.rotations,axis=0)
         rot_sc = np.unique(spg_sc.rotations,axis=0)
@@ -141,10 +149,13 @@ def main(args):
     
         translational_symmetries = np.kron(translational_symmetries,np.eye(3)) # / supercell_size
         
+    S = None
+    theta = None
     if args.space_group:
-        S, theta, theta_real = unit_cell.get_symmetrizer(rank=2)
-        R,T = unit_cell.get_affine_symmetry_operations(atol=args.symprec)
-        pass
+        S, theta, theta_real, shape = super_cell.get_symmetrizer(rank=2,atomic=True,affine=False)
+        n_unknowns = len(theta)
+        # S = S.reshape((-1,3,n_unknowns))
+        x = np.asarray([  f"theta_{n}" for n in range(len(theta))])
             
     #----------------------#
     # Linear system
@@ -158,21 +169,34 @@ def main(args):
         id = np.eye(3)
         A_coeff = np.vstack([args.acoustic_sum_rule*np.tile(id, A_coeff.shape[1]//3), A_coeff])
         
+    if args.space_group:
+        
+        b_coeff = b_coeff.flatten()
+        A_coeff = np.kron(A_coeff,np.eye(3))
+        A_coeff = A_coeff @ S # np.einsum("ij,jkl->ikl",A_coeff,S)
+        # A_coeff = A_coeff.reshape((-1,n_unknowns))    
+        
+        if not args.is_delta_dipole:
+            x = np.concat([np.asarray(["mu_x","mu_y","mu_z"],dtype=object),x.astype(object)])
+            nr = int(len(b_coeff)/3)
+            tmp = np.tile(-np.eye(3),nr).T
+            A_coeff = np.hstack([tmp,A_coeff])
+            # S = np.vstack([np.full((1,S.shape[1],S.shape[2]),-1),S])
+          
+    elif args.translations:
+        A_coeff = A_coeff @ translational_symmetries
+        
+        if not args.is_delta_dipole:
+            x = np.vstack([x,np.asarray(["mu_x","mu_y","mu_z"],dtype=object)])
+            A_coeff = np.hstack([A_coeff,np.full((A_coeff.shape[0],1),-1)])
+        
     assert b_coeff.shape[0] == A_coeff.shape[0], \
         f"'b_coeff' and 'A_coeff' must have the same number of rows but they have shapes {b_coeff.shape} and {A_coeff.shape}"
         
-    assert A.shape[1] == A_coeff.shape[1], \
-        f"A and A_coeff must have the same number of columns but they have shapes {A.shape} and {A_coeff.shape}"
+    if not args.space_group:
         
-    if args.translations:
-        A_coeff = A_coeff @ translational_symmetries
-        
-    if not args.is_delta_dipole:
-        x = np.vstack([np.asarray(["mu_x","mu_y","mu_z"],dtype=object),x])
-        A_coeff = np.hstack([np.full((A_coeff.shape[0],1),-1),A_coeff])
-        
-    assert A_coeff.shape[1] == x.shape[0], \
-        f"The number of columns in A ({A.shape[1]}) must be equal to the number of unknowns ({x.shape[0]})."
+        assert A_coeff.shape[1] == x.shape[0], \
+            f"The number of columns in A ({A.shape[1]}) must be equal to the number of unknowns ({x.shape[0]})."
     
     system_type = "overdetermined" if A_coeff.shape[0] > x.shape[0] else "underdetermined" if A_coeff.shape[0] < x.shape[0] else "determined"
     print(f"System type: {system_type}")
@@ -187,14 +211,17 @@ def main(args):
         "apply_space_group" : args.space_group,
         "is_delta_dipole" : args.is_delta_dipole,
         "unitcell" : unit_cell.to_json(),
-        "input" : {
-            "b" : b.tolist(),
-            "A" : A.tolist(),
-        },
+        "supercell" : super_cell.to_json(),
+        # "input" : {
+        #     "b" : b.tolist(),
+        #     "A" : A.tolist(),
+        # },
         "symmetry" :{
             "space_group_number" : spg_uc.number,
             "transformation_matrix" : spg_sc.transformation_matrix.round(4).tolist(),
             "translational_symmetries" : translational_symmetries.tolist() if args.translations else None,
+            "symmetrizer" : S.tolist() if S is not None else None,
+            "n_theta" : len(theta) if theta is not None else None,
         },
         "linear_system" : {
             "type" : system_type,
