@@ -9,7 +9,7 @@ pyenv activate fd2bec
 pyenv local fd2bec
 pip install --upgrade pip
 ./tools/initialize.sh # for developers only, harmless anyway otherwise
-pip install . # you can even use editable mode with 'pip install -e .'
+pip install -e . # only editable mode it fully tested so far
 ```
 # Testing
 We would recommend running tests using
