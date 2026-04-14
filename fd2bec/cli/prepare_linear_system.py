@@ -14,8 +14,8 @@ def prepare_args(description):
     argv = {"metavar":"\b"}
     parser.add_argument("-uc", "--unit_cell"              , **argv, type=str     , required=True , help="path to unit cell structure (e.g. unitell.extxyz)")
     parser.add_argument("-sc", "--super_cell"             , **argv, type=str     , required=True , help="path to unit super structure (e.g. supercell.extxyz)")
-    parser.add_argument("-b", "--coefficients"            , **argv, type=str     , required=True , help="path to coefficients (e.g. dipole.txt, default: %(default)s)", default=None)
-    parser.add_argument("-A", "--matrix"                  , **argv, type=str     , required=True , help="path to displacement matrix (e.g. displacement.txt, efault: %(default)s)", default=None)
+    parser.add_argument("-b", "--coefficients"            , **argv, type=str     , required=False, help="path to coefficients (e.g. dipole.txt, default: %(default)s)", default=None)
+    parser.add_argument("-A", "--matrix"                  , **argv, type=str     , required=False, help="path to displacement matrix (e.g. displacement.txt, efault: %(default)s)", default=None)
     parser.add_argument("-asr"     , "--acoustic_sum_rule", **argv, type=float   , required=False, help="weight for the acoustic sum rule, -1: not used, positive number otherwise (default: %(default)s)", default=-1)
     parser.add_argument("-is_delta", "--is_delta_dipole"  , **argv, type=str2bool, required=False, help="wheter the coefficients are delta dipole (default: %(default)s)", default=False)
     parser.add_argument("-tran", "--translations"         , **argv, type=str2bool, required=False, help="apply translational symmetries (default: %(default)s)", default=True)
@@ -197,6 +197,7 @@ def main(args):
           
     elif args.translations:
         A_coeff = A_coeff @ translational_symmetries
+        x = np.zeros((A_coeff.shape[1],3),dtype=object)
         
         if not args.is_delta_dipole:
             x = np.vstack([x,np.asarray(["mu_x","mu_y","mu_z"],dtype=object)])
@@ -213,7 +214,7 @@ def main(args):
     system_type = "overdetermined" if A_coeff.shape[0] > x.shape[0] else "underdetermined" if A_coeff.shape[0] < x.shape[0] else "determined"
     print(f"System type: {system_type}")
     
-    print("Minimum number of necessary configurations: ",x.shape[0])
+    # print("Minimum number of necessary configurations: ",x.shape[0])
     
     #----------------------#
     # Save data
