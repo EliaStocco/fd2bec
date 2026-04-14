@@ -14,5 +14,5 @@ pip install -e .
 # Testing
 We would recommend running test using
 ```bash
-pytest --ff --nf
+pytest --ff --nf -x
 ``` 
