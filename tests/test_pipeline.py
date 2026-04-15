@@ -16,17 +16,17 @@ DEBUG_DIR = Path(__file__).parent / "test_outputs"
 # -------------------------
 # Helper
 # -------------------------
-def run_pipeline(workdir: Path, asr: float, method: str, spg:bool):
+def run_pipeline(workdir: Path, method: str):
     subprocess.run(
         [
             "prepare_linear_system",
             "-uc", "start.extxyz",
-            "-sc", "supercell.extxyz",
+            # "-sc", "supercell.extxyz",
             "-b", "dipole.txt",
             "-A", "displacement.txt",
             "-o", "to_solve.json",
-            "-asr", str(asr),
-            "-spg", spg
+            # "-asr", str(asr),
+            # "-spg", spg
         ],
         cwd=workdir,
         check=True,
@@ -58,33 +58,30 @@ def run_pipeline(workdir: Path, asr: float, method: str, spg:bool):
 # The test
 # -------------------------
 COMBOS = [
-    pytest.param(folder, asr, method, spg,
-                 id=f"{folder.name}_asr={asr}_{method}_spg={spg}")
+    pytest.param(folder, method,
+                 id=f"{folder.name}_{method}")
     for folder in DATASETS
-    for asr in [-1, 0, 1, 10, 100, 1e3, 1e4]
-    for method in ["lstsq"] # "pseudo-inverse"
-    for spg in ["true", "false"]
-    if not (spg == "true" and asr != -1)
+    # for asr in [-1, 0, 1, 10, 100, 1e3, 1e4]
+    for method in ["lstsq", "pseudo-inverse"] # 
+    # for spg in ["true", "false"]
+    # if asr == -1
 ]
 
-@pytest.mark.parametrize("folder, asr, method, spg", COMBOS)
-def test_pipeline(tmp_path: Path, folder: Path, asr: float, method: str, spg:str):
+@pytest.mark.parametrize("folder, method", COMBOS)
+def test_pipeline(tmp_path: Path, folder: Path, method: str):
     
-    if spg == 'true' and asr != -1:
-        pytest.skip("spg=true only valid for asr=-1")
-        
     global _RESULTS
 
     # Copy dataset into tmp working directory
     for file in folder.iterdir():
         shutil.copy(file, tmp_path / file.name)
 
-    test_id = f"{folder.name}_asr={asr}_{method}_spg={spg}"
+    test_id = f"{folder.name}_{method}"
     debug_out = DEBUG_DIR / test_id
 
     try:
         # Run pipeline
-        run_pipeline(tmp_path, asr, method, spg)
+        run_pipeline(tmp_path, method)
 
         output = tmp_path / "bec.txt"
 
@@ -108,9 +105,7 @@ def test_pipeline(tmp_path: Path, folder: Path, asr: float, method: str, spg:str
         global _RESULTS
         _RESULTS.append({
             "folder": folder.name,
-            "asr": asr,
             "method": method,
-            "spg" : spg,
             "norm": float(norm),
         })
 

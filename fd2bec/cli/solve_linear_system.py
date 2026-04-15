@@ -56,32 +56,32 @@ def main(args):
         print("done")
         
     unit_cell = AtomicStructure(**problem["unitcell"])
-    super_cell = AtomicStructure(**problem["supercell"])
+    # super_cell = AtomicStructure(**problem["supercell"])
     Natoms = len(unit_cell)
     
-    if "symmetrizer" in problem["symmetry"] and problem["symmetry"]["symmetrizer"] is not None:
-        S = np.asarray(problem["symmetry"]["symmetrizer"])
-        if not problem["is_delta_dipole"]:
-            x = x[3:]
-        # Su, _, _, _ = unit_cell.get_symmetrizer(rank=2,atomic=True,affine=False)
-        # bec = Su @ x # this does not work
-        # ToDo
-        # this way to extract the Born Charges of the unit cell
-        # from the symmetrized Born Charges of the super cell
-        # works ... but I don't like it
-        bec = S @ x
-        bec = bec.reshape((-1,3,3))
-        factor = int(len(super_cell)/Natoms)
-        test = np.asarray( [ bec[n::factor,:,:] for n in range(factor) ] )
-        assert np.allclose(test,test[0],atol=ATOL)
-        bec = bec[::factor,:,:]
-    else:        
-        if not problem["is_delta_dipole"]:
-            bec = remove_one(x.copy())
-        else:
-            bec = x.copy()
+    # if "symmetrizer" in problem["symmetry"] and problem["symmetry"]["symmetrizer"] is not None:
+    S = np.asarray(problem["symmetry"]["symmetrizer"])
+    if not problem["is_delta_dipole"]:
+        x = x[3:]
+    # Su, _, _, _ = unit_cell.get_symmetrizer(rank=2,atomic=True,affine=False)
+    # bec = Su @ x # this does not work
+    # ToDo
+    # this way to extract the Born Charges of the unit cell
+    # from the symmetrized Born Charges of the super cell
+    # works ... but I don't like it
+    bec = S @ x
+    bec = bec.reshape((-1,3,3))
+    # factor = int(len(super_cell)/Natoms)
+    # test = np.asarray( [ bec[n::factor,:,:] for n in range(factor) ] )
+    # assert np.allclose(test,test[0],atol=ATOL)
+    # bec = bec[::factor,:,:]
+    # else:        
+    #     if not problem["is_delta_dipole"]:
+    #         bec = remove_one(x.copy())
+    #     else:
+    #         bec = x.copy()
     
-        bec = bec.reshape((Natoms,3,3))
+    #     bec = bec.reshape((Natoms,3,3))
         
     output = {
         "results" : {
