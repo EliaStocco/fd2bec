@@ -29,6 +29,8 @@ def main(args):
     
     if args.space_group:
         assert args.acoustic_sum_rule == -1, "ASR and space groups are incompatible."
+        
+    min_displ = -1
     
     #----------------------#
     # Structures
@@ -74,7 +76,7 @@ def main(args):
         print("b.shape:", b.shape)
         assert b.shape[1] == 3, f"'b' must have 3 columns but it has shape {b.shape}"
     else:
-        b = np.zeros((1,3))
+        b = np.zeros((Na*3,3))
     
     # A
     if args.matrix is not None:
@@ -83,7 +85,9 @@ def main(args):
         print("done")
         print("A.shape:", A.shape)    
     else:
-        A = np.zeros((1,len(super_cell)*3))
+        A = np.zeros((Na*3,len(super_cell)*3))
+        assert A.shape[0] == A.shape[1], "error"
+        A = np.eye(A.shape[0])
     
     #----------------------#
     # Sanity checks
@@ -113,11 +117,10 @@ def main(args):
     if args.space_group:
         args.translations = False
         
-    x = None
+    x = np.zeros((Na*3, 3),dtype=object)
     
     if args.translations:
         
-        x = np.zeros((Na*3, 3),dtype=object)
         for i in range(Na):
             for k,kstr in enumerate(["x","y","z"]):
                 for j,jstr in enumerate(["x","y","z"]):
@@ -133,8 +136,10 @@ def main(args):
             f"The unit cell and the super cell must have the same space group but they have space groups {spg_uc.number} and {spg_sc.number}."
         
         mapping = spg_sc.mapping_to_primitive
-        assert len(set(mapping)) == Na, \
-            f"The mapping from the super cell to the primitive cell must have {Na} unique values"
+        s = set(mapping)
+        if not len(s) == Na:
+            raise ValueError(f"The mapping from the super cell to the primitive cell must have {Na} unique values but has {len(s)}." +
+                             "Maybe you are using a symmetric supercell. Consider using a unitcell")
         print(f"Mapping from super cell to primitive cell: {mapping}")
         
         map2sc = invert_mapping_to_list(mapping)
@@ -185,6 +190,8 @@ def main(args):
         A_coeff = A_coeff @ S # np.einsum("ij,jkl->ikl",A_coeff,S)
         # A_coeff = A_coeff.reshape((-1,n_unknowns))    
         
+        min_displ = A_coeff.shape[1]
+        
         if not args.is_delta_dipole:
             # ToDo
             # this could be improved by using the space group 
@@ -194,20 +201,25 @@ def main(args):
             tmp = np.tile(-np.eye(3),nr).T
             A_coeff = np.hstack([tmp,A_coeff])
             # S = np.vstack([np.full((1,S.shape[1],S.shape[2]),-1),S])
+            
+            min_displ += 1
           
     elif args.translations:
         A_coeff = A_coeff @ translational_symmetries
         x = np.zeros((A_coeff.shape[1],3),dtype=object)
         
+        min_displ = A_coeff.shape[1]
+        
         if not args.is_delta_dipole:
             x = np.vstack([x,np.asarray(["mu_x","mu_y","mu_z"],dtype=object)])
             A_coeff = np.hstack([A_coeff,np.full((A_coeff.shape[0],1),-1)])
+            
+            min_displ += 1
         
     assert b_coeff.shape[0] == A_coeff.shape[0], \
         f"'b_coeff' and 'A_coeff' must have the same number of rows but they have shapes {b_coeff.shape} and {A_coeff.shape}"
         
     if not args.space_group:
-        
         assert A_coeff.shape[1] == x.shape[0], \
             f"The number of columns in A ({A.shape[1]}) must be equal to the number of unknowns ({x.shape[0]})."
     
@@ -215,6 +227,9 @@ def main(args):
     print(f"System type: {system_type}")
     
     print("Minimum number of necessary configurations: ",x.shape[0])
+    # rank = np.linalg.matrix_rank(A_coeff)
+    print("Rank of displacement matrix: ",min_displ)
+
     
     #----------------------#
     # Save data
