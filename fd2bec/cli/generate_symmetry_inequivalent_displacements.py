@@ -1,7 +1,8 @@
-from fd2bec import float_format
-from fd2bec.cli import cli
-from ase.io import read
 import numpy as np
+from ase.io import read
+import warnings
+from fd2bec.cli import cli
+from fd2bec import float_format
 from fd2bec.atomic import AtomicStructure
 
 description = "Generate all symmetry inequivalent cartesian displacements."
@@ -33,6 +34,10 @@ def main(args):
         
     displacements = displacements / np.linalg.norm(displacements,axis=1)[:,None]
     displacements *= args.amplitude
+    
+    u = np.unique(displacements,axis=0)
+    if u.shape != displacements.shape:
+        warnings.warn(f"Found {u.shape[0]} symmetry inequivalent displacements out of {displacements.shape[0]} total displacements.", UserWarning)
     
     print(f"Writing cartesian displacements to {args.output} ... ",end="")
     np.savetxt(args.output, displacements,fmt=float_format)
