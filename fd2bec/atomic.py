@@ -1,7 +1,5 @@
 import numpy as np
 import spglib
-import warnings
-from typing import Union, Tuple
 from ase import Atoms
 from ase.cell import Cell
 from dataclasses import dataclass
