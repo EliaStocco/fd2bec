@@ -36,11 +36,14 @@ def main(args):
     displacements *= args.amplitude
     
     u = np.unique(displacements,axis=0)
-    if u.shape != displacements.shape:
-        warnings.warn(f"Found {u.shape[0]} symmetry inequivalent displacements out of {displacements.shape[0]} total displacements.", UserWarning)
+    
+    print(f"Found {u.shape[0]} symmetry inequivalent displacements out of {displacements.shape[0]} total displacements.")
+    
+    # if u.shape != displacements.shape:
+    #     warnings.warn(f"Found {u.shape[0]} symmetry inequivalent displacements out of {displacements.shape[0]} total displacements.", UserWarning)
     
     print(f"Writing cartesian displacements to {args.output} ... ",end="")
-    np.savetxt(args.output, displacements,fmt=float_format)
+    np.savetxt(args.output, u,fmt=float_format)
     print("done")
 
 if __name__ == "__main__":
