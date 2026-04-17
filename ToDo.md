@@ -9,6 +9,8 @@ Scripts:
 
 `pytest`:
  - add more structures
+ - download one structure per space group from materials project
+ - set up a general workflow to evaluate symmetries
 
 Improvements:
  - play around with `rcond`
