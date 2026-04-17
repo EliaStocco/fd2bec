@@ -263,7 +263,7 @@ class AtomicStructure:
             "frac_pos": self.frac_pos.tolist(),
         }
     
-    def to_spglib_cell(self,**kwargs) -> spglib.SpglibDataset:
+    def to_spglib_cell(self,symprec=SYMPREC,**kwargs) -> spglib.SpglibDataset:
         """
         Convert the structure to a spglib-compatible cell representation.
 
@@ -272,8 +272,8 @@ class AtomicStructure:
         tuple
             (cell, scaled_positions, atomic_numbers) for spglib.
         """
-        cell = cellpar_to_cell(self.cellpar), self.frac_pos, [atomic_numbers[s] for s in self.symbols]
-        return spglib.get_symmetry_dataset(cell, **kwargs)
+        cell = cellpar_to_cell(self.cellpar).T, self.frac_pos, [atomic_numbers[s] for s in self.symbols]
+        return spglib.get_symmetry_dataset(cell, symprec=symprec, **kwargs)
     
     def _test_symmetry(self,atol=SYMPREC,**kwargs)->bool:
         spg = self.to_spglib_cell(**kwargs)
@@ -350,12 +350,11 @@ class AtomicStructure:
         spg = self.to_spglib_cell(**kwargs)
         R = spg.rotations
         T = spg.translations
-        mappings = []
-        for r,t in zip(R,T):
+        mappings = [None]*len(R)
+        for n,(r,t) in enumerate(zip(R,T)):
             new_pos = self.frac_pos @ r + t
             new_structure = self.duplicate(frac_pos=new_pos)
-            mapping = self.__get_atoms_mapping(new_structure)
-            mappings.append(mapping)
+            mappings[n] = self.__get_atoms_mapping(new_structure)
         mappings = np.asarray(mappings)
         inv_map = invert_indices(mappings, axis=1)
         
