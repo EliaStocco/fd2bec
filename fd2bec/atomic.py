@@ -10,8 +10,13 @@ from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
 
 from fd2bec import ATOL, DEBUG, SYMPREC
-from fd2bec.mathematics import (affine2homogeneous, append_one, find_mapping,
-                                invert_indices, wrap)
+from fd2bec.mathematics import (
+    affine2homogeneous,
+    append_one,
+    find_mapping,
+    invert_indices,
+    wrap,
+)
 
 
 @dataclass(frozen=True)
@@ -328,9 +333,9 @@ class AtomicStructure:
 
             mapping[idx_other] = idx_self[local_map]
 
-        assert np.all(np.sort(mapping) == np.arange(len(self))), (
-            "Invalid mapping: not a permutation"
-        )
+        assert np.all(
+            np.sort(mapping) == np.arange(len(self))
+        ), "Invalid mapping: not a permutation"
 
         return mapping
 

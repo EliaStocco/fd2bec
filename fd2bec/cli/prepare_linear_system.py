@@ -267,9 +267,9 @@ def main(args):
 
     #         min_displ += 1
 
-    assert b_coeff.shape[0] == A_coeff.shape[0], (
-        f"'b_coeff' and 'A_coeff' must have the same number of rows but they have shapes {b_coeff.shape} and {A_coeff.shape}"
-    )
+    assert (
+        b_coeff.shape[0] == A_coeff.shape[0]
+    ), f"'b_coeff' and 'A_coeff' must have the same number of rows but they have shapes {b_coeff.shape} and {A_coeff.shape}"
 
     # if not args.space_group:
     #     assert A_coeff.shape[1] == x.shape[0], \
@@ -278,9 +278,7 @@ def main(args):
     system_type = (
         "overdetermined"
         if A_coeff.shape[0] > x.shape[0]
-        else "underdetermined"
-        if A_coeff.shape[0] < x.shape[0]
-        else "determined"
+        else "underdetermined" if A_coeff.shape[0] < x.shape[0] else "determined"
     )
     print(f"System type: {system_type}")
 

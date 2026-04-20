@@ -28,7 +28,8 @@ dev = [
     "mp-api",
     "ruff",
     "isort",
-    "pylint"
+    "pylint",
+    "black==24.8.0"
 ]
 
 [build-system]

@@ -48,9 +48,11 @@ def main(args):
     # else:
     #     bec = bec
 
-    assert bec.shape == (Natoms, 3, 3), (
-        f"Expected shape {(Natoms, 3, 3)}, got {bec.shape}"
-    )
+    assert bec.shape == (
+        Natoms,
+        3,
+        3,
+    ), f"Expected shape {(Natoms, 3, 3)}, got {bec.shape}"
 
     bec = bec.reshape((Natoms, 9))
     print(f"Writing cartesian displacements to {args.output} ... ", end="")
