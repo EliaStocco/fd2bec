@@ -5,6 +5,7 @@ from ase.cell import Cell
 from dataclasses import dataclass
 from functools import cached_property
 from fd2bec import SYMPREC, DEBUG, ATOL
+from fd2bec.tools import is_zero
 from fd2bec.mathematics import wrap, find_mapping, invert_indices, affine2homogeneous, append_one
 from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
@@ -159,7 +160,7 @@ class AtomicStructure:
         """Check if two AtomicStructure instances are equal."""
         return self.is_equal_to(other)
     
-    def is_equal_to(self, other: "AtomicStructure", atol=SYMPREC)-> bool:
+    def is_equal_to(self, other: "AtomicStructure", atol=ATOL)-> bool:
         """
         Compare two structures for equality.
 
@@ -190,7 +191,7 @@ class AtomicStructure:
         except ValueError as e:
             return False
         diff = wrap(self.frac_pos[mapping] - other.frac_pos)
-        if not np.allclose(diff,0,atol=atol):
+        if not is_zero(diff,atol):
             return False
 
         return True
@@ -275,15 +276,14 @@ class AtomicStructure:
         cell = cellpar_to_cell(self.cellpar).T, self.frac_pos, [atomic_numbers[s] for s in self.symbols]
         return spglib.get_symmetry_dataset(cell, symprec=symprec, **kwargs)
     
-    def _test_symmetry(self,atol=SYMPREC,**kwargs)->bool:
-        spg = self.to_spglib_cell(**kwargs)
+    def _test_symmetry(self,symprec=SYMPREC,atol=ATOL,**kwargs)->bool:
+        spg = self.to_spglib_cell(symprec=symprec,**kwargs)
         R = spg.rotations
         T = spg.translations
-        for r,t in zip(R,T):
+        for n,(r,t) in enumerate(zip(R,T)):
             new_pos = self.frac_pos @ r + t
             new_structure = self.duplicate(frac_pos=new_pos)
             if not self.is_equal_to(new_structure,atol=atol):
-                self.is_equal_to(new_structure,atol=atol)
                 raise ValueError("Symmetry operation does not preserve the structure")
             if self.space_group != new_structure.space_group:
                 raise ValueError("Symmetry operation does not preserve the space group")
@@ -312,7 +312,7 @@ class AtomicStructure:
             a = self.pos[s]
             b = other.pos[s]
 
-            local_map, ok = find_mapping(a, b, atol=atol)
+            local_map, ok, _ = find_mapping(a, b, atol=atol*len(a))
             if not ok:
                 raise ValueError(f"Mapping failed for species {s}")
 
