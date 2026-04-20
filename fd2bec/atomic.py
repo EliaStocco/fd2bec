@@ -283,7 +283,7 @@ class AtomicStructure:
             (cell, scaled_positions, atomic_numbers) for spglib.
         """
         cell = (
-            cellpar_to_cell(self.cellpar).T,
+            np.transpose(cellpar_to_cell(self.cellpar)),
             self.frac_pos,
             [atomic_numbers[s] for s in self.symbols],
         )

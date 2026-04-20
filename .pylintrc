@@ -5,4 +5,6 @@ disable=
     missing-function-docstring,
     missing-module-docstring,
     too-many-locals,
-    too-many-statements
+    too-many-statements,
+    too-many-positional-arguments,
+    too-many-arguments
