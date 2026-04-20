@@ -88,7 +88,6 @@ def main(args):
         x = x[3:]
     # Su, _, _, _ = unit_cell.get_symmetrizer(rank=2,atomic=True,affine=False)
     # bec = Su @ x # this does not work
-    # ToDo
     # this way to extract the Born Charges of the unit cell
     # from the symmetrized Born Charges of the super cell
     # works ... but I don't like it

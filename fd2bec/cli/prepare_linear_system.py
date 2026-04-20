@@ -148,7 +148,6 @@ def main(args):
     min_displ = A_coeff.shape[1]
 
     if not args.is_delta_dipole:
-        # ToDo
         # this could be improved by using the space group
         # to understand which are the independent components of the dipole
         x = np.concat([np.asarray(["mu_x", "mu_y", "mu_z"], dtype=object), x.astype(object)])
