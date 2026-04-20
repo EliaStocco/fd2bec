@@ -33,9 +33,7 @@ def prepare_args(descr):
         default="lstsq",
         choices=choices,
     )
-    parser.add_argument(
-        "-o", "--output", **argv, type=str, required=True, help="JSON output file"
-    )
+    parser.add_argument("-o", "--output", **argv, type=str, required=True, help="JSON output file")
     return parser
 
 
@@ -43,7 +41,7 @@ def prepare_args(descr):
 def main(args):
 
     print(f"Reading linear system from {args.input} ... ", end="")
-    with open(args.input, "r") as f:
+    with open(args.input, "r", encoding="utf-8") as f:
         problem = json.load(f)
     print("done")
 
@@ -55,6 +53,7 @@ def main(args):
 
     rank = np.linalg.matrix_rank(A)
 
+    residuals = singular_values = None
     if args.method == "pseudo-inverse":
         print("Solving linear system using pseudo-inverse ... ", end="")
         pinv = np.linalg.pinv(A)
@@ -68,6 +67,8 @@ def main(args):
         S_inv = np.diag(1 / s)
         A_pinv = Vh.T @ S_inv @ U.T
         x = A_pinv @ b
+        
+        
 
     elif args.method == "lstsq":
         print("Solving linear system using least squares ... ", end="")
@@ -112,19 +113,17 @@ def main(args):
             "x": x.tolist(),
             "A+": A_pinv.tolist() if args.method == "pseudo-inverse" else None,
             "residuals": residuals.tolist() if args.method == "lstsq" else None,
-            "singular_values": (
-                singular_values.tolist() if args.method == "lstsq" else None
-            ),
+            "singular_values": (singular_values.tolist() if args.method == "lstsq" else None),
             "rank-A": int(rank),
         },
         "equation": problem,
     }
 
     print(f"Saving results to {args.output} ... ", end="")
-    with open(args.output, "w") as f:
+    with open(args.output, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=4)
     print("done")
 
 
 if __name__ == "__main__":
-    main()
+    main() # pylint: disable=no-value-for-parameter

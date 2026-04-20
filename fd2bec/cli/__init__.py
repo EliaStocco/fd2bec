@@ -11,10 +11,9 @@ def str2bool(v: Union[bool, str]):
         return v
     if v.lower() in ("yes", "true", "t", "y", "1"):
         return True
-    elif v.lower() in ("no", "false", "f", "n", "0"):
+    if v.lower() in ("no", "false", "f", "n", "0"):
         return False
-    else:
-        raise argparse.ArgumentTypeError("Boolean value expected.")
+    raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
 def size_type(s: str, dtype=float, N=None):
@@ -23,15 +22,14 @@ def size_type(s: str, dtype=float, N=None):
         s = s.replace(",", " ")
     s = s.split()
     if N is not None and len(s) != N:
-        raise ValueError("You should provide {:d} values".format(N))
-    else:
-        values = []
-        for k in s:
-            if k.lower() == "none":
-                values.append(None)
-            else:
-                values.append(dtype(k))
-        return values  # return list, not np.array, so None stays
+        raise ValueError(f"You should provide {N} values")
+    values = []
+    for k in s:
+        if k.lower() == "none":
+            values.append(None)
+        else:
+            values.append(dtype(k))
+    return values  # return list, not np.array, so None stays
 
 
 def flist(s):

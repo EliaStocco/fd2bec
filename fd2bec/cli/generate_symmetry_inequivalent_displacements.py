@@ -49,9 +49,7 @@ def main(args):
     print("done")
 
     unit_cell = AtomicStructure.from_ase(atoms)
-    S, theta, theta_real, shape = unit_cell.get_symmetrizer(
-        rank=2, atomic=True, affine=False
-    )
+    _, theta, theta_real, _ = unit_cell.get_symmetrizer(rank=2, atomic=True, affine=False)
 
     theta_real = theta_real.reshape((-1, len(atoms), 3, 3))
 
@@ -65,11 +63,9 @@ def main(args):
     u = np.unique(displacements, axis=0)
 
     print(
-        f"Found {u.shape[0]} symmetry inequivalent displacements out of {displacements.shape[0]} total displacements."
+        f"Found {u.shape[0]} symmetry inequivalent displacements out "
+        + f"of {displacements.shape[0]} total displacements."
     )
-
-    # if u.shape != displacements.shape:
-    #     warnings.warn(f"Found {u.shape[0]} symmetry inequivalent displacements out of {displacements.shape[0]} total displacements.", UserWarning)
 
     print(f"Writing cartesian displacements to {args.output} ... ", end="")
     np.savetxt(args.output, u, fmt=float_format)
@@ -77,4 +73,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main()
+    main() # pylint: disable=no-value-for-parameter

@@ -41,3 +41,6 @@ fd2bec = ["structures/*.extxyz", "*.mplstyle"]
 
 [tool.setuptools]
 packages = ["fd2bec"]  # only include fd2bec
+
+[tool.black]
+line-length = 100

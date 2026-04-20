@@ -9,9 +9,7 @@ def wrap(x: np.ndarray):
     return (x + 0.5) % 1.0 - 0.5
 
 
-def find_mapping(
-    a: np.ndarray, b: np.ndarray, atol: float = ATOL
-) -> Tuple[np.ndarray, bool]:
+def find_mapping(a: np.ndarray, b: np.ndarray, atol: float = ATOL) -> Tuple[np.ndarray, bool]:
     """
     Map positions in b to nearest positions in a using minimum image convention.
 
@@ -127,7 +125,7 @@ def homogeneous2affine(H: np.ndarray, tol=ATOL) -> Tuple[np.ndarray, np.ndarray]
     # Batch case
     # ------------------------
     if H.ndim == 3:
-        Nops, m, n = H.shape
+        _, m, n = H.shape
 
         if m != n:
             raise ValueError("Each matrix must be square.")
@@ -140,9 +138,7 @@ def homogeneous2affine(H: np.ndarray, tol=ATOL) -> Tuple[np.ndarray, np.ndarray]
         expected_last_row[-1] = 1.0
 
         if not np.allclose(H[:, -1, :], expected_last_row, atol=tol):
-            raise ValueError(
-                "Invalid homogeneous matrices: last row must be [0, ..., 0, 1]."
-            )
+            raise ValueError("Invalid homogeneous matrices: last row must be [0, ..., 0, 1].")
 
         dim = n - 1
 
@@ -154,7 +150,7 @@ def homogeneous2affine(H: np.ndarray, tol=ATOL) -> Tuple[np.ndarray, np.ndarray]
     # ------------------------
     # Single matrix case
     # ------------------------
-    elif H.ndim == 2:
+    if H.ndim == 2:
         m, n = H.shape
 
         if m != n:
@@ -167,9 +163,7 @@ def homogeneous2affine(H: np.ndarray, tol=ATOL) -> Tuple[np.ndarray, np.ndarray]
         expected_last_row[-1] = 1.0
 
         if not np.allclose(H[-1, :], expected_last_row, atol=tol):
-            raise ValueError(
-                "Invalid homogeneous matrix: last row must be [0, ..., 0, 1]."
-            )
+            raise ValueError("Invalid homogeneous matrix: last row must be [0, ..., 0, 1].")
 
         dim = n - 1
         R = H[:dim, :dim]
@@ -177,5 +171,4 @@ def homogeneous2affine(H: np.ndarray, tol=ATOL) -> Tuple[np.ndarray, np.ndarray]
 
         return R, t
 
-    else:
-        raise ValueError("Input must be a 2D or 3D array.")
+    raise ValueError("Input must be a 2D or 3D array.")

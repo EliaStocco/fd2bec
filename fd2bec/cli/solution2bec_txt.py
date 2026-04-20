@@ -23,10 +23,7 @@ def prepare_args(descr):
         required=True,
         help="JSON input file produced by 'solve_linear_system.py'",
     )
-    # parser.add_argument("-m", "--method"       , **argv, type=str  , required=True, help=f"method: {choices}"+" (default: %(default)s)", default="pseudo-inverse", choices=choices)
-    parser.add_argument(
-        "-o", "--output", **argv, type=str, required=True, help="txt output file"
-    )
+    parser.add_argument("-o", "--output", **argv, type=str, required=True, help="txt output file")
     return parser
 
 
@@ -34,7 +31,7 @@ def prepare_args(descr):
 def main(args):
 
     print(f"Reading solitio system from {args.input} ... ", end="")
-    with open(args.input, "r") as f:
+    with open(args.input, "r", encoding="utf-8") as f:
         solution = json.load(f)
     print("done")
 
@@ -61,4 +58,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main()
+    main() # pylint: disable=no-value-for-parameter

@@ -303,9 +303,7 @@ class AtomicStructure:
             mapping = self.__get_atoms_mapping(new_structure)
             diff = wrap(self.frac_pos[mapping] - new_structure.frac_pos)
             if not np.allclose(diff, 0, atol=atol):
-                raise ValueError(
-                    "Symmetry operation does not preserve atomic positions"
-                )
+                raise ValueError("Symmetry operation does not preserve atomic positions")
         return True
 
     def __get_atoms_mapping(self, other: "AtomicStructure", atol=ATOL) -> np.ndarray:
@@ -378,24 +376,16 @@ class AtomicStructure:
             for r, t, m, im in zip(R, T, mappings, inv_map):
                 new_pos = self.frac_pos @ r + t
                 if not np.allclose(wrap(new_pos - self.frac_pos[m]), 0, atol=SYMPREC):
-                    raise ValueError(
-                        "Error in computing atom mapping for symmetry operation."
-                    )
+                    raise ValueError("Error in computing atom mapping for symmetry operation.")
                 if not np.allclose(wrap(new_pos[im] - self.frac_pos), 0, atol=SYMPREC):
-                    raise ValueError(
-                        "Error in computing atom mapping for symmetry operation."
-                    )
+                    raise ValueError("Error in computing atom mapping for symmetry operation.")
                 new_pos = self.frac_pos[im] @ r + t
                 if not np.allclose(wrap(new_pos - self.frac_pos), 0, atol=SYMPREC):
-                    raise ValueError(
-                        "Error in computing atom mapping for symmetry operation."
-                    )
+                    raise ValueError("Error in computing atom mapping for symmetry operation.")
 
         return inv_map
 
-    def __get_symmetry_operations(
-        self, rank: int, atomic: bool, affine: bool, **kwargs
-    ):
+    def __get_symmetry_operations(self, rank: int, atomic: bool, affine: bool, **kwargs):
         """
         Construct flattened symmetry operations acting on a vector representation.
 
@@ -495,9 +485,7 @@ class AtomicStructure:
         assert kwargs.pop("rank", 1) == 1, "error"
         assert kwargs.pop("atomic", True), "error"
         assert kwargs.pop("affine", True), "error"
-        return self.__get_symmetry_operations(
-            rank=1, atomic=True, affine=True, **kwargs
-        )
+        return self.__get_symmetry_operations(rank=1, atomic=True, affine=True, **kwargs)
 
     def get_homogeneous_symmetry_operations(self, **kwargs):
         """
@@ -552,9 +540,7 @@ class AtomicStructure:
             raise ValueError("Eigenvalues should be real")
         w = w.real
 
-        if debug and not np.all(
-            (np.isclose(w, 0, atol=atol)) | (np.isclose(w, 1, atol=atol))
-        ):
+        if debug and not np.all((np.isclose(w, 0, atol=atol)) | (np.isclose(w, 1, atol=atol))):
             raise ValueError("Eigenvalues should be 0 or 1.")
 
         mask = np.where(w > 0.5)[0]

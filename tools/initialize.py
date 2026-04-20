@@ -4,7 +4,7 @@ from collections import defaultdict
 CLI_ROOT = Path("fd2bec/cli")
 
 
-def main():
+def main() # pylint: disable=no-value-for-parameter:
     groups = defaultdict(list)
 
     for py in CLI_ROOT.rglob("*.py"):
@@ -33,4 +33,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main() # pylint: disable=no-value-for-parameter

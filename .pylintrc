@@ -1,0 +1,8 @@
+[MESSAGES CONTROL]
+disable=
+    R0801,
+    invalid-name,
+    missing-function-docstring,
+    missing-module-docstring,
+    too-many-locals,
+    too-many-statements
