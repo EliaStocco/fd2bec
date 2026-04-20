@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from ase.io import read
-from fd2bec import SYMPREC
+from fd2bec import SYMPREC, ATOL
 from fd2bec.conftest import structure, structures_dir
 from fd2bec.tools import ase2spglib_dataset
 from fd2bec.mathematics import wrap
@@ -76,6 +76,7 @@ def test_structures_spacegroup_positions(structure):
     n, file_path = structure
     
     atoms = read(file_path, index=0)
+    atol=ATOL*len(atoms)
     N = atoms.get_global_number_of_atoms()
 
     dataset = ase2spglib_dataset(atoms, symprec=SYMPREC)
@@ -84,19 +85,19 @@ def test_structures_spacegroup_positions(structure):
     frac_pos = atoms.get_scaled_positions()
     new_frac = frac_pos.copy()
     
-    tmp = AtomicStructure.from_ase(atoms)
-    assert tmp._test_symmetry(), "Error in AtomicStructure._test_symmetry() method"
-    
-    tmp.get_affine_symmetry_operations()
+    atomic_structure = AtomicStructure.from_ase(atoms)
+    assert atomic_structure._test_symmetry(atol=atol), "Error in AtomicStructure._test_symmetry() method"
 
     for op_idx, (R, t) in enumerate(zip(dataset.rotations, dataset.translations)):
         new_frac = (new_frac @ R + t[None, :])
         new_atoms.set_scaled_positions(new_frac)
+        tmp = AtomicStructure.from_ase(new_atoms)
 
-        if AtomicStructure.from_ase(atoms) != AtomicStructure.from_ase(new_atoms):
+        if not atomic_structure.is_equal_to(tmp,atol=atol):
             # compute distances for debugging
-            diff = new_frac - frac_pos
-            diff = wrap(diff)
+            
+            mapping = atomic_structure.__get_atoms_mapping(tmp)
+            diff = wrap(atomic_structure.frac_pos[mapping] - tmp.frac_pos)
             max_dev = np.max(np.abs(diff))
 
             raise AssertionError(
@@ -112,7 +113,7 @@ def test_structures_spacegroup_positions(structure):
     diff = wrap(diff)
     max_dev = np.max(np.abs(diff))
 
-    assert np.allclose(diff, 0, atol=1e-5 * N), (
+    assert np.allclose(diff, 0, atol=ATOL * N), (
         f"{file_path}: Final symmetry mismatch\n"
         f"Max deviation: {max_dev:.3e}\n"
         f"Tolerance: {1e-5 * N:.3e}\n"
