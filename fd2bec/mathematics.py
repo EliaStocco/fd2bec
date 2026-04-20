@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.spatial import cKDTree
 from fd2bec import ATOL
 from typing import Tuple
 
@@ -17,7 +16,7 @@ def find_mapping(a: np.ndarray, b: np.ndarray, atol: float = ATOL)->Tuple[np.nda
     if a.shape != b.shape:
         return np.array([]), False
 
-    tree = cKDTree(a)
+    # tree = cKDTree(a)
 
     mapping = np.zeros(len(b), dtype=int)
     dists = np.zeros(len(b))
@@ -30,7 +29,7 @@ def find_mapping(a: np.ndarray, b: np.ndarray, atol: float = ATOL)->Tuple[np.nda
         mapping[i] = j
         dists[i] = dist[j]
 
-    return mapping, np.all(dists <= atol)
+    return mapping, np.all(dists <= atol), dists
 
 def invert_indices(indices:np.ndarray,axis=None)->np.ndarray:
     """
