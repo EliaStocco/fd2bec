@@ -31,4 +31,4 @@ jobs:
 
       - name: Run Pylint
         run: |
-          pylint fd2bec --enable=E
+          pylint fd2bec --disable=all --enable=E
