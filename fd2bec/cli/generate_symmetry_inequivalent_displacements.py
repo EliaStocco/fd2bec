@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 from ase.io import read
 
@@ -9,7 +11,6 @@ description = "Generate all symmetry inequivalent cartesian displacements."
 
 
 def prepare_args(descr):
-    import argparse
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}

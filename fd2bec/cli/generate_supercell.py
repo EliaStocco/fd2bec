@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 from ase.build import make_supercell
 from ase.io import read, write
@@ -24,7 +26,6 @@ choices = ["cell-major", "atom-major"]
 
 
 def prepare_args(descr):
-    import argparse
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}

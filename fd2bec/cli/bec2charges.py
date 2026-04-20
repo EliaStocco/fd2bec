@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 
 from fd2bec import float_format
@@ -7,7 +9,6 @@ description = "Convert BEC to atomic charges."
 
 
 def prepare_args(descr):
-    import argparse
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}

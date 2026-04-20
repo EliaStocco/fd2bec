@@ -1,3 +1,4 @@
+import argparse
 import json
 
 import numpy as np
@@ -13,7 +14,6 @@ description = (
 
 
 def prepare_args(descr):
-    import argparse
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}

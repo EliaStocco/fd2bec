@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 import pandas as pd
 from ase.io import read
@@ -8,7 +10,6 @@ description = "Overview of the mathematical problem to solve."
 
 
 def prepare_args(descr):
-    import argparse
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}

@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 from ase.io import read
 
@@ -8,7 +10,6 @@ description = "Extract BEC from a extxyz file and convert it to a txt file."
 
 
 def prepare_args(descr):
-    import argparse
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
