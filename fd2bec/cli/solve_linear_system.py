@@ -67,8 +67,8 @@ def main(args):
         S_inv = np.diag(1 / s)
         A_pinv = Vh.T @ S_inv @ U.T
         x = A_pinv @ b
-        
-        
+
+
 
     elif args.method == "lstsq":
         print("Solving linear system using least squares ... ", end="")
