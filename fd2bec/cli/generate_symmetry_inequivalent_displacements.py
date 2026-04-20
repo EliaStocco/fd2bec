@@ -8,10 +8,10 @@ from fd2bec.cli import cli
 description = "Generate all symmetry inequivalent cartesian displacements."
 
 
-def prepare_args(description):
+def prepare_args(descr):
     import argparse
 
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
     parser.add_argument(
         "-i",

@@ -7,10 +7,10 @@ from fd2bec.cli import cli
 description = "Overview of the mathematical problem to solve."
 
 
-def prepare_args(description):
+def prepare_args(descr):
     import argparse
 
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
     parser.add_argument(
         "-i",

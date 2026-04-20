@@ -10,10 +10,10 @@ description = "Solve a linear system."
 choices = ["pseudo-inverse", "lstsq"]
 
 
-def prepare_args(description):
+def prepare_args(descr):
     import argparse
 
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
     parser.add_argument(
         "-i",
