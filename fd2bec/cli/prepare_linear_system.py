@@ -150,7 +150,7 @@ def main(args):
     if not args.is_delta_dipole:
         # this could be improved by using the space group
         # to understand which are the independent components of the dipole
-        x = np.concat([np.asarray(["mu_x", "mu_y", "mu_z"], dtype=object), x.astype(object)])
+        x = np.concatenate([np.asarray(["mu_x", "mu_y", "mu_z"], dtype=object), x.astype(object)])
         nr = int(len(b_coeff) / 3)
         tmp = np.tile(-np.eye(3), nr).T
         A_coeff = np.hstack([tmp, A_coeff])
