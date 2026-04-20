@@ -108,9 +108,9 @@ def test_inverse_property():
     # Should be identity
     H_id = H @ H_inv
 
-    I = np.eye(dim + 1)
+    Id = np.eye(dim + 1)
 
-    assert np.allclose(H_id, I, atol=ATOL)
+    assert np.allclose(H_id, Id, atol=ATOL)
 
 
 def test_batch_consistency():

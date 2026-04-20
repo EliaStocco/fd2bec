@@ -13,7 +13,6 @@ def test_fractional_rank_1(structure):
     n, file_path = structure
 
     atoms = read(file_path, index=0)
-    Natoms = atoms.get_global_number_of_atoms()
 
     atomic_structure = AtomicStructure.from_ase(atoms)
 
