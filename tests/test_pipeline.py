@@ -3,20 +3,19 @@ import shutil
 from pathlib import Path
 import pytest
 import numpy as np
-from fd2bec.conftest import _RESULTS, pytest_sessionfinish
 
 # -------------------------
 # Configuration
 # -------------------------
 DATA_DIR = Path(__file__).parent / "data"
 DATASETS = [p for p in DATA_DIR.iterdir() if p.is_dir()]
-
 DEBUG_DIR = Path(__file__).parent / "test_outputs"
 
 # -------------------------
 # Helper
-# -------------------------
+# -------------------------    
 def run_pipeline(workdir: Path, method: str):
+    
     subprocess.run(
         [
             "prepare_linear_system",
@@ -68,10 +67,8 @@ COMBOS = [
 ]
 
 @pytest.mark.parametrize("folder, method", COMBOS)
-def test_pipeline(tmp_path: Path, folder: Path, method: str):
+def test_pipeline(tmp_path: Path, folder: Path, method: str,pytestconfig):
     
-    global _RESULTS
-
     # Copy dataset into tmp working directory
     for file in folder.iterdir():
         shutil.copy(file, tmp_path / file.name)
@@ -102,12 +99,12 @@ def test_pipeline(tmp_path: Path, folder: Path, method: str):
         # -------------------------
         # Append row correctly
         # -------------------------
-        global _RESULTS
-        _RESULTS.append({
+        pytestconfig.results.append({
             "folder": folder.name,
             "method": method,
             "norm": float(norm),
         })
+
 
     except Exception:
         debug_out.parent.mkdir(exist_ok=True)
@@ -122,4 +119,3 @@ def test_pipeline(tmp_path: Path, folder: Path, method: str):
 # -------------------------
 if __name__ == "__main__":
     pytest.main([__file__])
-    pytest_sessionfinish(0,0)

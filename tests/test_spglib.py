@@ -2,10 +2,11 @@ import pytest
 import numpy as np
 from ase.io import read
 from fd2bec import SYMPREC, ATOL
-from fd2bec.conftest import structure, structures_dir
 from fd2bec.tools import ase2spglib_dataset
 from fd2bec.mathematics import wrap
 from fd2bec.atomic import AtomicStructure
+
+# structures_dir = Path(__file__).resolve().parents[1] / "fd2bec" / "structures"
 
 def test_spacegroup(structure):
     """
@@ -36,7 +37,7 @@ def test_spacegroup(structure):
         f"Symprec: {SYMPREC}"
     )
             
-def test_number_operations():
+def test_number_operations(structures_dir):
     """
     Test that the structures have the correct number of symmetry operations
     across supercells.

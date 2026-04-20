@@ -25,7 +25,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pymatgen",
-    "mp-api"
+    "mp-api",
+    "ruff"
 ]
 
 [build-system]

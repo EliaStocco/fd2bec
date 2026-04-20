@@ -55,7 +55,7 @@ def main(args):
         
     unit_cell = AtomicStructure(**problem["unitcell"])
     # super_cell = AtomicStructure(**problem["supercell"])
-    Natoms = len(unit_cell)
+    len(unit_cell)
     
     # if "symmetrizer" in problem["symmetry"] and problem["symmetry"]["symmetrizer"] is not None:
     S = np.asarray(problem["symmetry"]["symmetrizer"])

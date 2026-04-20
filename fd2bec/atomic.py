@@ -467,7 +467,7 @@ class AtomicStructure:
         """
         Flattened symmetry operations for the atomic tensors.
         """
-        assert kwargs.pop('affine',False) == False, "error"
+        assert not kwargs.pop('affine',False), "error"
         return self.__get_symmetry_operations(affine=False,**kwargs)[0]
 
     def get_affine_symmetry_operations(self,**kwargs):
@@ -475,8 +475,8 @@ class AtomicStructure:
         Flattened affine symmetry operations for the atomic coordinates.
         """
         assert kwargs.pop('rank',1) == 1, "error"
-        assert kwargs.pop('atomic',True) == True, "error"
-        assert kwargs.pop('affine',True) == True, "error"
+        assert kwargs.pop('atomic',True), "error"
+        assert kwargs.pop('affine',True), "error"
         return self.__get_symmetry_operations(rank=1,atomic=True,affine=True,**kwargs)
     
     def get_homogeneous_symmetry_operations(self,**kwargs):

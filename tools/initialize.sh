@@ -11,10 +11,12 @@ fi
 python tools/initialize.py > tools/scripts.toml
 
 # Rebuild pyproject.toml
-cat tools/template.toml tools/scripts.toml > pyproject.toml
+pylint --generate-toml-config > tools/pylint_pyproject.toml
+cat tools/template.toml tools/scripts.toml tools/pylint_pyproject.toml > pyproject.toml
 
 # Lock it down again
 chmod 444 pyproject.toml
 
 # Cleanup
 rm tools/scripts.toml
+rm tools/pylint_pyproject.toml

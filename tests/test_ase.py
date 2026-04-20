@@ -1,7 +1,6 @@
 import numpy as np
 from ase.io import read
 import pytest
-from fd2bec.conftest import structure
 
 def test_read(structure):
     n, file = structure

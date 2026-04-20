@@ -2,7 +2,6 @@ import sys
 import time
 import argparse
 from functools import wraps
-from fd2bec import DEBUG
 from typing import Union
 
 #---------------------------------------#
@@ -32,9 +31,12 @@ def size_type(s: str, dtype=float, N=None):
                 values.append(dtype(k))
         return values  # return list, not np.array, so None stays
     
-flist = lambda s:size_type(s,float) # float list
-ilist = lambda s:size_type(s,int)   # integer list
-slist = lambda s:size_type(s,str)   # string list
+def flist(s):
+    return size_type(s,float) # float list
+def ilist(s):
+    return size_type(s,int)   # integer list
+def slist(s):
+    return size_type(s,str)   # string list
 
 def cli(prepare_parser=None, description=None):
     """

@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from ase.io import read
 from fd2bec import ATOL
-from fd2bec.conftest import structure
+# # from fd2bec.conftest import structure # noqa: F401
 from fd2bec.atomic import AtomicStructure
 from fd2bec.mathematics import append_one, remove_one
 
