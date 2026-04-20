@@ -1,7 +1,8 @@
-from fd2bec.cli import cli, ilist
-from ase.io import read, write
-from ase.build import make_supercell
 import numpy as np
+from ase.build import make_supercell
+from ase.io import read, write
+
+from fd2bec.cli import cli, ilist
 
 description = """Generate supercell structures from a unit cell structure.
     -t/--type:

@@ -1,5 +1,7 @@
 import json
+
 import numpy as np
+
 from fd2bec import float_format
 from fd2bec.cli import cli
 

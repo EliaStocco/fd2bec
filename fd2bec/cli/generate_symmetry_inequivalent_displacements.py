@@ -1,8 +1,9 @@
 import numpy as np
 from ase.io import read
-from fd2bec.cli import cli
+
 from fd2bec import float_format
 from fd2bec.atomic import AtomicStructure
+from fd2bec.cli import cli
 
 description = "Generate all symmetry inequivalent cartesian displacements."
 

@@ -1,7 +1,8 @@
-from fd2bec.cli import cli
-from ase.io import read
 import numpy as np
 import pandas as pd
+from ase.io import read
+
+from fd2bec.cli import cli
 
 description = "Overview of the mathematical problem to solve."
 

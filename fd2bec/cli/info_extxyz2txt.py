@@ -1,7 +1,8 @@
+import numpy as np
+from ase.io import read
+
 from fd2bec import float_format
 from fd2bec.cli import cli
-from ase.io import read
-import numpy as np
 
 description = "Extract an 'info' from a extxyz file and convert it to a txt file."
 

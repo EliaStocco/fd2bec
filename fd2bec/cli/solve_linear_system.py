@@ -1,7 +1,9 @@
 import json
+
 import numpy as np
-from fd2bec.cli import cli
+
 from fd2bec.atomic import AtomicStructure
+from fd2bec.cli import cli
 
 description = "Solve a linear system."
 

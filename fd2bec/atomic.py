@@ -1,20 +1,17 @@
 # pylint: disable=invalid-name
+from dataclasses import dataclass
+from functools import cached_property
+
 import numpy as np
 import spglib
 from ase import Atoms
 from ase.cell import Cell
-from dataclasses import dataclass
-from functools import cached_property
-from fd2bec import SYMPREC, DEBUG, ATOL
-from fd2bec.mathematics import (
-    wrap,
-    find_mapping,
-    invert_indices,
-    affine2homogeneous,
-    append_one,
-)
 from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
+
+from fd2bec import ATOL, DEBUG, SYMPREC
+from fd2bec.mathematics import (affine2homogeneous, append_one, find_mapping,
+                                invert_indices, wrap)
 
 
 @dataclass(frozen=True)

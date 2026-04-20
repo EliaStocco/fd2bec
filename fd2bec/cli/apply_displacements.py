@@ -1,6 +1,7 @@
-from fd2bec.cli import cli
-from ase.io import read, write
 import numpy as np
+from ase.io import read, write
+
+from fd2bec.cli import cli
 
 description = "Apply the displacements to an atomic structure."
 

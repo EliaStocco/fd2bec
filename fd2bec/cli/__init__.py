@@ -1,6 +1,6 @@
+import argparse
 import sys
 import time
-import argparse
 from functools import wraps
 from typing import Union
 

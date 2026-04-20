@@ -1,6 +1,8 @@
-import numpy as np
-from fd2bec import ATOL
 from typing import Tuple
+
+import numpy as np
+
+from fd2bec import ATOL
 
 
 def wrap(x: np.ndarray):

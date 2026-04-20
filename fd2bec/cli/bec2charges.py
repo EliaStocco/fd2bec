@@ -1,6 +1,7 @@
+import numpy as np
+
 from fd2bec import float_format
 from fd2bec.cli import cli
-import numpy as np
 
 description = "Convert BEC to atomic charges."
 
