@@ -1,12 +1,16 @@
 import numpy as np
 import spglib
 from ase import Atoms
+from ase.utils import atoms_to_spglib_cell
+from fd2bec import ATOL
 
-def ase2spglib_cell(atoms:Atoms):
-    return atoms.get_cell()[:], atoms.get_scaled_positions(), atoms.get_atomic_numbers()
+def is_zero(x:np.ndarray, atol:float=ATOL)->bool:
+    assert atol > 0, "Tolerance must be positive"
+    assert isinstance(atol, (int, float)), "Tolerance must be a number"
+    return np.all(abs(x) <= atol)
 
 def ase2spglib_dataset(atoms:Atoms,**kwargs) -> spglib.SpglibDataset:
-    cell = ase2spglib_cell(atoms)
+    cell = atoms_to_spglib_cell(atoms)
     return spglib.get_symmetry_dataset(cell, **kwargs)
 
 def invert_mapping_to_list(mapping:list[int]) -> list[list[int]]:
