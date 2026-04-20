@@ -2,12 +2,6 @@ import numpy as np
 import spglib
 from ase import Atoms
 from ase.utils import atoms_to_spglib_cell
-from fd2bec import ATOL
-
-def is_zero(x:np.ndarray, atol:float=ATOL)->bool:
-    assert atol > 0, "Tolerance must be positive"
-    assert isinstance(atol, (int, float)), "Tolerance must be a number"
-    return np.all(abs(x) <= atol)
 
 def ase2spglib_dataset(atoms:Atoms,**kwargs) -> spglib.SpglibDataset:
     cell = atoms_to_spglib_cell(atoms)

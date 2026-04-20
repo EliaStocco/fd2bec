@@ -5,7 +5,6 @@ from ase.cell import Cell
 from dataclasses import dataclass
 from functools import cached_property
 from fd2bec import SYMPREC, DEBUG, ATOL
-from fd2bec.tools import is_zero
 from fd2bec.mathematics import wrap, find_mapping, invert_indices, affine2homogeneous, append_one
 from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
@@ -191,7 +190,7 @@ class AtomicStructure:
         except ValueError as e:
             return False
         diff = wrap(self.frac_pos[mapping] - other.frac_pos)
-        if not is_zero(diff,atol):
+        if not np.allclose(diff,0,atol=atol):
             return False
 
         return True
