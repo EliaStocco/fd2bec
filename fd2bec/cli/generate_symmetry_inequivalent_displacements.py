@@ -1,6 +1,5 @@
 import numpy as np
 from ase.io import read
-import warnings
 from fd2bec.cli import cli
 from fd2bec import float_format
 from fd2bec.atomic import AtomicStructure

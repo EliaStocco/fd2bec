@@ -1,9 +1,7 @@
 import json
 import numpy as np
-from fd2bec import ATOL
 from fd2bec.cli import cli
 from fd2bec.atomic import AtomicStructure
-from fd2bec.mathematics import remove_one
 
 description = "Solve a linear system."
 

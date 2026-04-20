@@ -187,7 +187,7 @@ class AtomicStructure:
         
         try:
             mapping = self.__get_atoms_mapping(other,atol=atol)  # will raise ValueError if not equal
-        except ValueError as e:
+        except ValueError:
             return False
         diff = wrap(self.frac_pos[mapping] - other.frac_pos)
         if not np.allclose(diff,0,atol=atol):
