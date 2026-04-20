@@ -1,6 +1,5 @@
 def test_packages():
     import numpy
-    import scipy
     import pandas
     import typing_extensions
     import matplotlib

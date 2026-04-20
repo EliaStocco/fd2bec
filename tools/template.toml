@@ -9,7 +9,7 @@ requires-python = ">=3.9"
 
 dependencies = [
     "numpy",
-    "scipy",
+    # "scipy",
     "pandas",
     "typing-extensions",  # For better compatibility with type hints
     "matplotlib",
@@ -20,6 +20,12 @@ dependencies = [
     "pytest",
     "spglib",
     "ase"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pymatgen",
+    "mp-api"
 ]
 
 [build-system]
