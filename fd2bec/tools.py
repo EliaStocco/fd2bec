@@ -3,11 +3,13 @@ import spglib
 from ase import Atoms
 from ase.utils import atoms_to_spglib_cell
 
-def ase2spglib_dataset(atoms:Atoms,**kwargs) -> spglib.SpglibDataset:
+
+def ase2spglib_dataset(atoms: Atoms, **kwargs) -> spglib.SpglibDataset:
     cell = atoms_to_spglib_cell(atoms)
     return spglib.get_symmetry_dataset(cell, **kwargs)
 
-def invert_mapping_to_list(mapping:list[int]) -> list[list[int]]:
+
+def invert_mapping_to_list(mapping: list[int]) -> list[list[int]]:
     """
     Invert a mapping from supercell atoms to primitive atoms
     into a list of lists grouped by primitive atom index.
@@ -34,7 +36,8 @@ def invert_mapping_to_list(mapping:list[int]) -> list[list[int]]:
 
     return reverse
 
-def allclose_chunked(a:np.ndarray, b:np.ndarray, atol:float)->bool:
+
+def allclose_chunked(a: np.ndarray, b: np.ndarray, atol: float) -> bool:
     for i in range(a.shape[0]):
         if not np.all(np.abs(a[i] - b[i]) <= atol):
             return False

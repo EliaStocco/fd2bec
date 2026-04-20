@@ -11,19 +11,24 @@ DATA_DIR = Path(__file__).parent / "data"
 DATASETS = [p for p in DATA_DIR.iterdir() if p.is_dir()]
 DEBUG_DIR = Path(__file__).parent / "test_outputs"
 
+
 # -------------------------
 # Helper
-# -------------------------    
+# -------------------------
 def run_pipeline(workdir: Path, method: str):
-    
+
     subprocess.run(
         [
             "prepare_linear_system",
-            "-uc", "start.extxyz",
+            "-uc",
+            "start.extxyz",
             # "-sc", "supercell.extxyz",
-            "-b", "dipole.txt",
-            "-A", "displacement.txt",
-            "-o", "to_solve.json",
+            "-b",
+            "dipole.txt",
+            "-A",
+            "displacement.txt",
+            "-o",
+            "to_solve.json",
             # "-asr", str(asr),
             # "-spg", spg
         ],
@@ -34,9 +39,12 @@ def run_pipeline(workdir: Path, method: str):
     subprocess.run(
         [
             "solve_linear_system",
-            "-i", "to_solve.json",
-            "-o", "solution.json",
-            "-m", method,
+            "-i",
+            "to_solve.json",
+            "-o",
+            "solution.json",
+            "-m",
+            method,
         ],
         cwd=workdir,
         check=True,
@@ -45,8 +53,10 @@ def run_pipeline(workdir: Path, method: str):
     subprocess.run(
         [
             "solution2bec_txt",
-            "-i", "solution.json",
-            "-o", "bec.txt",
+            "-i",
+            "solution.json",
+            "-o",
+            "bec.txt",
         ],
         cwd=workdir,
         check=True,
@@ -57,18 +67,18 @@ def run_pipeline(workdir: Path, method: str):
 # The test
 # -------------------------
 COMBOS = [
-    pytest.param(folder, method,
-                 id=f"{folder.name}_{method}")
+    pytest.param(folder, method, id=f"{folder.name}_{method}")
     for folder in DATASETS
     # for asr in [-1, 0, 1, 10, 100, 1e3, 1e4]
-    for method in ["lstsq", "pseudo-inverse"] # 
+    for method in ["lstsq", "pseudo-inverse"]  #
     # for spg in ["true", "false"]
     # if asr == -1
 ]
 
+
 @pytest.mark.parametrize("folder, method", COMBOS)
-def test_pipeline(tmp_path: Path, folder: Path, method: str,pytestconfig):
-    
+def test_pipeline(tmp_path: Path, folder: Path, method: str, pytestconfig):
+
     # Copy dataset into tmp working directory
     for file in folder.iterdir():
         shutil.copy(file, tmp_path / file.name)
@@ -99,12 +109,13 @@ def test_pipeline(tmp_path: Path, folder: Path, method: str,pytestconfig):
         # -------------------------
         # Append row correctly
         # -------------------------
-        pytestconfig.results.append({
-            "folder": folder.name,
-            "method": method,
-            "norm": float(norm),
-        })
-
+        pytestconfig.results.append(
+            {
+                "folder": folder.name,
+                "method": method,
+                "norm": float(norm),
+            }
+        )
 
     except Exception:
         debug_out.parent.mkdir(exist_ok=True)

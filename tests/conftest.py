@@ -5,6 +5,7 @@ import pandas as pd
 repo_root = Path(__file__).resolve().parents[1]
 # structures_dir = repo_root / "fd2bec" / "structures"
 
+
 @pytest.fixture(scope="session")
 def structures_dir():
     return Path(__file__).resolve().parents[1] / "fd2bec" / "structures"
@@ -18,7 +19,7 @@ def structure(request, structures_dir):
 
 
 def pytest_configure(config):
-    config.results = []   # shared storage
+    config.results = []  # shared storage
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -35,19 +36,18 @@ def pytest_sessionfinish(session, exitstatus):
 
     print("\nSaved results.csv")
     print(df)
-    
-    df_to_pdf(df,Path(session.config.rootpath) / "table.pdf")
-    
+
+    df_to_pdf(df, Path(session.config.rootpath) / "table.pdf")
+
+
 def df_to_pdf(df, filename):
     import matplotlib.pyplot as plt
+
     fig, ax = plt.subplots(figsize=(12, 0.5 + 0.3 * len(df)))
     ax.axis("off")
 
     table = ax.table(
-        cellText=df.values,
-        colLabels=df.columns,
-        cellLoc="center",
-        loc="center"
+        cellText=df.values, colLabels=df.columns, cellLoc="center", loc="center"
     )
 
     table.auto_set_font_size(False)
@@ -56,6 +56,3 @@ def df_to_pdf(df, filename):
 
     plt.savefig(filename, bbox_inches="tight")
     plt.close()
-    
-
-

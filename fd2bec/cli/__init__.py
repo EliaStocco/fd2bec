@@ -4,8 +4,9 @@ import argparse
 from functools import wraps
 from typing import Union
 
-#---------------------------------------#
-def str2bool(v:Union[bool,str]):
+
+# ---------------------------------------#
+def str2bool(v: Union[bool, str]):
     if isinstance(v, bool):
         return v
     if v.lower() in ("yes", "true", "t", "y", "1"):
@@ -14,7 +15,8 @@ def str2bool(v:Union[bool,str]):
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
-    
+
+
 def size_type(s: str, dtype=float, N=None):
     s = s.replace("[", "").replace("]", "")
     if "," in s:
@@ -30,13 +32,19 @@ def size_type(s: str, dtype=float, N=None):
             else:
                 values.append(dtype(k))
         return values  # return list, not np.array, so None stays
-    
+
+
 def flist(s):
-    return size_type(s,float) # float list
+    return size_type(s, float)  # float list
+
+
 def ilist(s):
-    return size_type(s,int)   # integer list
+    return size_type(s, int)  # integer list
+
+
 def slist(s):
-    return size_type(s,str)   # string list
+    return size_type(s, str)  # string list
+
 
 def cli(prepare_parser=None, description=None):
     """
@@ -69,7 +77,7 @@ def cli(prepare_parser=None, description=None):
             print(f"Running: {' '.join(sys.argv)}\n")
 
             # --- run main ---
-            
+
             result = main_func(args)
 
             # --- footer ---

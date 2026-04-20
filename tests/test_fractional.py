@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from ase.io import read
 from fd2bec import ATOL
+
 # # from fd2bec.conftest import structure # noqa: F401
 from fd2bec.atomic import AtomicStructure
 
@@ -16,7 +17,7 @@ def test_fractional_rank_1(structure):
 
     atomic_structure = AtomicStructure.from_ase(atoms)
 
-    arrays_to_test = ['positions', 'REF_forces', 'REF_atomic_dipoles']
+    arrays_to_test = ["positions", "REF_forces", "REF_atomic_dipoles"]
 
     for name in arrays_to_test:
         if name not in atoms.arrays:
@@ -51,7 +52,8 @@ def test_fractional_rank_1(structure):
             f"\nShape: {pos.shape}"
             f"\nMax |Δ|: {max_cart:.3e}"
         )
-        
+
+
 def test_fractional_rank_2(structure):
     """
     Test that structures have correct consistency between Cartesian and fractional transforms.
@@ -63,18 +65,18 @@ def test_fractional_rank_2(structure):
 
     atomic_structure = AtomicStructure.from_ase(atoms)
 
-    to_test = ['REF_BEC', 'REF_stress']
+    to_test = ["REF_BEC", "REF_stress"]
 
     for name in to_test:
         if name in atoms.arrays:
-            pos = atoms.arrays[name].reshape((Natoms,3,3))
+            pos = atoms.arrays[name].reshape((Natoms, 3, 3))
         elif name in atoms.info:
-            pos = atoms.info[name].reshape((3,3))
+            pos = atoms.info[name].reshape((3, 3))
         else:
             pytest.skip(f"{file_path}: missing '{name}'")
 
-        frac_pos_test = atomic_structure.to_fractional(pos,rank=2)
-        cart_test = atomic_structure.to_cartesian(frac_pos_test,rank=2)
+        frac_pos_test = atomic_structure.to_fractional(pos, rank=2)
+        cart_test = atomic_structure.to_cartesian(frac_pos_test, rank=2)
         diff_cart = np.abs(pos - cart_test)
         max_cart = np.max(diff_cart)
 
@@ -86,6 +88,7 @@ def test_fractional_rank_2(structure):
             f"\nShape: {pos.shape}"
             f"\nMax |Δ|: {max_cart:.3e}"
         )
-        
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

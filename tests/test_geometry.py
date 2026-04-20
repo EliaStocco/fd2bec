@@ -128,6 +128,7 @@ def test_batch_consistency():
     for i in range(Nops):
         H_single = affine2homogeneous(np.array([R[i]]), np.array([T[i]]))[0]
         assert np.allclose(H_batch[i], H_single, atol=ATOL)
-        
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

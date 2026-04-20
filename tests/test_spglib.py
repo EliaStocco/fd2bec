@@ -8,13 +8,14 @@ from fd2bec.atomic import AtomicStructure
 
 # structures_dir = Path(__file__).resolve().parents[1] / "fd2bec" / "structures"
 
+
 def test_spacegroup(structure):
     """
     Test that the structures have the correct number of atoms
     and all have space group 99.
     """
     n, file_path = structure
-    
+
     atoms = read(file_path, index=0)
 
     factor = n**3
@@ -36,7 +37,8 @@ def test_spacegroup(structure):
         f"International symbol: {dataset.international}\n"
         f"Symprec: {SYMPREC}"
     )
-            
+
+
 def test_number_operations(structures_dir):
     """
     Test that the structures have the correct number of symmetry operations
@@ -68,16 +70,17 @@ def test_number_operations(structures_dir):
                 f"Supercell factor (n^3): {factor}\n"
                 f"Symprec: {SYMPREC}"
             )
-            
+
+
 def test_structures_spacegroup_positions(structure):
     """
     Test that the structures have the correct number of atoms,
     correct space group, and that atomic positions are symmetric.
     """
     n, file_path = structure
-    
+
     atoms = read(file_path, index=0)
-    atol=ATOL*len(atoms)
+    atol = ATOL * len(atoms)
     N = atoms.get_global_number_of_atoms()
 
     dataset = ase2spglib_dataset(atoms, symprec=SYMPREC)
@@ -85,18 +88,20 @@ def test_structures_spacegroup_positions(structure):
 
     frac_pos = atoms.get_scaled_positions()
     new_frac = frac_pos.copy()
-    
+
     atomic_structure = AtomicStructure.from_ase(atoms)
-    assert atomic_structure._test_symmetry(atol=atol), "Error in AtomicStructure._test_symmetry() method"
+    assert atomic_structure._test_symmetry(atol=atol), (
+        "Error in AtomicStructure._test_symmetry() method"
+    )
 
     for op_idx, (R, t) in enumerate(zip(dataset.rotations, dataset.translations)):
-        new_frac = (new_frac @ R + t[None, :])
+        new_frac = new_frac @ R + t[None, :]
         new_atoms.set_scaled_positions(new_frac)
         tmp = AtomicStructure.from_ase(new_atoms)
 
-        if not atomic_structure.is_equal_to(tmp,atol=atol):
+        if not atomic_structure.is_equal_to(tmp, atol=atol):
             # compute distances for debugging
-            
+
             mapping = atomic_structure.__get_atoms_mapping(tmp)
             diff = wrap(atomic_structure.frac_pos[mapping] - tmp.frac_pos)
             max_dev = np.max(np.abs(diff))
@@ -120,7 +125,7 @@ def test_structures_spacegroup_positions(structure):
         f"Tolerance: {1e-5 * N:.3e}\n"
         f"Mean deviation: {np.mean(np.abs(diff)):.3e}"
     )
-        
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
