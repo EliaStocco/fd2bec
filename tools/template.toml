@@ -23,14 +23,19 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pymatgen",
-    "mp-api",
+    # "pymatgen",
+    # "mp-api",
     "ruff",
     "isort",
     "pylint",
     "black==24.8.0",
     "pytest",
     "pytest-cov"
+]
+dev-mp = [
+    "pymatgen",
+    "mp-api",
+    "python_requires>=3.11; python_version < '3.11'"
 ]
 
 [build-system]
