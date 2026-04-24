@@ -3,14 +3,17 @@ A python package to efficiently evaluate Born Effective Charges using Finite Dif
 
 # How to install
 ```bash
-pyenv install 3.10             # it works with all versions from 3.9 to 3.14
-pyenv virtualenv 3.10 fd2bec
+pyenv install 3.11             # it works with all versions from 3.9 to 3.14
+pyenv virtualenv 3.11 fd2bec
 pyenv activate fd2bec
 pyenv local fd2bec
 pip install --upgrade pip
 ./tools/initialize.sh          # for developers only, harmless anyway otherwise
 pip install -e .               # only editable mode is fully tested so far
 ```
+
+For developers we really recommend using `python>=3.11`.
+
 # Testing
 We would recommend running tests using
 ```bash
@@ -34,4 +37,5 @@ pylint  fd2bec \
 --disable=too-many-statements \
 > pylint.txt
 grep "Line too long" pylint.txt > line_too_long.txt
+pytest --cov=fd2bec --cov-report=term-missing > coverage.txt
 ```
