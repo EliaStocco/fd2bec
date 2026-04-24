@@ -23,4 +23,15 @@ pre-commit run end-of-file-fixer --all-files
 echo "7) Fixing trailing whitespace..."
 pre-commit run trailing-whitespace --all-files
 
+echo "8) Running Pylint with specific checks disabled..."
+pylint  fd2bec \
+--disable=invalid-name \
+--disable=missing-function-docstring \
+--disable=missing-module-docstring  \
+--disable=too-many-locals \
+--disable=too-many-statements
+
+echo "9) Running Pytest with coverage report..."
+pytest --cov=fd2bec --cov-report=term-missing
+
 echo "✅ All formatting complete!"

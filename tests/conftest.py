@@ -32,13 +32,13 @@ def pytest_sessionfinish(session, exitstatus):
 
     df = pd.DataFrame(results).sort_values("norm")
 
-    out = Path(session.config.rootpath) / "results.csv"
+    out = Path(session.config.rootpath) / "tests/results.csv"
     df.to_csv(out, index=False)
 
     print("\nSaved results.csv")
     print(df)
 
-    df_to_pdf(df, Path(session.config.rootpath) / "table.pdf")
+    df_to_pdf(df, Path(session.config.rootpath) / "tests/table.pdf")
 
 
 def df_to_pdf(df, filename):
