@@ -1,0 +1,28 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/stoccoel/codes/fd2bec/tests/MP/get.py",
+            //"program": "/home/stoccoel/codes/fd2bec/fd2bec/cli/prepare_linear_system.py",
+            //"program": "/home/stoccoel/codes/fd2bec/fd2bec/cli/solve_linear_system.py",
+            //"program": "/home/stoccoel/codes/fd2bec/fd2bec/cli/solution2bec_txt.py",
+            "console": "integratedTerminal",
+            //"cwd" : "/home/stoccoel/codes/fd2bec/workflows/spg",
+            //"cwd" : "/home/stoccoel/codes/fd2bec/tests/", 
+            "cwd" : "/home/stoccoel/codes/fd2bec/tests/MP/", 
+            "justMyCode": false,
+            //"args" : ["-uc","start.extxyz","-sc","supercell.extxyz","-b","dipole.txt","-A","displacement.txt","-o","to_solve.json","-asr", "1000","-spg","True"]
+            //"args" : ["-i","to_solve.json","-m","lstsq","-o","solution.json"]
+            //"args" : ["-i","solution.json","-o","bec-lstsq.txt"]
+            //"args" : ["-uc","fd2bec/structures/BaTiO3.2x2x2.extxyz","-o","tmp.json","-is_delta","false"]
+            "args" : ["-i", "geometry.in", "-a", "0.001", "-o", "tmp_displacements.txt"]
+        }
+    ]
+}

@@ -1,8 +1,9 @@
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
-import pytest
+
 import numpy as np
+import pytest
 
 # -------------------------
 # Configuration

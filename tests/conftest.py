@@ -1,6 +1,7 @@
-import pytest
 from pathlib import Path
+
 import pandas as pd
+import pytest
 
 repo_root = Path(__file__).resolve().parents[1]
 # structures_dir = repo_root / "fd2bec" / "structures"
@@ -46,9 +47,7 @@ def df_to_pdf(df, filename):
     fig, ax = plt.subplots(figsize=(12, 0.5 + 0.3 * len(df)))
     ax.axis("off")
 
-    table = ax.table(
-        cellText=df.values, colLabels=df.columns, cellLoc="center", loc="center"
-    )
+    table = ax.table(cellText=df.values, colLabels=df.columns, cellLoc="center", loc="center")
 
     table.auto_set_font_size(False)
     table.set_fontsize(10)

@@ -331,9 +331,9 @@ class AtomicStructure:
 
             mapping[idx_other] = idx_self[local_map]
 
-        assert np.all(
-            np.sort(mapping) == np.arange(len(self))
-        ), "Invalid mapping: not a permutation"
+        assert np.all(np.sort(mapping) == np.arange(len(self))), (
+            "Invalid mapping: not a permutation"
+        )
 
         return mapping
 

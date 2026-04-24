@@ -68,14 +68,12 @@ def main(args):
         A_pinv = Vh.T @ S_inv @ U.T
         x = A_pinv @ b
 
-
-
     elif args.method == "lstsq":
         print("Solving linear system using least squares ... ", end="")
         x, residuals, rank_lstsq, singular_values = np.linalg.lstsq(A, b, rcond=None)
-        assert (
-            rank == rank_lstsq
-        ), f"Rank mismatch: np.linalg.matrix_rank(A)={rank} vs np.linalg.lstsq(A,b)[2]={rank_lstsq}"
+        assert rank == rank_lstsq, (
+            f"Rank mismatch: np.linalg.matrix_rank(A)={rank} vs np.linalg.lstsq(A,b)[2]={rank_lstsq}"
+        )
         print("done")
 
     unit_cell = AtomicStructure(**problem["unitcell"])
@@ -125,4 +123,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main() # pylint: disable=no-value-for-parameter
+    main()  # pylint: disable=no-value-for-parameter

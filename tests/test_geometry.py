@@ -1,5 +1,6 @@
-import pytest
 import numpy as np
+import pytest
+
 from fd2bec import ATOL
 from fd2bec.mathematics import affine2homogeneous, homogeneous2affine
 

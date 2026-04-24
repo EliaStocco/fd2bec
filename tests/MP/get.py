@@ -1,6 +1,7 @@
+import os
+
 from mp_api.client import MPRester
 from pymatgen.io.cif import CifWriter
-import os
 
 API_KEY = os.getenv("MP_API_KEY")
 
@@ -18,7 +19,7 @@ with MPRester(API_KEY) as mpr:
         is_metal=False,
         # band_gap=(0.1, None),
         fields=["material_id", "structure", "symmetry"],
-        chunk_size=16
+        chunk_size=16,
     )
 
     for doc in docs:
@@ -28,10 +29,7 @@ with MPRester(API_KEY) as mpr:
         material_id = doc.material_id
 
         # If new SG OR smaller structure found → replace
-        if (
-            sg_number not in best_structures
-            or n_sites < best_structures[sg_number][0]
-        ):
+        if sg_number not in best_structures or n_sites < best_structures[sg_number][0]:
             best_structures[sg_number] = (n_sites, material_id, structure)
             # print(f"Updated SG {sg_number}: {material_id} ({n_sites} atoms)")
 

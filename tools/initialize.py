@@ -1,5 +1,5 @@
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 CLI_ROOT = Path("fd2bec/cli")
 
@@ -33,4 +33,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() # pylint: disable=no-value-for-parameter
+    main()  # pylint: disable=no-value-for-parameter

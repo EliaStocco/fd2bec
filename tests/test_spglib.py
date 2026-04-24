@@ -1,10 +1,11 @@
-import pytest
 import numpy as np
+import pytest
 from ase.io import read
-from fd2bec import SYMPREC, ATOL
-from fd2bec.tools import ase2spglib_dataset
-from fd2bec.mathematics import wrap
+
+from fd2bec import ATOL, SYMPREC
 from fd2bec.atomic import AtomicStructure
+from fd2bec.mathematics import wrap
+from fd2bec.tools import ase2spglib_dataset
 
 # structures_dir = Path(__file__).resolve().parents[1] / "fd2bec" / "structures"
 
@@ -23,9 +24,7 @@ def test_spacegroup(structure):
     actual_atoms = atoms.get_global_number_of_atoms()
 
     assert actual_atoms == expected_atoms, (
-        f"File: {file_path}\n"
-        f"Expected atoms: {expected_atoms}\n"
-        f"Actual atoms: {actual_atoms}"
+        f"File: {file_path}\nExpected atoms: {expected_atoms}\nActual atoms: {actual_atoms}"
     )
 
     dataset = ase2spglib_dataset(atoms, symprec=SYMPREC)

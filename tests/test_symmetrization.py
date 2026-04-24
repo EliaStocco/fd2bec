@@ -1,6 +1,7 @@
-import pytest
 import numpy as np
+import pytest
 from ase.io import read
+
 from fd2bec import ATOL
 
 # # from fd2bec.conftest import structure # noqa: F401
@@ -21,9 +22,7 @@ def test_symmetrizer(structure):
         return
 
     atomic_structure = AtomicStructure.from_ase(atoms)
-    assert atomic_structure._test_symmetry(), (
-        "Error in AtomicStructure._test_symmetry() method"
-    )
+    assert atomic_structure._test_symmetry(), "Error in AtomicStructure._test_symmetry() method"
 
     # ----------------------#
     # affine
@@ -46,12 +45,10 @@ def test_symmetrizer(structure):
             f"Error with symmetrizer when using {name}."
         )
 
-        S, theta, theta_real, shape = atomic_structure.get_symmetrizer(
-            x=frac_pos, **params
+        S, theta, theta_real, shape = atomic_structure.get_symmetrizer(x=frac_pos, **params)
+        assert np.allclose(remove_one(S @ theta), flat_pos, atol=ATOL * len(atomic_structure)), (
+            f"Error with symmetrizer when using {name}."
         )
-        assert np.allclose(
-            remove_one(S @ theta), flat_pos, atol=ATOL * len(atomic_structure)
-        ), f"Error with symmetrizer when using {name}."
 
     # ----------------------#
     # vectors
@@ -67,13 +64,11 @@ def test_symmetrizer(structure):
 
         flat_vector = frac_vector.flatten()
         R = atomic_structure.get_symmetry_operations(**params)
-        assert np.allclose(
-            R @ flat_vector, flat_vector, atol=ATOL * len(atomic_structure)
-        ), f"Error with symmetrizer when using {name}."
-
-        S, theta, theta_real, shape = atomic_structure.get_symmetrizer(
-            x=frac_vector, **params
+        assert np.allclose(R @ flat_vector, flat_vector, atol=ATOL * len(atomic_structure)), (
+            f"Error with symmetrizer when using {name}."
         )
+
+        S, theta, theta_real, shape = atomic_structure.get_symmetrizer(x=frac_vector, **params)
         assert np.allclose(S @ theta, flat_vector, atol=ATOL * len(atomic_structure)), (
             f"Error with symmetrizer when using {name}."
         )
@@ -92,13 +87,11 @@ def test_symmetrizer(structure):
 
         flat_vector = frac_vector.flatten()
         R = atomic_structure.get_symmetry_operations(**params)
-        assert np.allclose(
-            R @ flat_vector, flat_vector, atol=ATOL * len(atomic_structure)
-        ), f"Error with symmetrizer when using {name}."
-
-        S, theta, theta_real, shape = atomic_structure.get_symmetrizer(
-            x=frac_vector, **params
+        assert np.allclose(R @ flat_vector, flat_vector, atol=ATOL * len(atomic_structure)), (
+            f"Error with symmetrizer when using {name}."
         )
+
+        S, theta, theta_real, shape = atomic_structure.get_symmetrizer(x=frac_vector, **params)
         assert np.allclose(S @ theta, flat_vector, atol=ATOL * len(atomic_structure)), (
             f"Error with symmetrizer when using {name}."
         )

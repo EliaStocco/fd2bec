@@ -25,7 +25,7 @@ Run
 ```bash
 pip install -e .[dev] # or .[dev-mp]
 pre-commit install
-
+pre-commit uninstall
 ruff check . > ruff_check.txt
 ruff check . --fix --unsafe-fixes > ruff_fix.txt
 ruff format .
