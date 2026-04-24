@@ -72,7 +72,8 @@ def main(args):
         print("Solving linear system using least squares ... ", end="")
         x, residuals, rank_lstsq, singular_values = np.linalg.lstsq(A, b, rcond=None)
         assert rank == rank_lstsq, (
-            f"Rank mismatch: np.linalg.matrix_rank(A)={rank} vs np.linalg.lstsq(A,b)[2]={rank_lstsq}"
+            f"Rank mismatch: np.linalg.matrix_rank(A)={rank}"
+            + "vs np.linalg.lstsq(A,b)[2]={rank_lstsq}"
         )
         print("done")
 

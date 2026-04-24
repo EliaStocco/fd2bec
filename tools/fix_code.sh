@@ -2,19 +2,25 @@
 
 set -e
 
-echo "🔧 Running Ruff (lint + auto-fix)..."
+echo "1) Removing trailing whitespace from all Python files..."
+find fd2bec tests -name "*.py" -exec sed -i 's/[ \t]*$//' {} +
+
+echo "2) Running Ruff (lint + auto-fix)..."
 ruff check . --fix
 
-echo "🎨 Running Ruff format..."
+echo "3) Running Ruff format..."
 ruff format .
 
-echo "🎨 Running Black..."
+echo "4) Running Black..."
 black .
 
-echo "🧹 Fixing end-of-file issues..."
+echo "4) Running isort..."
+isort .
+
+echo "6) Fixing end-of-file issues..."
 pre-commit run end-of-file-fixer --all-files
 
-echo "🧹 Fixing trailing whitespace..."
+echo "7) Fixing trailing whitespace..."
 pre-commit run trailing-whitespace --all-files
 
 echo "✅ All formatting complete!"

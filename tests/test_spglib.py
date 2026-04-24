@@ -23,9 +23,9 @@ def test_spacegroup(structure):
     expected_atoms = factor * 5
     actual_atoms = atoms.get_global_number_of_atoms()
 
-    assert actual_atoms == expected_atoms, (
-        f"File: {file_path}\nExpected atoms: {expected_atoms}\nActual atoms: {actual_atoms}"
-    )
+    assert (
+        actual_atoms == expected_atoms
+    ), f"File: {file_path}\nExpected atoms: {expected_atoms}\nActual atoms: {actual_atoms}"
 
     dataset = ase2spglib_dataset(atoms, symprec=SYMPREC)
 
@@ -89,9 +89,9 @@ def test_structures_spacegroup_positions(structure):
     new_frac = frac_pos.copy()
 
     atomic_structure = AtomicStructure.from_ase(atoms)
-    assert atomic_structure._test_symmetry(atol=atol), (
-        "Error in AtomicStructure._test_symmetry() method"
-    )
+    assert atomic_structure._test_symmetry(
+        atol=atol
+    ), "Error in AtomicStructure._test_symmetry() method"
 
     for op_idx, (R, t) in enumerate(zip(dataset.rotations, dataset.translations)):
         new_frac = new_frac @ R + t[None, :]

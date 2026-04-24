@@ -3,7 +3,6 @@ import pytest
 from ase.io import read
 
 from fd2bec import ATOL
-
 # # from fd2bec.conftest import structure # noqa: F401
 from fd2bec.atomic import AtomicStructure
 

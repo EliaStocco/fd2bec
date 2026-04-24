@@ -166,9 +166,7 @@ def main(args):
     system_type = (
         "overdetermined"
         if A_coeff.shape[0] > x.shape[0]
-        else "underdetermined"
-        if A_coeff.shape[0] < x.shape[0]
-        else "determined"
+        else "underdetermined" if A_coeff.shape[0] < x.shape[0] else "determined"
     )
     print(f"System type: {system_type}")
 
