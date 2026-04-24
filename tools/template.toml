@@ -23,15 +23,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    # "pymatgen",
-    # "mp-api",
+    "pre-commit",
     "ruff",
-    "isort",
-    "pylint",
     "black==24.8.0",
     "pytest",
     "pytest-cov"
 ]
+
 dev-mp = [
     "pymatgen",
     "mp-api",
@@ -48,5 +46,16 @@ fd2bec = ["structures/*.extxyz", "*.mplstyle"]
 [tool.setuptools]
 packages = ["fd2bec"]  # only include fd2bec
 
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]  # errors, flakes, imports
+
 [tool.black]
 line-length = 100
+
+[tool.pytest.ini_options]
+addopts = "--cov=fd2bec --cov-report=term-missing"
+testpaths = ["tests"]
