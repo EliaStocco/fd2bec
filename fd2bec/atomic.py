@@ -1,4 +1,5 @@
 # pylint: disable=invalid-name
+import warnings
 from dataclasses import dataclass
 from functools import cached_property
 
@@ -10,8 +11,7 @@ from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
 
 from fd2bec import ATOL, DEBUG, SYMPREC
-from fd2bec.mathematics import (affine2homogeneous, append_one, find_mapping,
-                                invert_indices, wrap)
+from fd2bec.mathematics import affine2homogeneous, append_one, find_mapping, invert_indices, wrap
 
 
 @dataclass(frozen=True)
@@ -292,6 +292,7 @@ class AtomicStructure:
             new_pos = self.frac_pos @ r + t
             new_structure = self.duplicate(frac_pos=new_pos)
             if not self.is_equal_to(new_structure, atol=atol):
+                self.is_equal_to(new_structure, atol=atol)
                 raise ValueError("Symmetry operation does not preserve the structure")
             if self.space_group != new_structure.space_group:
                 raise ValueError("Symmetry operation does not preserve the space group")
@@ -320,9 +321,13 @@ class AtomicStructure:
             a = self.pos[s]
             b = other.pos[s]
 
-            local_map, ok, _ = find_mapping(a, b, atol=atol * len(a))
+            local_map, ok, dists = find_mapping(a, b, atol=atol * len(a))
             if not ok:
-                raise ValueError(f"Mapping failed for species {s}")
+                raise ValueError(
+                    f"Mapping failed for species {s}."
+                    + f" Total distance: {np.linalg.norm(dists)}."
+                    + " All distances {dists.tolist()}"
+                )
 
             mapping[idx_other] = idx_self[local_map]
 
@@ -490,6 +495,24 @@ class AtomicStructure:
         H = affine2homogeneous(R_flat, T_flat)
         return H
 
+    def get_totally_symmetric_projection(
+        self,
+        rank: int = 1,
+        atomic: bool = True,
+        affine: bool = True,
+    ):
+        """Construct the projection operator onto the totally symmetric representation."""
+
+        if not atomic and affine:
+            raise ValueError(
+                "Affine attributes are available only for positions (atomic=True case)."
+            )
+        G, T = self.__get_symmetry_operations(rank=rank, atomic=atomic, affine=affine)
+        if affine:
+            G = affine2homogeneous(G, T)
+        P = np.mean(G, axis=0)
+        return P
+
     def get_symmetrizer(
         self,
         x: np.ndarray = None,
@@ -500,13 +523,10 @@ class AtomicStructure:
         atol: float = ATOL,
     ):
 
-        if not atomic and affine:
-            raise ValueError(
-                "Affine attributes are available only for positions (atomic=True case)."
-            )
-        G, T = self.__get_symmetry_operations(rank=rank, atomic=atomic, affine=affine)
-        if affine:
-            G = affine2homogeneous(G, T)
+        # ------------------------
+        # Projection construction
+        # ------------------------
+        P = self.get_totally_symmetric_projection(rank=rank, atomic=atomic, affine=affine)
 
         # ------------------------
         # Vector construction
@@ -527,9 +547,13 @@ class AtomicStructure:
         # ------------------------
         # Eigen-decomposition
         # ------------------------
-        P = np.mean(G, axis=0)
 
-        w, v = np.linalg.eig(P)
+        if np.linalg.norm((P - P.T)) < atol:
+            # P is symmetric, use eigh for better numerical stability
+            w, v = np.linalg.eigh(P)
+        else:
+            warnings.warn("Projection operator is not symmetric.", UserWarning)
+            w, v = np.linalg.eig(P)
 
         if debug and not np.allclose(w.imag, 0, atol=atol):
             raise ValueError("Eigenvalues should be real")

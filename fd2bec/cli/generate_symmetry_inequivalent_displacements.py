@@ -41,6 +41,26 @@ def prepare_args(descr):
     return parser
 
 
+def atomic_structure2unique_displacements(unit_cell: AtomicStructure, amplitude: float):
+    """Generate all symmetry inequivalent cartesian displacements
+    for the given unit cell and amplitude."""
+
+    _, theta, theta_real, _ = unit_cell.get_symmetrizer(rank=2, atomic=True, affine=False)
+
+    theta_real = theta_real.reshape((-1, len(unit_cell), 3, 3))
+
+    displacements = np.zeros((len(theta), 3 * len(unit_cell)))
+    for n, t in enumerate(theta_real):
+        displacements[n] = np.sum(t != 0, axis=2).flatten()
+
+    displacements = displacements / np.linalg.norm(displacements, axis=1)[:, None]
+    displacements *= amplitude
+
+    u = np.unique(displacements, axis=0)
+
+    return u, displacements
+
+
 @cli(prepare_args, description)
 def main(args):
 
@@ -49,22 +69,12 @@ def main(args):
     print("done")
 
     unit_cell = AtomicStructure.from_ase(atoms)
-    _, theta, theta_real, _ = unit_cell.get_symmetrizer(rank=2, atomic=True, affine=False)
 
-    theta_real = theta_real.reshape((-1, len(atoms), 3, 3))
-
-    displacements = np.zeros((len(theta), 3 * len(atoms)))
-    for n, t in enumerate(theta_real):
-        displacements[n] = np.sum(t != 0, axis=2).flatten()
-
-    displacements = displacements / np.linalg.norm(displacements, axis=1)[:, None]
-    displacements *= args.amplitude
-
-    u = np.unique(displacements, axis=0)
+    u, d = atomic_structure2unique_displacements(unit_cell, args.amplitude)
 
     print(
         f"Found {u.shape[0]} symmetry inequivalent displacements out "
-        + f"of {displacements.shape[0]} total displacements."
+        + f"of {d.shape[0]} total displacements."
     )
 
     print(f"Writing cartesian displacements to {args.output} ... ", end="")

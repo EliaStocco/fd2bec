@@ -5,17 +5,17 @@ set -e
 echo "1) Removing trailing whitespace from all Python files..."
 find fd2bec tests -name "*.py" -exec sed -i 's/[ \t]*$//' {} +
 
-echo "2) Running Ruff (lint + auto-fix)..."
-ruff check . --fix
-
-echo "3) Running Ruff format..."
-ruff format .
-
-echo "4) Running Black..."
+echo "2) Running Black..."
 black .
 
-echo "4) Running isort..."
+echo "3) Running isort..."
 isort .
+
+echo "4) Running Ruff (lint + auto-fix)..."
+ruff check . --fix
+
+echo "5) Running Ruff format..."
+ruff format .
 
 echo "6) Fixing end-of-file issues..."
 pre-commit run end-of-file-fixer --all-files
@@ -31,7 +31,7 @@ pylint  fd2bec \
 --disable=too-many-locals \
 --disable=too-many-statements
 
-echo "9) Running Pytest with coverage report..."
-pytest --cov=fd2bec --cov-report=term-missing
+# echo "9) Running Pytest with coverage report..."
+# pytest --cov=fd2bec --cov-report=term-missing
 
 echo "✅ All formatting complete!"

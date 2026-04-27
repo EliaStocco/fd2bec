@@ -1,6 +1,8 @@
 import argparse
+from typing import List
 
 import numpy as np
+from ase import Atoms
 from ase.io import read, write
 
 from fd2bec.cli import cli
@@ -39,6 +41,21 @@ def prepare_args(descr):
     return parser
 
 
+def displacements2atoms(atoms: Atoms, displacements: np.ndarray) -> List[Atoms]:
+    """Apply the displacements to the input structure and return a list of displaced structures."""
+
+    number = displacements.shape[0]
+    displ = displacements.reshape(number, atoms.get_global_number_of_atoms(), 3)
+
+    displaced_structures = [None] * number
+    for i in range(number):
+        displaced = atoms.copy()
+        displaced.set_positions(displaced.get_positions() + displ[i])
+        displaced_structures[i] = displaced
+
+    return displaced_structures
+
+
 @cli(prepare_args, description)
 def main(args):
 
@@ -56,13 +73,8 @@ def main(args):
         f"Got shape: {displacements.shape}\n"
         f"File: {args.displacements}"
     )
-    displacements = displacements.reshape(number, atoms.get_global_number_of_atoms(), 3)
 
-    displaced_structures = [None] * number
-    for i in range(number):
-        displaced = atoms.copy()
-        displaced.set_positions(displaced.get_positions() + displacements[i])
-        displaced_structures[i] = displaced
+    displaced_structures = displacements2atoms(atoms, displacements)
 
     print(f"Writing displaced structures to {args.output} ... ", end="")
     write(args.output, displaced_structures)

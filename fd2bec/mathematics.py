@@ -9,7 +9,9 @@ def wrap(x: np.ndarray):
     return (x + 0.5) % 1.0 - 0.5
 
 
-def find_mapping(a: np.ndarray, b: np.ndarray, atol: float = ATOL) -> Tuple[np.ndarray, bool]:
+def find_mapping(
+    a: np.ndarray, b: np.ndarray, atol: float = ATOL
+) -> Tuple[np.ndarray, bool, np.ndarray]:
     """
     Map positions in b to nearest positions in a using minimum image convention.
 
@@ -24,16 +26,19 @@ def find_mapping(a: np.ndarray, b: np.ndarray, atol: float = ATOL) -> Tuple[np.n
 
     mapping = np.zeros(len(b), dtype=int)
     dists = np.zeros(len(b))
-
+    # n_min = np.zeros(len(b), dtype=int)
     for i, pos in enumerate(b):
         dist_vec = wrap(a - pos)
         dist = np.linalg.norm(dist_vec, axis=1)
         j = np.argmin(dist)
-
+        # n_min[i] = np.sum(dist >= dist[j]-0.1)
         mapping[i] = j
         dists[i] = dist[j]
-
-    return mapping, np.all(dists <= atol), dists
+    ok = np.all(dists <= atol)
+    # if not ok:
+    #     d = np.linalg.norm(a[:, None, :] - b[None, :, :], axis=-1)
+    #     pass
+    return mapping, ok, dists
 
 
 def invert_indices(indices: np.ndarray, axis=None) -> np.ndarray:

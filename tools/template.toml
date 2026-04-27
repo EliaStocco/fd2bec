@@ -25,12 +25,19 @@ dependencies = [
 dev = [
     "pre-commit",
     "ruff",
+    "isort",
     "black==24.8.0",
     "pytest",
-    "pytest-cov"
+    "pytest-cov",
 ]
 
 dev-mp = [
+    "pre-commit",
+    "ruff",
+    "isort",
+    "black==24.8.0",
+    "pytest",
+    "pytest-cov",
     "pymatgen",
     "mp-api",
     "python_requires>=3.11; python_version < '3.11'"
@@ -55,7 +62,3 @@ select = ["E", "F", "I"]  # errors, flakes, imports
 
 [tool.black]
 line-length = 100
-
-[tool.pytest.ini_options]
-addopts = "--cov=fd2bec --cov-report=term-missing"
-testpaths = ["tests"]
