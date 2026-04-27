@@ -38,7 +38,7 @@ def run_workflow(filepath):
     # displaced_structures = displacements2atoms(atoms, d)
 
 
-@pytest.mark.skip("Currently fails for some structures, need to investigate the cause")
+# @pytest.mark.skip("Currently fails for some structures, need to investigate the cause")
 @pytest.mark.parametrize("n", range(230))
 def test_workflow_MP(n):
     pattern = DATA_DIR / f"SG_{n}_mp-*.cif"
