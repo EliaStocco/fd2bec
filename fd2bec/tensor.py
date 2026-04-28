@@ -2,7 +2,7 @@ import numpy as np
 from typing import Union, List, Tuple
 from ase.cell import Cell
 from functools import cached_property
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 def pq_to_axes(p: int, q: int) -> list[bool]:
     """
@@ -59,10 +59,10 @@ class Tensor:
     
     data: np.ndarray
     axes: List[bool]
-    cell: np.ndarray
+    cell: np.ndarray = field(default=None)
+    is_atomic: bool = field(default=None)
     shape: Tuple[int] = field(init=False)
     basis: str = field(default="cartesian")
-    
     
     def __post_init__(self):
         self.shape = self.data.shape
@@ -102,13 +102,8 @@ class Tensor:
         for i in range(rank):
             axis = -(i + 1)
             result = self._apply_axis(result, axis, matrices[i])
-
-        return Tensor(
-            data=result,
-            axes=self.axes,
-            cell=self.cell,
-            basis=self.basis
-        )
+            
+        return replace(self,data=result)
             
     def __build_operator(self, matrices: list[np.ndarray]) -> np.ndarray:
         """
@@ -145,17 +140,6 @@ class Tensor:
             R_tensor = M if R_tensor is None else np.kron(R_tensor, M)
 
         return R_tensor
-
-    def __replace_basis(self, basis: str):
-        """
-        Return a shallow copy of the tensor with updated basis.
-        """
-        return Tensor(
-            data=self.data,
-            axes=self.axes,
-            cell=self.cell,
-            basis=basis
-        )
         
     def __apply_matrices(
         self,
@@ -227,11 +211,8 @@ class Tensor:
             # Restore original tensor shape
             new_data = transformed.reshape(*batch_shape, *tensor_shape)
 
-            result = Tensor(
-                data=new_data,
-                axes=self.axes,
-                cell=self.cell,
-                basis=self.basis,
+            result = replace(self,
+                data=new_data
             )
 
         else:
@@ -239,7 +220,7 @@ class Tensor:
                 f"method must be 'recursive' or 'flat', got '{method}'"
             )
 
-        return result.__replace_basis(basis)
+        return replace(result,basis=basis)
 
     def rotate(self, R: np.ndarray, method: str = "recursive") -> 'Tensor':
         """
@@ -356,40 +337,23 @@ class Tensor:
     # BASIC ALGEBRA
     # ------------------------------------------------------------
 
-    def __add__(self, other:'Tensor'):
-        if self.axes != other.axes:
-            raise ValueError("Tensor index structures must match")
-        if self.basis != other.basis:
-            raise ValueError("Basis must match")
+    # def __add__(self, other:'Tensor'):
+    #     if self.axes != other.axes:
+    #         raise ValueError("Tensor index structures must match")
+    #     if self.basis != other.basis:
+    #         raise ValueError("Basis must match")
 
-        return Tensor(data=self.data + other.data, axes=self.axes, cell=self.cell, basis=self.basis)
+    #     return Tensor(data=self.data + other.data, axes=self.axes, cell=self.cell, basis=self.basis)
 
     def __mul__(self, scalar):
-        return Tensor(data=self.data * scalar, axes=self.axes, cell=self.cell, basis=self.basis)
+        return replace(self,data=self.data * scalar)
 
     __rmul__ = __mul__
-    
-    def duplicate(self, **kwargs) -> 'Tensor':
-        """
-        Create a new AtomicStructure with some attributes modified.
 
-        Parameters
-        ----------
-        **kwargs
-            Any of the attributes (symbols, cellpar, frac_pos) can be overridden.
-
-        Returns
-        -------
-        AtomicStructure
-            New instance with updated attributes.
-        """
-        return Tensor(
-            data=kwargs.get("data", self.data),
-            axes=kwargs.get("axes", self.axes),
-            cell=kwargs.get("cell", self.cell),
-        )
-
-    def flatten(self)->np.ndarray:
+    def flatten(self, full:bool=False)->np.ndarray:
+        if full and self.is_atomic:
+            shape = self.shape[:-len(self.axes)-1] + (-1,)
+            return self.data.reshape(shape)
         if self.data.ndim == 1:
             return self.data
         else:
@@ -399,7 +363,7 @@ class Tensor:
     def contract(self,R: np.ndarray)->'Tensor':
         arr = self.flatten()
         arr = contract(R,arr)
-        return self.duplicate(data=arr)
+        return replace(self,data=arr)
     
     def __array__(self, dtype=None):
         if dtype:
@@ -409,27 +373,41 @@ class Tensor:
 
 def contract(R: np.ndarray,x:np.ndarray)->np.ndarray:
     return np.einsum("ij,...j->...i",R,x)
-    
-    
+           
 class Vector(Tensor):
-    def __init__(self, data, cell=None, basis="cartesian"):
-        super().__init__(
-            data=np.asarray(data),
-            axes=[False],
-            cell=cell,
-            basis=basis
-        )
-        
-class Position(Vector):
+    def __init__(self, **kwargs):
+        kwargs = SpecialDict(kwargs)
+        kwargs["axes"] = [False]
+        super().__init__(**kwargs)
+
+
+class AtomicVector(Vector):
+    def __init__(self, **kwargs):
+        kwargs = SpecialDict(kwargs)
+        kwargs["is_atomic"] = True
+        super().__init__(**kwargs)
+
+
+class GlobalVector(Vector):
+    def __init__(self, **kwargs):
+        kwargs = SpecialDict(kwargs)
+        kwargs["is_atomic"] = False
+        super().__init__(**kwargs)
+
+
+class Position(AtomicVector):
     pass
 
-class Dipole(Vector):
+
+class Dipole(GlobalVector):
     pass
 
-class Displacement(Vector):
+
+class Displacement(AtomicVector):
     pass
 
-class LatticeVectors(Vector):
+
+class LatticeVectors(GlobalVector):
     """
     Lattice basis vectors represented as a rank-2 tensor (3x3).
 
@@ -464,70 +442,64 @@ class LatticeVectors(Vector):
           r_cart = A · r_frac
           r_frac = A⁻¹ · r_cart
     """
-    def __init__(self, data:Union[Cell,np.ndarray]):
+    def __init__(self, data:Union[Cell,np.ndarray], **kwargs):
         
         if isinstance(data, LatticeVectors):
-            super().__init__(
-                data=data.data,
-                cell=None,
-                basis="cartesian"
-            )
+            kwargs = SpecialDict(kwargs)
+            kwargs["data"] = data.data
+            
         elif isinstance(data,np.ndarray):
-            if data.shape[-2:] != (3, 3):
-                raise ValueError("Lattice vectors must be (...,3,3)")
-            super().__init__(
-                data=np.asarray(data),
-                cell=None,
-                basis="cartesian"
-            )
+            kwargs["data"] = data
         elif isinstance(data,Cell):
-            super().__init__(
-                data=data.array,
-                cell=None,
-                basis="cartesian"
-            )
+            kwargs["data"] = data.array
         else:
             raise ValueError("Only LatticeVectors, np.ndarray and ase.cell.Cell supported.")
+        super().__init__(**kwargs)
         
-    @cached_property
-    def inv(self):
-        return np.linalg.inv(self.data)
-        
+    # @cached_property
+    # def inv(self):
+    #     return np.linalg.inv(self.data)
+    
 class Force(Tensor):
-    def __init__(self, data, cell=None, basis="cartesian"):
-        super().__init__(
-            data=np.asarray(data),
-            axes=[True],
-            cell=cell,
-            basis=basis
-        )
+    def __init__(self, **kwargs):
+        kwargs = SpecialDict(kwargs)
+        kwargs["axes"] = [True]
+        kwargs["is_atomic"] = True
+        super().__init__(**kwargs)
 
 class Stress(Tensor):
-    def __init__(self, data, cell=None, basis="cartesian"):
-        arr = np.asarray(data)
-
-        if arr.shape[-2:] != (3, 3):
-            raise ValueError("Stress must be (...,3,3)")
-
-        super().__init__(
-            data=arr,
-            axes=[True, True],
-            cell=cell,
-            basis=basis
-        )
+    def __init__(self, **kwargs):
+        kwargs = SpecialDict(kwargs)
+        kwargs["axes"] = [True, True]
+        kwargs["is_atomic"] = False
+        super().__init__(**kwargs)
         
 class BornCharge(Tensor):
-    def __init__(self, data, cell=None, basis="cartesian"):
-        arr = np.asarray(data)
-
-        if arr.shape[-2:] != (3, 3):
-            raise ValueError("Born charge must be (...,3,3)")
-
+    def __init__(self, **kwargs):
+        kwargs = SpecialDict(kwargs)
+        kwargs["axes"] = [False, True]
+        kwargs["is_atomic"] = True
         super().__init__(
-            data=arr,
-            axes=[False, True],
-            cell=cell,
-            basis=basis
+            **kwargs
         )
+        
+class SpecialDict(dict):
+    """
+    Dictionary that enforces consistency of existing keys.
+
+    - New keys are always allowed
+    - Existing keys must not be reassigned to a different value
+    """
+
+    def __setitem__(self, key, value):
+        if key in self:
+            if self[key] != value:
+                raise ValueError(
+                    f"Key '{key}' already exists with a different value:\n"
+                    f"  existing: {self[key]}\n"
+                    f"  new:      {value}"
+                )
+        super().__setitem__(key, value)
+    
         
         

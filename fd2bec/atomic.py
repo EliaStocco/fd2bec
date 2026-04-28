@@ -10,7 +10,8 @@ from ase.cell import Cell
 from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
 
-from fd2bec import ATOL, DEBUG, SYMPREC
+from fd2bec import ATOL, DEBUG, SYMPREC, Basis, validate_types
+from fd2bec.tensor import Tensor
 from fd2bec.mathematics import affine2homogeneous, append_one, find_mapping, invert_indices, wrap
 
 
@@ -39,6 +40,24 @@ class AtomicStructure:
     symbols: tuple[str, ...]
     cellpar: np.ndarray
     frac_pos: np.ndarray
+    
+    def __post_init__(self):
+        """
+        Enforce immutability by:
+        - Converting symbols to tuple
+        - Copying NumPy arrays
+        - Marking arrays as read-only
+        """
+        object.__setattr__(self, "symbols", tuple(self.symbols))
+
+        cellpar = np.array(self.cellpar, copy=True)
+        frac_pos = np.array(self.frac_pos, copy=True)
+
+        cellpar.setflags(write=False)
+        frac_pos.setflags(write=False)
+
+        object.__setattr__(self, "cellpar", cellpar)
+        object.__setattr__(self, "frac_pos", frac_pos)
 
     def duplicate(self, **kwargs) -> "AtomicStructure":
         """
@@ -83,82 +102,13 @@ class AtomicStructure:
         )
 
     @cached_property
-    def inv_cell(self) -> Cell:
-        return np.linalg.inv(self.cell.array)
-
-    @cached_property
     def cell(self) -> Cell:
         return Cell.fromcellpar(self.cellpar)
-
-    def to_fractional(self, arr: np.ndarray, rank: int = 1) -> np.ndarray:
-        """
-        Convert Cartesian tensor(s) to fractional coordinates.
-
-        Parameters
-        ----------
-        arr : np.ndarray
-            Input array containing tensor(s). The last `rank` axes are
-            interpreted as Cartesian indices (size 3).
-        rank : int
-            Number of Cartesian tensor indices (1 = vector, 2 = matrix, etc.)
-
-        Returns
-        -------
-        np.ndarray
-            Tensor expressed in fractional coordinates.
-        """
-        Ainv = self.inv_cell
-
-        result = arr
-        for _ in range(rank):
-            # Always contract the last axis with Ainv
-            result = np.tensordot(result, Ainv, axes=([-1], [1]))
-
-        return result
-
-    def to_cartesian(self, arr: np.ndarray, rank: int = 1) -> np.ndarray:
-        """
-        Convert fractional tensor(s) to Cartesian coordinates.
-
-        Parameters
-        ----------
-        arr : np.ndarray
-            Input array containing tensor(s). The last `rank` axes are
-            interpreted as fractional (lattice) indices (size 3).
-        rank : int
-            Number of tensor indices (1 = vector, 2 = matrix, etc.)
-
-        Returns
-        -------
-        np.ndarray
-            Tensor expressed in Cartesian coordinates.
-        """
-        A = self.cell.array
-
-        result = arr
-        for _ in range(rank):
-            # Contract last axis with A (inverse of Ainv)
-            result = np.tensordot(result, A, axes=([-1], [0]))
-
-        return result
-
-    def __post_init__(self):
-        """
-        Enforce immutability by:
-        - Converting symbols to tuple
-        - Copying NumPy arrays
-        - Marking arrays as read-only
-        """
-        object.__setattr__(self, "symbols", tuple(self.symbols))
-
-        cellpar = np.array(self.cellpar, copy=True)
-        frac_pos = np.array(self.frac_pos, copy=True)
-
-        cellpar.setflags(write=False)
-        frac_pos.setflags(write=False)
-
-        object.__setattr__(self, "cellpar", cellpar)
-        object.__setattr__(self, "frac_pos", frac_pos)
+    
+    @validate_types
+    def to(self,basis:Basis,tensor:Tensor,**kwargs)->Tensor:
+        cell = tensor.cell  if tensor.cell is not None else self.cell.array
+        return tensor.transform(cell, None, basis,**kwargs)
 
     def __eq__(self, other: "AtomicStructure") -> bool:
         """Check if two AtomicStructure instances are equal."""
