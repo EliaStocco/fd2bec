@@ -1,5 +1,6 @@
 import argparse
 
+from typing import Tuple
 import numpy as np
 from ase.io import read
 
@@ -41,7 +42,7 @@ def prepare_args(descr):
     return parser
 
 
-def atomic_structure2unique_displacements(unit_cell: AtomicStructure, amplitude: float):
+def atomic_structure2unique_displacements(unit_cell: AtomicStructure, amplitude: float, use_delta_dipole:bool = False)->Tuple[np.ndarray, np.ndarray]:
     """Generate all symmetry inequivalent cartesian displacements
     for the given unit cell and amplitude."""
 
@@ -53,8 +54,13 @@ def atomic_structure2unique_displacements(unit_cell: AtomicStructure, amplitude:
     for n, t in enumerate(theta_real):
         displacements[n] = np.sum(t != 0, axis=2).flatten()
 
-    displacements = displacements / np.linalg.norm(displacements, axis=1)[:, None]
-    displacements *= amplitude
+    displacements:np.ndarray = displacements / np.linalg.norm(displacements, axis=1)[:, None]
+    displacements = amplitude * displacements.reshape((len(theta), len(unit_cell), 3))
+    
+    displacements = unit_cell.to_cartesian(displacements, rank=1).reshape((len(theta),-1))
+    
+    if not use_delta_dipole:
+        displacements = np.concatenate([np.zeros((1, 3 * len(unit_cell))), displacements], axis=0)
 
     u = np.unique(displacements, axis=0)
 
