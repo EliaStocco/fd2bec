@@ -30,8 +30,9 @@ def assert_allclose_debug(a:np.ndarray, b:np.ndarray, atol:float, msg:str):
         f"\nShape: {a.shape}"
     )
 
+@pytest.mark.parametrize("method", ["recursive","flat"])
 @pytest.mark.parametrize("n", range(10))
-def test_fractional(n):
+def test_fractional(n,method):
     
     atoms = read(FILE, index=n)
     
@@ -44,7 +45,7 @@ def test_fractional(n):
             array = atoms.info[keyword]
         
         original:Tensor = classname(data=array,cell=atoms.cell)
-        fractional = original.to("fractional")
+        fractional = original.to(basis="fractional",method=method)
         test = fractional.to("cartesian")
         
         assert_allclose_debug(original.data, test.data, ATOL, f"[{keyword} ROUNDTRIP MISMATCH]")
@@ -54,7 +55,70 @@ def test_fractional(n):
             original.to("fractional")
             assert_allclose_debug(fractional.data, frac_pos, ATOL, f"[{keyword} ROUNDTRIP MISMATCH]")
         
-        pass
+import pytest
+from ase.io import read
+import numpy as np
+
+from fd2bec import ATOL
+
+# assumes you already have:
+# Vector, Dipole, Tensor, instructions, FILE, etc.
+
+
+def _apply_all_keywords(atoms, keyword, classname):
+    if keyword == "MACE_BEC":
+        return atoms2bec(atoms, keyword)
+    elif keyword in atoms.arrays:
+        return atoms.arrays[keyword]
+    else:
+        return atoms.info[keyword]
+
+
+@pytest.mark.parametrize("n", range(10))
+def test_recursive_vs_flat_fractional(n):
+    atoms = read(FILE, index=n)
+
+    for keyword, (where, classname) in instructions.items():
+
+        array = _apply_all_keywords(atoms, keyword, classname)
+
+        original = classname(data=array, cell=atoms.cell)
+
+        # ------------------------------------------------------------
+        # Apply both methods from SAME starting point
+        # ------------------------------------------------------------
+        frac_recursive = original.to(
+            basis="fractional",
+            method="recursive",
+        )
+
+        frac_flat = original.to(
+            basis="fractional",
+            method="flat",
+        )
+
+        # ------------------------------------------------------------
+        # Core equivalence check
+        # ------------------------------------------------------------
+        assert_allclose_debug(
+            frac_recursive.data,
+            frac_flat.data,
+            atol=ATOL,
+            msg=f"[{keyword}] recursive != flat (fractional transform)",
+        )
+
+        # ------------------------------------------------------------
+        # Optional: ensure both are consistent under roundtrip
+        # ------------------------------------------------------------
+        cart_recursive = frac_recursive.to("cartesian", method="recursive")
+        cart_flat = frac_flat.to("cartesian", method="flat")
+
+        assert_allclose_debug(
+            cart_recursive.data,
+            cart_flat.data,
+            atol=ATOL,
+            msg=f"[{keyword}] recursive != flat (cartesian back-transform)",
+        )
 
 if __name__ == "__main__":
     pytest.main([__file__])

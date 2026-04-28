@@ -123,36 +123,121 @@ def test_rotations_manual(n):
     )
 
 
-@pytest.mark.parametrize("n", range(10))
-def test_rotations_tensors(n):
+import pytest
+import numpy as np
 
-    reference = read(REF, index=0)
-    ref_dipole = Dipole(data=reference.info["MACE_dipole"])
-    ref_forces = Force(data=reference.arrays["MACE_forces"])
-    ref_stress = Stress(data=reference.info["MACE_stress"])
-    ref_bec = BornCharge(data=reconstruct_bec(reference))
-    ref_cell = LatticeVectors(data=reference.cell)
+from ase.io import read
+from fd2bec import ATOL
+
+
+@pytest.mark.parametrize("method", ["recursive", "flat"])
+@pytest.mark.parametrize("n", range(10))
+def test_rotations_tensors(n, method):
 
     atoms = read(FILE, index=n)
 
-    alpha = atoms.info["euler_alpha"]
-    beta = atoms.info["euler_beta"]
-    gamma = atoms.info["euler_gamma"]
+    R = rotation_matrix_from_euler(
+        atoms.info["euler_alpha"],
+        atoms.info["euler_beta"],
+        atoms.info["euler_gamma"],
+    )
 
-    R = rotation_matrix_from_euler(alpha, beta, gamma)
+    # ------------------------------------------------------------
+    # Build tensors
+    # ------------------------------------------------------------
+    dipole = Dipole(data=atoms.info["MACE_dipole"], cell=atoms.cell)
+    forces = Force(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
+    stress = Stress(data=atoms.info["MACE_stress"], cell=atoms.cell)
+    bec = BornCharge(data=reconstruct_bec(atoms), cell=atoms.cell)
+    # cell = LatticeVectors(data=atoms.cell, cell=atoms.cell)
 
-    ref_dipole_rotated = ref_dipole.rotate(R)
-    ref_forces_rotated = ref_forces.rotate(R)
-    ref_stress_rotated = ref_stress.rotate(R)
-    ref_bec_rotated = ref_bec.rotate(R)
-    ref_cell_rotated = ref_cell.rotate(R)
+    # ------------------------------------------------------------
+    # Rotate using selected method
+    # ------------------------------------------------------------
+    dip_rot = dipole.rotate(R, method=method)
+    f_rot = forces.rotate(R, method=method)
+    s_rot = stress.rotate(R, method=method)
+    b_rot = bec.rotate(R, method=method)
+    # c_rot = cell.rotate(R, method=method)
 
-    assert np.allclose(ref_dipole_rotated.data, atoms.info["MACE_dipole"], atol=ATOL)
-    assert np.allclose(ref_forces_rotated.data, atoms.arrays["MACE_forces"], atol=ATOL)
-    assert np.allclose(ref_stress_rotated.data, atoms.info["MACE_stress"], atol=ATOL)
-    assert np.allclose(ref_bec_rotated.data, reconstruct_bec(atoms), atol=ATOL)
-    assert np.allclose(ref_cell_rotated.data, atoms.cell.array, atol=ATOL)
+    # ------------------------------------------------------------
+    # Consistency check vs the OTHER method
+    # ------------------------------------------------------------
+    other_method = "flat" if method == "recursive" else "recursive"
 
+    dip_rot_2 = dipole.rotate(R, method=other_method)
+    f_rot_2 = forces.rotate(R, method=other_method)
+    s_rot_2 = stress.rotate(R, method=other_method)
+    b_rot_2 = bec.rotate(R, method=other_method)
+    # c_rot_2 = cell.rotate(R, method=other_method)
+
+    # ------------------------------------------------------------
+    # Compare implementations
+    # ------------------------------------------------------------
+    assert np.allclose(dip_rot.data, dip_rot_2.data, atol=ATOL), "Dipole mismatch"
+    assert np.allclose(f_rot.data, f_rot_2.data, atol=ATOL), "Forces mismatch"
+    assert np.allclose(s_rot.data, s_rot_2.data, atol=ATOL), "Stress mismatch"
+    assert np.allclose(b_rot.data, b_rot_2.data, atol=ATOL), "Born charge mismatch"
+    # assert np.allclose(c_rot.data, c_rot_2.data, atol=ATOL), "Cell mismatch"
+    
+@pytest.mark.parametrize("method", ["recursive", "flat"])
+@pytest.mark.parametrize("n", range(10))
+def test_rotation_operator(n,method):
+    
+    atoms = read(FILE, index=n)
+
+    R = rotation_matrix_from_euler(
+        atoms.info["euler_alpha"],
+        atoms.info["euler_beta"],
+        atoms.info["euler_gamma"],
+    )
+
+    # ------------------------------------------------------------
+    # Build tensors
+    # ------------------------------------------------------------
+    dipole = Dipole(data=atoms.info["MACE_dipole"], cell=atoms.cell)
+    forces = Force(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
+    stress = Stress(data=atoms.info["MACE_stress"], cell=atoms.cell)
+    bec = BornCharge(data=reconstruct_bec(atoms), cell=atoms.cell)
+    # cell = LatticeVectors(data=atoms.cell, cell=atoms.cell)
+
+    # ------------------------------------------------------------
+    # Rotate using selected method
+    # ------------------------------------------------------------
+    dip_R = dipole.rotation_operator(R)
+    f_R = forces.rotation_operator(R)
+    s_R = stress.rotation_operator(R)
+    b_R = bec.rotation_operator(R)
+    # c_rot = cell.rotate(R, method=method)
+    
+    dip_rot = np.einsum("ij,...j->...i",dip_R,dipole.flatten())
+    f_rot = np.einsum("ij,...j->...i",f_R,forces.flatten())
+    s_rot = np.einsum("ij,...j->...i",s_R,stress.flatten())
+    b_rot = np.einsum("ij,...j->...i",b_R,bec.flatten())
+    
+    assert np.allclose(dip_rot, dipole.contract(dip_R), atol=ATOL), "Dipole mismatch"
+    assert np.allclose(f_rot, forces.contract(f_R), atol=ATOL), "Forces mismatch"
+    assert np.allclose(s_rot, stress.contract(s_R), atol=ATOL), "Stress mismatch"
+    assert np.allclose(b_rot, bec.contract(b_R), atol=ATOL), "Born charge mismatch"
+
+    # ------------------------------------------------------------
+    # Consistency check vs the OTHER method
+    # ------------------------------------------------------------
+    dip_rot_2 = dipole.rotate(R=R, method=method).flatten()
+    f_rot_2 = forces.rotate(R=R, method=method).flatten()
+    s_rot_2 = stress.rotate(R=R, method=method).flatten()
+    b_rot_2 = bec.rotate(R=R, method=method).flatten()
+    # c_rot_2 = cell.rotate(R, method=other_method)
+
+    # ------------------------------------------------------------
+    # Compare implementations
+    # ------------------------------------------------------------
+    assert np.allclose(dip_rot, dip_rot_2, atol=ATOL), "Dipole mismatch"
+    assert np.allclose(f_rot, f_rot_2, atol=ATOL), "Forces mismatch"
+    assert np.allclose(s_rot, s_rot_2, atol=ATOL), "Stress mismatch"
+    assert np.allclose(b_rot, b_rot_2, atol=ATOL), "Born charge mismatch"
+    # assert np.allclose(c_rot.data, c_rot_2.data, atol=ATOL), "Cell mismatch"
+    
 
 if __name__ == "__main__":
     pytest.main([__file__])

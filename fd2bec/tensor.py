@@ -59,18 +59,14 @@ class Tensor:
     
     data: np.ndarray
     axes: List[bool]
-    # cell: Union[Cell,np.ndarray] = field(default=None)
     cell: np.ndarray
     shape: Tuple[int] = field(init=False)
     basis: str = field(default="cartesian")
     
     
-    
     def __post_init__(self):
         self.shape = self.data.shape
-        # if self.cell is not None:
-        #     self.cell = LatticeVectors(self.cell)
-
+        
     def _apply_axis(self, arr: np.ndarray, axis: int, M: np.ndarray) -> np.ndarray:
         """
         Apply a linear map to a single tensor axis.
@@ -95,7 +91,7 @@ class Tensor:
         arr = np.einsum("...j,ij->...i", arr, M, optimize=True)
         return np.moveaxis(arr, -1, axis)
 
-    def __transform(self, matrices: list[np.ndarray]) -> "Tensor":
+    def __transform(self, matrices: list[np.ndarray]) -> 'Tensor':
         """
         Apply per-axis linear transformations.
         Assumes matrices are already correctly prepared.
@@ -113,55 +109,44 @@ class Tensor:
             cell=self.cell,
             basis=self.basis
         )
-    
-    def transform(self, A, Ainv=None, to="fractional"):
+            
+    def __build_operator(self, matrices: list[np.ndarray]) -> np.ndarray:
         """
-        Change lattice basis (Cartesian <-> fractional).
+        Construct flattened full tensor transformation operator.
+
+        Parameters
+        ----------
+        matrices : list of (3,3) ndarray
+            One already-prepared transform matrix per tensor axis.
+
+        Returns
+        -------
+        np.ndarray
+            Flattened operator of shape (3^rank, 3^rank)
+
+        Notes
+        -----
+        If:
+            T'_{flat} = R_tensor @ T_flat
+
+        then:
+            R_tensor = M_rank ⊗ ... ⊗ M_2 ⊗ M_1
+
+        Ordering matches NumPy row-major flattening and the internal
+        last-axis-first transformation convention.
         """
-        if self.basis == to:
-            return self
+        if len(matrices) != len(self.axes):
+            raise ValueError("Number of matrices must match tensor rank")
 
-        if Ainv is None:
-            Ainv = np.linalg.inv(A)
+        R_tensor = None
 
-        mats = []
+        # reverse because last axis is transformed first
+        for M in matrices[::-1]:
+            R_tensor = M if R_tensor is None else np.kron(R_tensor, M)
 
-        if self.basis == "cartesian" and to == "fractional":
-            for cov in self.axes[::-1]:
-                if cov:
-                    mats.append(A)      # covariant
-                else:
-                    mats.append(Ainv.T)     # contravariant
+        return R_tensor
 
-        elif self.basis == "fractional" and to == "cartesian":
-            for cov in self.axes[::-1]:
-                if cov:
-                    mats.append(Ainv)
-                else:
-                    mats.append(A.T)
-
-        else:
-            raise ValueError("Unsupported transformation")
-
-        return self.__transform(mats)._replace_basis(to)
-        
-    def rotate(self, Q: np.ndarray):
-        Q = np.asarray(Q)
-
-        if Q.shape != (3, 3):
-            raise ValueError("Rotation must be 3x3")
-
-        mats = []
-
-        for cov in self.axes[::-1]:
-            mats.append(Q)
-
-        return self.__transform(mats)
-        
-    def to(self,basis:str):
-        return self.transform(self.cell, None, basis)
-    
-    def _replace_basis(self, basis: str):
+    def __replace_basis(self, basis: str):
         """
         Return a shallow copy of the tensor with updated basis.
         """
@@ -171,12 +156,207 @@ class Tensor:
             cell=self.cell,
             basis=basis
         )
+        
+    def __apply_matrices(
+        self,
+        mats: list[np.ndarray],
+        *,
+        method: str = "recursive",
+        basis: str | None = None,
+    ) -> 'Tensor':
+        """
+        Apply already-prepared per-axis matrices to tensor.
+
+        Parameters
+        ----------
+        mats : list of (3,3) ndarray
+            One transform matrix per tensor axis
+            (already accounting for covariance).
+
+        method : {"recursive", "flat"}
+            Application strategy.
+
+        basis : str, optional
+            If provided, replaces tensor basis in returned object.
+
+        Returns
+        -------
+        Tensor
+            Transformed tensor.
+        """
+        rank = len(self.axes)
+
+        if len(mats) != rank:
+            raise ValueError(
+                f"Expected {rank} matrices, got {len(mats)}"
+            )
+
+        # ------------------------------------------------------------
+        # Recursive per-axis transform
+        # ------------------------------------------------------------
+        if method == "recursive":
+            result = self.__transform(mats)
+
+        # ------------------------------------------------------------
+        # Full flattened operator
+        # ------------------------------------------------------------
+        elif method == "flat":
+            tensor_shape = self.data.shape[-rank:]
+
+            if tensor_shape != (3,) * rank:
+                raise ValueError(
+                    f"Last {rank} axes must each have size 3, got {tensor_shape}"
+                )
+
+            batch_shape = self.data.shape[:-rank]
+
+            # Full tensor-product operator
+            R_tensor = self.__build_operator(mats)
+
+            # Flatten tensor axes
+            arr_flat = self.data.reshape(*batch_shape, -1)
+
+            # Apply operator
+            transformed:np.ndarray = np.einsum(
+                "...j,ij->...i",
+                arr_flat,
+                R_tensor,
+                optimize=True,
+            )
+
+            # Restore original tensor shape
+            new_data = transformed.reshape(*batch_shape, *tensor_shape)
+
+            result = Tensor(
+                data=new_data,
+                axes=self.axes,
+                cell=self.cell,
+                basis=self.basis,
+            )
+
+        else:
+            raise ValueError(
+                f"method must be 'recursive' or 'flat', got '{method}'"
+            )
+
+        return result.__replace_basis(basis)
+
+    def rotate(self, R: np.ndarray, method: str = "recursive") -> 'Tensor':
+        """
+        Rotate tensor in current basis.
+
+        For orthogonal rotations, all tensor axes transform with R
+        regardless of covariance.
+        """
+        R = np.asarray(R)
+
+        if R.shape != (3, 3):
+            raise ValueError("Rotation must be (3,3)")
+
+        mats = [R] * len(self.axes)
+
+        return self.__apply_matrices(
+            mats,
+            method=method,
+            basis=self.basis,
+        )
+
+    def transform(self, A, Ainv=None, to="fractional", method: str = "recursive") -> 'Tensor' :
+        """
+        Change tensor basis between Cartesian and fractional coordinates.
+        """
+        if self.basis == to:
+            return self
+
+        if Ainv is None:
+            Ainv = np.linalg.inv(A)
+
+        mats = []
+
+        # ------------------------------------------------------------
+        # Cartesian -> Fractional
+        # ------------------------------------------------------------
+        if self.basis == "cartesian" and to == "fractional":
+            for cov in self.axes[::-1]:
+                mats.append(A if cov else Ainv.T)
+
+        # ------------------------------------------------------------
+        # Fractional -> Cartesian
+        # ------------------------------------------------------------
+        elif self.basis == "fractional" and to == "cartesian":
+            for cov in self.axes[::-1]:
+                mats.append(Ainv if cov else A.T)
+
+        else:
+            raise ValueError(
+                f"Unsupported transformation: {self.basis} -> {to}"
+            )
+
+        return self.__apply_matrices(
+            mats,
+            method=method,
+            basis=to,
+        )
+             
+    def to(self,basis:str,**kwargs):
+        return self.transform(self.cell, None, basis,**kwargs)
+    
+    def rotation_operator(self, R: np.ndarray) -> np.ndarray:
+        """
+        Construct the full flattened rotation operator for this tensor.
+
+        This builds the linear operator acting on the vectorized tensor such that:
+
+            vec(T') = R_tensor @ vec(T)
+
+        where R is a 3×3 rotation matrix and R_tensor is the corresponding
+        Kronecker-product operator acting on all tensor indices.
+
+        Parameters
+        ----------
+        R : (3,3) ndarray
+            Orthogonal rotation matrix (det = ±1, typically det = 1).
+
+        Returns
+        -------
+        np.ndarray
+            Flattened rotation operator of shape (3^rank, 3^rank).
+
+        Notes
+        -----
+        For orthogonal rotations, covariant and contravariant indices transform
+        identically under row-vector convention, so each tensor axis uses R.
+
+        This is equivalent to:
+            R_tensor = R ⊗ R ⊗ ... ⊗ R   (rank times)
+
+        This operator is independent of the tensor's covariance structure
+        because rotations preserve the Euclidean metric.
+
+        Examples
+        --------
+        Vector (rank-1):
+            R_tensor = R
+
+        Matrix (rank-2):
+            R_tensor = R ⊗ R
+
+        Stress or Born-type rank-2 tensors:
+            R_tensor = R ⊗ R
+        """
+        if R.shape != (3, 3):
+            raise ValueError("Rotation must be (3,3)")
+
+        mats = [R] * len(self.axes)
+
+        return self.__build_operator(mats)
+        
 
     # ------------------------------------------------------------
     # BASIC ALGEBRA
     # ------------------------------------------------------------
 
-    def __add__(self, other:"Tensor"):
+    def __add__(self, other:'Tensor'):
         if self.axes != other.axes:
             raise ValueError("Tensor index structures must match")
         if self.basis != other.basis:
@@ -188,33 +368,47 @@ class Tensor:
         return Tensor(data=self.data * scalar, axes=self.axes, cell=self.cell, basis=self.basis)
 
     __rmul__ = __mul__
-
-    # ------------------------------------------------------------
-    # TENSOR CONTRACTION
-    # ------------------------------------------------------------
-
-    def contract(self, i, j):
+    
+    def duplicate(self, **kwargs) -> 'Tensor':
         """
-        Contract one covariant and one contravariant index.
+        Create a new AtomicStructure with some attributes modified.
+
+        Parameters
+        ----------
+        **kwargs
+            Any of the attributes (symbols, cellpar, frac_pos) can be overridden.
+
+        Returns
+        -------
+        AtomicStructure
+            New instance with updated attributes.
         """
-        if self.axes[i] == self.axes[j]:
-            raise ValueError("Cannot contract indices of same variance")
+        return Tensor(
+            data=kwargs.get("data", self.data),
+            axes=kwargs.get("axes", self.axes),
+            cell=kwargs.get("cell", self.cell),
+        )
 
-        data = np.tensordot(self.data, np.eye(3), axes=([i, j], [0, 1]))
+    def flatten(self)->np.ndarray:
+        if self.data.ndim == 1:
+            return self.data
+        else:
+            shape = self.shape[:-len(self.axes)] + (-1,)
+            return self.data.reshape(shape)
+        
+    def contract(self,R: np.ndarray)->'Tensor':
+        arr = self.flatten()
+        arr = contract(R,arr)
+        return self.duplicate(data=arr)
+    
+    def __array__(self, dtype=None):
+        if dtype:
+            return self.data.astype(dtype)
+        return self.data
 
-        new_axes = [
-            ax for k, ax in enumerate(self.axes)
-            if k not in (i, j)
-        ]
 
-        return Tensor(data=data, axes=new_axes, cell=self.cell, basis=self.basis)
-
-    # ------------------------------------------------------------
-    # REPRESENTATION
-    # ------------------------------------------------------------
-
-    # def __repr__(self):
-    #     return f"Tensor(\nshape={self.data.shape},\naxes={self.axes},\nbasis={self.basis},\ndata={self.data})"
+def contract(R: np.ndarray,x:np.ndarray)->np.ndarray:
+    return np.einsum("ij,...j->...i",R,x)
     
     
 class Vector(Tensor):
