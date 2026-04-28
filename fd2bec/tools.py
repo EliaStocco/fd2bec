@@ -42,3 +42,13 @@ def allclose_chunked(a: np.ndarray, b: np.ndarray, atol: float) -> bool:
         if not np.all(np.abs(a[i] - b[i]) <= atol):
             return False
     return True
+
+def atoms2bec(atoms:Atoms, keyword:str)->np.ndarray:
+    ref_becx = atoms.arrays[f"{keyword}x"]
+    ref_becy = atoms.arrays[f"{keyword}y"]
+    ref_becz = atoms.arrays[f"{keyword}z"]
+    bec = np.zeros((len(atoms), 3, 3))
+    bec[:,:,0] = ref_becx
+    bec[:,:,1] = ref_becy
+    bec[:,:,2] = ref_becz
+    return bec# .reshape((len(atoms), 3, 3))

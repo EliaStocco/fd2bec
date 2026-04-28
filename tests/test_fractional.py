@@ -1,95 +1,60 @@
 import numpy as np
 import pytest
+from typing import Dict, Tuple
 from ase.io import read
+from pathlib import Path
 
 from fd2bec import ATOL
-
-# # from fd2bec.conftest import structure # noqa: F401
-from fd2bec.atomic import AtomicStructure
-
-
-def test_fractional_rank_1(structure):
-    """
-    Test that structures have correct consistency between Cartesian and fractional transforms.
-    """
-    n, file_path = structure
-
-    atoms = read(file_path, index=0)
-
-    atomic_structure = AtomicStructure.from_ase(atoms)
-
-    arrays_to_test = ["positions", "REF_forces", "REF_atomic_dipoles"]
-
-    for name in arrays_to_test:
-        if name not in atoms.arrays:
-            pytest.skip(f"{file_path}: missing array '{name}'")
-
-        pos = atoms.arrays[name]
-
-        frac_pos_ref = atoms.cell.scaled_positions(pos)
-        frac_pos_test = atomic_structure.to_fractional(pos)
-
-        diff_frac = np.abs(frac_pos_ref - frac_pos_test)
-        max_frac = np.max(diff_frac)
-
-        assert np.allclose(frac_pos_ref, frac_pos_test, atol=ATOL), (
-            f"\n[FRACTIONAL TRANSFORM MISMATCH]"
-            f"\nFile: {file_path}"
-            f"\nStructure id: {n}"
-            f"\nArray: {name}"
-            f"\nShape: {pos.shape}"
-            f"\nMax |Δ|: {max_frac:.3e}"
-        )
-
-        cart_test = atomic_structure.to_cartesian(frac_pos_ref)
-        diff_cart = np.abs(pos - cart_test)
-        max_cart = np.max(diff_cart)
-
-        assert np.allclose(pos, cart_test, atol=ATOL), (
-            f"\n[CARTESIAN ROUND-TRIP MISMATCH]"
-            f"\nFile: {file_path}"
-            f"\nStructure id: {n}"
-            f"\nArray: {name}"
-            f"\nShape: {pos.shape}"
-            f"\nMax |Δ|: {max_cart:.3e}"
-        )
+from fd2bec.tools import atoms2bec
+from fd2bec.tensor import Dipole, BornCharge, Force, Stress, Tensor, Vector
 
 
-def test_fractional_rank_2(structure):
-    """
-    Test that structures have correct consistency between Cartesian and fractional transforms.
-    """
-    n, file_path = structure
+FILE = Path(__file__).parent / "rotations/rotated.extxyz"
 
-    atoms = read(file_path, index=0)
-    Natoms = atoms.get_global_number_of_atoms()
+instructions:Dict[str,Tuple[str,type]] = {
+    "positions" : ( "array" , Vector ),
+    "MACE_BEC" : ( "array" , BornCharge ),
+    "MACE_forces" : ( "array" ,Force),
+    "MACE_dipole" : ( "info" ,Dipole),
+    "MACE_stress": ( "info" ,Stress)
+}
 
-    atomic_structure = AtomicStructure.from_ase(atoms)
+def assert_allclose_debug(a:np.ndarray, b:np.ndarray, atol:float, msg:str):
+    diff = np.abs(a - b)
+    max_diff = np.max(diff)
 
-    to_test = ["REF_BEC", "REF_stress"]
+    if not np.allclose(a, b, atol=atol):
+        raise ValueError(
+        f"\n{msg}"
+        f"\nMax |Δ|: {max_diff:.3e}"
+        f"\nShape: {a.shape}"
+    )
 
-    for name in to_test:
-        if name in atoms.arrays:
-            pos = atoms.arrays[name].reshape((Natoms, 3, 3))
-        elif name in atoms.info:
-            pos = atoms.info[name].reshape((3, 3))
+@pytest.mark.parametrize("n", range(10))
+def test_fractional(n):
+    
+    atoms = read(FILE, index=n)
+    
+    for keyword, (where,classname) in instructions.items():
+        if keyword == "MACE_BEC":
+            array = atoms2bec(atoms,keyword)
+        elif where == "array":
+            array = atoms.arrays[keyword]
         else:
-            pytest.skip(f"{file_path}: missing '{name}'")
-
-        frac_pos_test = atomic_structure.to_fractional(pos, rank=2)
-        cart_test = atomic_structure.to_cartesian(frac_pos_test, rank=2)
-        diff_cart = np.abs(pos - cart_test)
-        max_cart = np.max(diff_cart)
-
-        assert np.allclose(pos, cart_test, atol=ATOL), (
-            f"\n[CARTESIAN ROUND-TRIP MISMATCH]"
-            f"\nFile: {file_path}"
-            f"\nStructure id: {n}"
-            f"\nArray: {name}"
-            f"\nShape: {pos.shape}"
-            f"\nMax |Δ|: {max_cart:.3e}"
-        )
-
+            array = atoms.info[keyword]
+        
+        original:Tensor = classname(data=array,cell=atoms.cell)
+        fractional = original.to("fractional")
+        test = fractional.to("cartesian")
+        
+        assert_allclose_debug(original.data, test.data, ATOL, f"[{keyword} ROUNDTRIP MISMATCH]")
+        
+        if classname in [Vector,Dipole]:
+            frac_pos = atoms.cell.scaled_positions(array)
+            original.to("fractional")
+            assert_allclose_debug(fractional.data, frac_pos, ATOL, f"[{keyword} ROUNDTRIP MISMATCH]")
+        
+        pass
 
 if __name__ == "__main__":
     pytest.main([__file__])
