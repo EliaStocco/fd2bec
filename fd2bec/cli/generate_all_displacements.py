@@ -1,8 +1,11 @@
 import argparse
 
+from typing import Tuple
+
 import numpy as np
 from ase.io import read
 
+from fd2bec.atomic import AtomicStructure
 from fd2bec import float_format
 from fd2bec.cli import cli
 
@@ -39,17 +42,29 @@ def prepare_args(descr):
     )
     return parser
 
+def atomic_structure2all_displacements(unit_cell: AtomicStructure, amplitude: float, use_delta_dipole:bool = False)->Tuple[np.ndarray, np.ndarray]:
+    """Generate all symmetry inequivalent cartesian displacements
+    for the given unit cell and amplitude."""
+
+    N = 3 * len(unit_cell)
+    displacements = np.eye(N) * amplitude
+    
+    if not use_delta_dipole:
+        displacements = np.concatenate([np.zeros((1, 3 * len(unit_cell))), displacements], axis=0)
+
+    return displacements, displacements
 
 @cli(prepare_args, description)
 def main(args):
 
     print(f"Reading input structure from {args.input} ... ", end="")
     atoms = read(args.input, index=0)
+    unit_cell = AtomicStructure.from_ase(atoms)
     print("done")
 
     N = 3 * atoms.get_global_number_of_atoms()
     print(f"Generating all {N} displacements ... ", end="")
-    displacements = np.eye(N) * args.amplitude
+    displacements = atomic_structure2all_displacements(unit_cell,args.amplitude, use_delta_dipole=True)[0]
     print("done")
 
     print(f"Writing cartesian displacements to {args.output} ... ", end="")
