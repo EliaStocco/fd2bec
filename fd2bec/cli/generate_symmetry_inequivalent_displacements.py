@@ -46,7 +46,7 @@ def atomic_structure2unique_displacements(unit_cell: AtomicStructure, amplitude:
     """Generate all symmetry inequivalent cartesian displacements
     for the given unit cell and amplitude."""
 
-    _, theta, theta_real, _ = unit_cell.get_symmetrizer(rank=2, atomic=True, affine=False)
+    _, theta, theta_real = unit_cell.get_symmetrizer(rank=2, atomic=True, affine=False)
 
     theta_real = theta_real.reshape((-1, len(unit_cell), 3, 3))
 

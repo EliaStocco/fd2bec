@@ -1,6 +1,6 @@
 # pylint: disable=invalid-name
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cached_property
 
 import numpy as np
@@ -11,7 +11,7 @@ from ase.data import atomic_numbers
 from ase.geometry import cellpar_to_cell
 
 from fd2bec import ATOL, DEBUG, SYMPREC, Basis, validate_types
-from fd2bec.tensor import Tensor
+from fd2bec.tensor import Tensor, Position
 from fd2bec.mathematics import affine2homogeneous, append_one, find_mapping, invert_indices, wrap
 
 
@@ -34,7 +34,7 @@ class AtomicStructure:
     - The class is fully immutable:
         - `symbols` is stored as a tuple
         - NumPy arrays are copied and marked read-only
-    - Derived properties (`species`, `pos`) are cached for efficiency.
+    - Derived properties (`species`, `frac_pos_dict`) are cached for efficiency.
     """
 
     symbols: tuple[str, ...]
@@ -59,25 +59,25 @@ class AtomicStructure:
         object.__setattr__(self, "cellpar", cellpar)
         object.__setattr__(self, "frac_pos", frac_pos)
 
-    def duplicate(self, **kwargs) -> "AtomicStructure":
-        """
-        Create a new AtomicStructure with some attributes modified.
+    # def duplicate(self, **kwargs) -> "AtomicStructure":
+    #     """
+    #     Create a new AtomicStructure with some attributes modified.
 
-        Parameters
-        ----------
-        **kwargs
-            Any of the attributes (symbols, cellpar, frac_pos) can be overridden.
+    #     Parameters
+    #     ----------
+    #     **kwargs
+    #         Any of the attributes (symbols, cellpar, frac_pos) can be overridden.
 
-        Returns
-        -------
-        AtomicStructure
-            New instance with updated attributes.
-        """
-        return AtomicStructure(
-            symbols=kwargs.get("symbols", self.symbols),
-            cellpar=kwargs.get("cellpar", self.cellpar),
-            frac_pos=kwargs.get("frac_pos", self.frac_pos),
-        )
+    #     Returns
+    #     -------
+    #     AtomicStructure
+    #         New instance with updated attributes.
+    #     """
+    #     return AtomicStructure(
+    #         symbols=kwargs.get("symbols", self.symbols),
+    #         cellpar=kwargs.get("cellpar", self.cellpar),
+    #         frac_pos=kwargs.get("frac_pos", self.frac_pos),
+    #     )
 
     @classmethod
     def from_ase(cls, atoms: Atoms, keyword: str = "positions") -> "AtomicStructure":
@@ -177,9 +177,13 @@ class AtomicStructure:
         set[str]
         """
         return set(self.symbols)
+    
+    @cached_property
+    def positions(self) -> np.ndarray:
+        return self.cell.cartesian_positions(self.frac_pos)
 
     @cached_property
-    def pos(self) -> dict[str, np.ndarray]:
+    def frac_pos_dict(self) -> dict[str, np.ndarray]:
         """
         Fractional positions grouped by chemical species.
 
@@ -240,7 +244,7 @@ class AtomicStructure:
         T = spg.translations
         for _, (r, t) in enumerate(zip(R, T)):
             new_pos = self.frac_pos @ r + t
-            new_structure = self.duplicate(frac_pos=new_pos)
+            new_structure = replace(self,frac_pos=new_pos)
             if not self.is_equal_to(new_structure, atol=atol):
                 self.is_equal_to(new_structure, atol=atol)
                 raise ValueError("Symmetry operation does not preserve the structure")
@@ -268,8 +272,8 @@ class AtomicStructure:
             idx_self = np.where(np.array(self.symbols) == s)[0]
             idx_other = np.where(np.array(other.symbols) == s)[0]
 
-            a = self.pos[s]
-            b = other.pos[s]
+            a = self.frac_pos_dict[s]
+            b = other.frac_pos_dict[s]
 
             local_map, ok, dists = find_mapping(a, b, atol=atol * len(a))
             if not ok:
@@ -317,7 +321,7 @@ class AtomicStructure:
         mappings = [None] * len(R)
         for n, (r, t) in enumerate(zip(R, T)):
             new_pos = self.frac_pos @ r + t
-            new_structure = self.duplicate(frac_pos=new_pos)
+            new_structure = replace(self,frac_pos=new_pos)
             mappings[n] = self.__get_atoms_mapping(new_structure)
         mappings = np.asarray(mappings)
         inv_map = invert_indices(mappings, axis=1)
@@ -335,7 +339,7 @@ class AtomicStructure:
 
         return inv_map
 
-    def __get_symmetry_operations(self, rank: int, atomic: bool, affine: bool, **kwargs):
+    def get_symmetry_operations(self, tensor:Tensor, **kwargs):
         """
         Construct flattened symmetry operations acting on a vector representation.
 
@@ -363,12 +367,14 @@ class AtomicStructure:
             Shape (Nops, dim) translation vectors in flattened form.
 
         """
-        if rank != 1 and affine:
-            raise ValueError("Translations only apply to rank-1 objects (positions).")
+        # if rank != 1 and affine:
+        affine = tensor.is_affine
+        atomic = tensor.is_atomic
+        rank = sum(tensor.rank)
 
-        if affine:
-            x = self.frac_pos.copy()
-            x_flat = x.flatten()
+        # if affine:
+        #     x = self.frac_pos.copy()
+        x_flat = tensor.flatten(full=True)
 
         spg = self.to_spglib_cell(**kwargs)
         R = spg.rotations.copy()
@@ -382,10 +388,14 @@ class AtomicStructure:
         Nops = len(R)
         ii = np.arange(Natoms)
 
-        dim = Natoms * (3**rank)
+        if atomic:
+            dim = Natoms * (3**rank)
+        else:
+            dim = (3**rank)
         R_flat = np.zeros((Nops, dim, dim))
         T_flat = np.zeros((Nops, dim))
 
+        P = None
         for n, (r, t, m) in enumerate(zip(R, T, mappings)):
             if not affine:
                 t[...] = 0.0
@@ -394,15 +404,17 @@ class AtomicStructure:
                 # Permutation matrix (maps reordered atoms)
                 P = np.zeros((Natoms, Natoms))
                 P[ii, m] = 1
-            else:
-                P = np.ones(1)
+            # else:
+            #     P = np.ones(1)
 
-            # Flattened rotation (row-vector convention → use r.T)
-            R_cart = r.T
-            for _ in range(rank - 1):
-                R_cart = np.kron(R_cart, r.T)
+            # # Flattened rotation (row-vector convention → use r.T)
+            # R_cart = r.T
+            # for _ in range(rank - 1):
+            #     R_cart = np.kron(R_cart, r.T)
+            R_cart = tensor.rotation_operator(r.T)
 
-            r_flat = np.kron(P, R_cart)
+            if atomic:
+                R_cart = np.kron(P, R_cart)               
 
             if affine:
                 # Flattened translation (must be permuted)
@@ -411,7 +423,10 @@ class AtomicStructure:
             else:
                 t_flat = np.zeros(dim)
 
-            R_flat[n] = r_flat
+            try:
+                R_flat[n] = R_cart
+            except:
+                pass
             T_flat[n] = t_flat
 
         if affine:
@@ -421,21 +436,15 @@ class AtomicStructure:
 
         return R_flat, T_flat
 
-    def get_symmetry_operations(self, **kwargs):
-        """
-        Flattened symmetry operations for the atomic tensors.
-        """
-        assert not kwargs.pop("affine", False), "error"
-        return self.__get_symmetry_operations(affine=False, **kwargs)[0]
-
     def get_affine_symmetry_operations(self, **kwargs):
         """
         Flattened affine symmetry operations for the atomic coordinates.
         """
-        assert kwargs.pop("rank", 1) == 1, "error"
-        assert kwargs.pop("atomic", True), "error"
-        assert kwargs.pop("affine", True), "error"
-        return self.__get_symmetry_operations(rank=1, atomic=True, affine=True, **kwargs)
+        # assert kwargs.pop("rank", 1) == 1, "error"
+        # assert kwargs.pop("atomic", True), "error"
+        # assert kwargs.pop("affine", True), "error"
+        tensor = Position(data=self.frac_pos,basis="fractional")
+        return self.get_symmetry_operations(tensor=tensor, **kwargs)
 
     def get_homogeneous_symmetry_operations(self, **kwargs):
         """
@@ -447,28 +456,18 @@ class AtomicStructure:
 
     def get_totally_symmetric_projection(
         self,
-        rank: int = 1,
-        atomic: bool = True,
-        affine: bool = True,
+        tensor:Tensor
     ):
         """Construct the projection operator onto the totally symmetric representation."""
-
-        if not atomic and affine:
-            raise ValueError(
-                "Affine attributes are available only for positions (atomic=True case)."
-            )
-        G, T = self.__get_symmetry_operations(rank=rank, atomic=atomic, affine=affine)
-        if affine:
+        G, T = self.get_symmetry_operations(tensor=tensor)
+        if tensor.is_affine:
             G = affine2homogeneous(G, T)
         P = np.mean(G, axis=0)
         return P
 
     def get_symmetrizer(
         self,
-        x: np.ndarray = None,
-        rank: int = 1,
-        atomic: bool = True,
-        affine: bool = True,
+        tensor: Tensor,
         debug: bool = DEBUG,
         atol: float = ATOL,
     ):
@@ -476,22 +475,21 @@ class AtomicStructure:
         # ------------------------
         # Projection construction
         # ------------------------
-        P = self.get_totally_symmetric_projection(rank=rank, atomic=atomic, affine=affine)
+        P = self.get_totally_symmetric_projection(tensor=tensor)
 
         # ------------------------
         # Vector construction
         # ------------------------
-        shape = (3,) * rank
-        if atomic:
-            shape = (len(self), *shape)
-        if x is None:
-            x = np.zeros(shape)
+        # shape = (3,) * sum(x.rank)
+        # if x.is_atomic:
+        #     shape = (len(self), *shape)
+        # if x is None:
+        #     x = np.zeros(shape)
 
-        assert x.shape == shape, f"Wrong shape, expected {shape} but got {x.shape}."
+        # assert x.shape == shape, f"Wrong shape, expected {shape} but got {x.shape}."
 
-        x = x.flatten()
-
-        if affine:
+        x = tensor.flatten(full=True)
+        if tensor.is_affine:
             x = append_one(x)
 
         # ------------------------
@@ -519,14 +517,17 @@ class AtomicStructure:
         S = np.real(S)
 
         # Solve for theta
-        theta = np.linalg.lstsq(S, x, rcond=None)[0] if x is not None else None
+        try:
+            theta = np.linalg.lstsq(S, x, rcond=None)[0] # if x is not None else None
+        except:
+            pass
 
         # ------------------------
         # Real-space interpretation of modes
         # ------------------------
-        if affine:
+        if tensor.is_affine:
             theta_real = S[:-1, :].T  # .reshape((len(theta), -1, 3))
         else:
             theta_real = S.T  # .reshape((len(theta), -1, 3))
 
-        return S, theta, theta_real, shape
+        return S, theta, theta_real# , shape

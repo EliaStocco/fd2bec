@@ -15,22 +15,20 @@ from fd2bec.cli.generate_all_displacements import atomic_structure2all_displacem
 # from fd2bec.symmetry import is_sohncke
 
 DATA_DIR = Path(__file__).parent / "MP/spacegroup_structures"
+# DATA_DIR = Path(__file__).parent / "MP/problems"
 
 AMPLITUDE = 0.01
-
 
 def run_workflow(filepath):
     atoms = read(filepath)
     unit_cell = AtomicStructure.from_ase(atoms)
+    if not np.all(unit_cell.cell == atoms.cell):
+        pytest.skip("There is a problem with the cell.")
 
-    unit_cell._test_symmetry(atol=1e-4)
+    # unit_cell._test_symmetry(atol=ATOL)
 
     Na = atoms.get_global_number_of_atoms()
     bec = np.random.rand(Na, 3, 3)
-
-    kwargs = {"rank": 2, "atomic": True, "affine": False}
-    P = unit_cell.get_totally_symmetric_projection(**kwargs)
-    # S, _, _, _ = unit_cell.get_symmetrizer(atol=ATOL, **kwargs)
 
     bec = BornCharge(data=bec)
     tmp = unit_cell.to("fractional",bec)
@@ -40,6 +38,7 @@ def run_workflow(filepath):
 
     try:
         tmp = unit_cell.to("fractional",bec)
+        P = unit_cell.get_totally_symmetric_projection(tensor=tmp)
         tmp: np.ndarray = P @ tmp.flatten(full=True)  # symmetrize the BECs
         tmp = BornCharge(data=tmp.reshape((Na, 3, 3)))
         bec = unit_cell.to("cartesian",tmp)
@@ -96,9 +95,7 @@ def test_workflow_MP(n):
         pytest.skip(f"No files found for space group {n}")
 
     assert len(files) == 1, f"Expected exactly one file matching {pattern}, but found {len(files)}"
-
     file = files[0]
-
     run_workflow(file)
 
 

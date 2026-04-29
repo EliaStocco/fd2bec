@@ -85,7 +85,7 @@ def main(args):
     S = np.asarray(problem["symmetry"]["symmetrizer"])
     if not problem["is_delta_dipole"]:
         x = x[3:]
-    # Su, _, _, _ = unit_cell.get_symmetrizer(rank=2,atomic=True,affine=False)
+    # Su, _, _ = unit_cell.get_symmetrizer(rank=2,atomic=True,affine=False)
     # bec = Su @ x # this does not work
     # this way to extract the Born Charges of the unit cell
     # from the symmetrized Born Charges of the super cell

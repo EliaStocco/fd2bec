@@ -4,6 +4,47 @@ from ase.cell import Cell
 from functools import cached_property
 from dataclasses import dataclass, field, replace
 
+def axes_to_pq(axes: list[bool]) -> tuple[int, int]:
+    """
+    Convert axis covariance list into rank-(p,q) tensor notation.
+
+    In this convention:
+        False -> contravariant (upper index)
+        True  -> covariant (lower index)
+
+    Returns:
+        p = number of contravariant (False) axes
+        q = number of covariant (True) axes
+
+    Parameters
+    ----------
+    axes : list[bool]
+        Axis variance list.
+
+    Returns
+    -------
+    tuple[int, int]
+        (p, q) where:
+        p = number of contravariant indices
+        q = number of covariant indices
+
+    Examples
+    --------
+    [False]                     → (1, 0)
+    [True]                      → (0, 1)
+    [False, True]               → (1, 1)
+    [True, True]                → (0, 2)
+    [False, False, True]        → (2, 1)
+    [False, False, True, True]  → (2, 2)
+    """
+    if not all(isinstance(a, bool) for a in axes):
+        raise ValueError("axes must be a list of booleans")
+
+    p = axes.count(False)
+    q = axes.count(True)
+
+    return p, q
+
 def pq_to_axes(p: int, q: int) -> list[bool]:
     """
     Convert rank-(p,q) tensor notation into axis covariance list.
@@ -61,11 +102,18 @@ class Tensor:
     axes: List[bool]
     cell: np.ndarray = field(default=None)
     is_atomic: bool = field(default=None)
+    is_affine: bool = field(default=False)
     shape: Tuple[int] = field(init=False)
     basis: str = field(default="cartesian")
     
     def __post_init__(self):
         self.shape = self.data.shape
+        if self.is_affine and self.rank != (1,0):
+            raise ValueError("Affine tensors can only be of rank-(1,0) (positions).")
+        
+    @property
+    def rank(self) -> Tuple[int,int]:
+        return axes_to_pq(self.axes)
         
     def _apply_axis(self, arr: np.ndarray, axis: int, M: np.ndarray) -> np.ndarray:
         """
@@ -360,6 +408,15 @@ class Tensor:
             shape = self.shape[:-len(self.axes)] + (-1,)
             return self.data.reshape(shape)
         
+    @cached_property
+    def template(self)->np.ndarray:
+        n = len(self.axes)
+        if self.is_atomic:
+            n += 1
+        return np.zeros(self.shape[-n:])
+            
+            
+        
     def contract(self,R: np.ndarray)->'Tensor':
         arr = self.flatten()
         arr = contract(R,arr)
@@ -396,7 +453,10 @@ class GlobalVector(Vector):
 
 
 class Position(AtomicVector):
-    pass
+    def __init__(self, **kwargs):
+        kwargs = SpecialDict(kwargs)
+        kwargs["is_affine"] = True
+        super().__init__(**kwargs)
 
 
 class Dipole(GlobalVector):

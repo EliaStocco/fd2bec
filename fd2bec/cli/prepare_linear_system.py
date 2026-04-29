@@ -128,7 +128,7 @@ def main(args):
     S = None
     theta = None
     # if args.space_group:
-    S, theta, _, _ = unit_cell.get_symmetrizer(rank=2, atomic=True, affine=False)
+    S, theta, _ = unit_cell.get_symmetrizer(rank=2, atomic=True, affine=False)
     n_unknowns = len(theta)
     # S = S.reshape((-1,3,n_unknowns))
     x = np.asarray([f"theta_{n}" for n in range(len(theta))])
