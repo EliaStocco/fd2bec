@@ -23,6 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "pylint",
     "pre-commit",
     "ruff",
     "isort",
@@ -32,6 +33,7 @@ dev = [
 ]
 
 dev-mp = [
+    "pylint",
     "pre-commit",
     "ruff",
     "isort",
