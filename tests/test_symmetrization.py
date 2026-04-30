@@ -3,11 +3,11 @@ import pytest
 from ase.io import read
 
 from fd2bec import ATOL
-
-# # from fd2bec.conftest import structure # noqa: F401
-from fd2bec.tensor import Position, AtomicVector, Force, BornCharge
 from fd2bec.atomic import AtomicStructure
 from fd2bec.mathematics import append_one, remove_one
+
+# # from fd2bec.conftest import structure # noqa: F401
+from fd2bec.tensor import AtomicVector, BornCharge, Force, Position
 
 
 def test_symmetrizer(structure):
@@ -29,11 +29,11 @@ def test_symmetrizer(structure):
     # affine
     # ----------------------#
     # for name in ["positions"]:  # "REF_atomic-oxn-dipole"
-        
+
     # params = {"rank": 1, "affine": True, "atomic": True}
 
-    tensor = Position(data=atoms.arrays["positions"],cell=atoms.cell)
-    frac_pos = atomic_structure.to(basis="fractional",tensor=tensor).data
+    tensor = Position(data=atoms.arrays["positions"], cell=atoms.cell)
+    frac_pos = atomic_structure.to(basis="fractional", tensor=tensor).data
     assert np.allclose(
         frac_pos @ atomic_structure.cell,
         atoms.arrays["positions"],
@@ -57,12 +57,12 @@ def test_symmetrizer(structure):
     # ----------------------#
     # vectors
     # ----------------------#
-    for name,classname in [("REF_forces",Force), ("REF_atomic_dipoles",AtomicVector)]:
-        
+    for name, classname in [("REF_forces", Force), ("REF_atomic_dipoles", AtomicVector)]:
+
         array = atoms.arrays[name]
         # params = {"rank": 1, "affine": False, "atomic": True}
         tensor = classname(data=array)
-        frac_vector = atomic_structure.to(basis="fractional",tensor=tensor)# .data
+        frac_vector = atomic_structure.to(basis="fractional", tensor=tensor)  # .data
         # assert np.allclose(
         #     frac_vector @ atomic_structure.cell,
         #     array,
@@ -86,10 +86,10 @@ def test_symmetrizer(structure):
     # ----------------------#
     # for name in ["REF_BEC"]:
     # params = {"rank": 2, "affine": False, "atomic": True}
-    
+
     tensor = BornCharge(data=atoms.arrays["REF_BEC"].reshape((-1, 3, 3)))
-    frac_bec = atomic_structure.to(basis="fractional",tensor=tensor)
-    tmp = atomic_structure.to(basis="cartesian",tensor=frac_bec).data
+    frac_bec = atomic_structure.to(basis="fractional", tensor=tensor)
+    tmp = atomic_structure.to(basis="cartesian", tensor=frac_bec).data
     assert np.allclose(
         tmp, tensor, atol=ATOL * len(atomic_structure)
     ), "Error with fractional 'REF_BEC'"
@@ -97,7 +97,7 @@ def test_symmetrizer(structure):
     # frac_bec = frac_bec.data.flatten()
     R = atomic_structure.get_symmetry_operations(tensor=frac_bec)
     S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=frac_vector)
-    
+
     # assert np.allclose(
     #     R @ flat_vector, flat_vector, atol=ATOL * len(atomic_structure)
     # ), "Error with symmetrizer when using 'REF_BEC'."

@@ -1,11 +1,13 @@
-from ase.io import read
-import pytest
-import numpy as np
-from ase import Atoms
-from fd2bec import ATOL
 from pathlib import Path
+
+import numpy as np
+import pytest
+from ase import Atoms
+from ase.io import read
+
+from fd2bec import ATOL
+from fd2bec.tensor import BornCharge, Dipole, Force, Stress
 from fd2bec.tools import atoms2bec
-from fd2bec.tensor import Dipole, BornCharge, Force, Stress, LatticeVectors
 
 REF = Path(__file__).parent / "rotations/start.extxyz"
 FILE = Path(__file__).parent / "rotations/rotated.extxyz"
@@ -124,10 +126,6 @@ def test_rotations_manual(n):
 
 
 import pytest
-import numpy as np
-
-from ase.io import read
-from fd2bec import ATOL
 
 
 @pytest.mark.parametrize("method", ["recursive", "flat"])
@@ -179,11 +177,12 @@ def test_rotations_tensors(n, method):
     assert np.allclose(s_rot.data, s_rot_2.data, atol=ATOL), "Stress mismatch"
     assert np.allclose(b_rot.data, b_rot_2.data, atol=ATOL), "Born charge mismatch"
     # assert np.allclose(c_rot.data, c_rot_2.data, atol=ATOL), "Cell mismatch"
-    
+
+
 @pytest.mark.parametrize("method", ["recursive", "flat"])
 @pytest.mark.parametrize("n", range(10))
-def test_rotation_operator(n,method):
-    
+def test_rotation_operator(n, method):
+
     atoms = read(FILE, index=n)
 
     R = rotation_matrix_from_euler(
@@ -209,12 +208,12 @@ def test_rotation_operator(n,method):
     s_R = stress.rotation_operator(R)
     b_R = bec.rotation_operator(R)
     # c_rot = cell.rotate(R, method=method)
-    
-    dip_rot = np.einsum("ij,...j->...i",dip_R,dipole.flatten())
-    f_rot = np.einsum("ij,...j->...i",f_R,forces.flatten())
-    s_rot = np.einsum("ij,...j->...i",s_R,stress.flatten())
-    b_rot = np.einsum("ij,...j->...i",b_R,bec.flatten())
-    
+
+    dip_rot = np.einsum("ij,...j->...i", dip_R, dipole.flatten())
+    f_rot = np.einsum("ij,...j->...i", f_R, forces.flatten())
+    s_rot = np.einsum("ij,...j->...i", s_R, stress.flatten())
+    b_rot = np.einsum("ij,...j->...i", b_R, bec.flatten())
+
     assert np.allclose(dip_rot, dipole.contract(dip_R), atol=ATOL), "Dipole mismatch"
     assert np.allclose(f_rot, forces.contract(f_R), atol=ATOL), "Forces mismatch"
     assert np.allclose(s_rot, stress.contract(s_R), atol=ATOL), "Stress mismatch"
@@ -237,7 +236,7 @@ def test_rotation_operator(n,method):
     assert np.allclose(s_rot, s_rot_2, atol=ATOL), "Stress mismatch"
     assert np.allclose(b_rot, b_rot_2, atol=ATOL), "Born charge mismatch"
     # assert np.allclose(c_rot.data, c_rot_2.data, atol=ATOL), "Cell mismatch"
-    
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

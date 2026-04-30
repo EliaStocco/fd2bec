@@ -1,8 +1,10 @@
-import numpy as np
-from typing import Union, List, Tuple
-from ase.cell import Cell
-from functools import cached_property
 from dataclasses import dataclass, field, replace
+from functools import cached_property
+from typing import List, Tuple, Union
+
+import numpy as np
+from ase.cell import Cell
+
 
 def axes_to_pq(axes: list[bool]) -> tuple[int, int]:
     """
@@ -45,6 +47,7 @@ def axes_to_pq(axes: list[bool]) -> tuple[int, int]:
 
     return p, q
 
+
 def pq_to_axes(p: int, q: int) -> list[bool]:
     """
     Convert rank-(p,q) tensor notation into axis covariance list.
@@ -84,6 +87,7 @@ def pq_to_axes(p: int, q: int) -> list[bool]:
 
     return [False] * p + [True] * q
 
+
 @dataclass
 class Tensor:
     """
@@ -97,7 +101,7 @@ class Tensor:
         - cartesian
         - fractional (lattice coordinates)
     """
-    
+
     data: np.ndarray
     axes: List[bool]
     cell: np.ndarray = field(default=None)
@@ -105,16 +109,16 @@ class Tensor:
     is_affine: bool = field(default=False)
     shape: Tuple[int] = field(init=False)
     basis: str = field(default="cartesian")
-    
+
     def __post_init__(self):
         self.shape = self.data.shape
-        if self.is_affine and self.rank != (1,0):
+        if self.is_affine and self.rank != (1, 0):
             raise ValueError("Affine tensors can only be of rank-(1,0) (positions).")
-        
+
     @property
-    def rank(self) -> Tuple[int,int]:
+    def rank(self) -> Tuple[int, int]:
         return axes_to_pq(self.axes)
-        
+
     def _apply_axis(self, arr: np.ndarray, axis: int, M: np.ndarray) -> np.ndarray:
         """
         Apply a linear map to a single tensor axis.
@@ -139,7 +143,7 @@ class Tensor:
         arr = np.einsum("...j,ij->...i", arr, M, optimize=True)
         return np.moveaxis(arr, -1, axis)
 
-    def __transform(self, matrices: list[np.ndarray]) -> 'Tensor':
+    def __transform(self, matrices: list[np.ndarray]) -> "Tensor":
         """
         Apply per-axis linear transformations.
         Assumes matrices are already correctly prepared.
@@ -150,9 +154,9 @@ class Tensor:
         for i in range(rank):
             axis = -(i + 1)
             result = self._apply_axis(result, axis, matrices[i])
-            
-        return replace(self,data=result)
-            
+
+        return replace(self, data=result)
+
     def __build_operator(self, matrices: list[np.ndarray]) -> np.ndarray:
         """
         Construct flattened full tensor transformation operator.
@@ -188,14 +192,14 @@ class Tensor:
             R_tensor = M if R_tensor is None else np.kron(R_tensor, M)
 
         return R_tensor
-        
+
     def __apply_matrices(
         self,
         mats: list[np.ndarray],
         *,
         method: str = "recursive",
         basis: str | None = None,
-    ) -> 'Tensor':
+    ) -> "Tensor":
         """
         Apply already-prepared per-axis matrices to tensor.
 
@@ -219,9 +223,7 @@ class Tensor:
         rank = len(self.axes)
 
         if len(mats) != rank:
-            raise ValueError(
-                f"Expected {rank} matrices, got {len(mats)}"
-            )
+            raise ValueError(f"Expected {rank} matrices, got {len(mats)}")
 
         # ------------------------------------------------------------
         # Recursive per-axis transform
@@ -236,9 +238,7 @@ class Tensor:
             tensor_shape = self.data.shape[-rank:]
 
             if tensor_shape != (3,) * rank:
-                raise ValueError(
-                    f"Last {rank} axes must each have size 3, got {tensor_shape}"
-                )
+                raise ValueError(f"Last {rank} axes must each have size 3, got {tensor_shape}")
 
             batch_shape = self.data.shape[:-rank]
 
@@ -249,7 +249,7 @@ class Tensor:
             arr_flat = self.data.reshape(*batch_shape, -1)
 
             # Apply operator
-            transformed:np.ndarray = np.einsum(
+            transformed: np.ndarray = np.einsum(
                 "...j,ij->...i",
                 arr_flat,
                 R_tensor,
@@ -259,18 +259,14 @@ class Tensor:
             # Restore original tensor shape
             new_data = transformed.reshape(*batch_shape, *tensor_shape)
 
-            result = replace(self,
-                data=new_data
-            )
+            result = replace(self, data=new_data)
 
         else:
-            raise ValueError(
-                f"method must be 'recursive' or 'flat', got '{method}'"
-            )
+            raise ValueError(f"method must be 'recursive' or 'flat', got '{method}'")
 
-        return replace(result,basis=basis)
+        return replace(result, basis=basis)
 
-    def rotate(self, R: np.ndarray, method: str = "recursive") -> 'Tensor':
+    def rotate(self, R: np.ndarray, method: str = "recursive") -> "Tensor":
         """
         Rotate tensor in current basis.
 
@@ -290,7 +286,7 @@ class Tensor:
             basis=self.basis,
         )
 
-    def transform(self, A, Ainv=None, to="fractional", method: str = "recursive") -> 'Tensor' :
+    def transform(self, A, Ainv=None, to="fractional", method: str = "recursive") -> "Tensor":
         """
         Change tensor basis between Cartesian and fractional coordinates.
         """
@@ -317,19 +313,17 @@ class Tensor:
                 mats.append(Ainv if cov else A.T)
 
         else:
-            raise ValueError(
-                f"Unsupported transformation: {self.basis} -> {to}"
-            )
+            raise ValueError(f"Unsupported transformation: {self.basis} -> {to}")
 
         return self.__apply_matrices(
             mats,
             method=method,
             basis=to,
         )
-             
-    def to(self,basis:str,**kwargs):
-        return self.transform(self.cell, None, basis,**kwargs)
-    
+
+    def to(self, basis: str, **kwargs):
+        return self.transform(self.cell, None, basis, **kwargs)
+
     def rotation_operator(self, R: np.ndarray) -> np.ndarray:
         """
         Construct the full flattened rotation operator for this tensor.
@@ -379,58 +373,48 @@ class Tensor:
         mats = [R] * len(self.axes)
 
         return self.__build_operator(mats)
-        
 
     # ------------------------------------------------------------
     # BASIC ALGEBRA
     # ------------------------------------------------------------
 
-    # def __add__(self, other:'Tensor'):
-    #     if self.axes != other.axes:
-    #         raise ValueError("Tensor index structures must match")
-    #     if self.basis != other.basis:
-    #         raise ValueError("Basis must match")
-
-    #     return Tensor(data=self.data + other.data, axes=self.axes, cell=self.cell, basis=self.basis)
-
     def __mul__(self, scalar):
-        return replace(self,data=self.data * scalar)
+        return replace(self, data=self.data * scalar)
 
     __rmul__ = __mul__
 
-    def flatten(self, full:bool=False)->np.ndarray:
+    def flatten(self, full: bool = False) -> np.ndarray:
         if full and self.is_atomic:
-            shape = self.shape[:-len(self.axes)-1] + (-1,)
+            shape = self.shape[: -len(self.axes) - 1] + (-1,)
             return self.data.reshape(shape)
         if self.data.ndim == 1:
             return self.data
         else:
-            shape = self.shape[:-len(self.axes)] + (-1,)
+            shape = self.shape[: -len(self.axes)] + (-1,)
             return self.data.reshape(shape)
-        
+
     @cached_property
-    def template(self)->np.ndarray:
+    def template(self) -> np.ndarray:
         n = len(self.axes)
         if self.is_atomic:
             n += 1
         return np.zeros(self.shape[-n:])
-            
-            
-        
-    def contract(self,R: np.ndarray)->'Tensor':
+
+    def contract(self, R: np.ndarray) -> "Tensor":
         arr = self.flatten()
-        arr = contract(R,arr)
-        return replace(self,data=arr)
-    
+        arr = contract(R, arr)
+        return replace(self, data=arr)
+
     def __array__(self, dtype=None):
         if dtype:
             return self.data.astype(dtype)
         return self.data
 
 
-def contract(R: np.ndarray,x:np.ndarray)->np.ndarray:
-    return np.einsum("ij,...j->...i",R,x)
-           
+def contract(R: np.ndarray, x: np.ndarray) -> np.ndarray:
+    return np.einsum("ij,...j->...i", R, x)
+
+
 class Vector(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
@@ -502,24 +486,26 @@ class LatticeVectors(GlobalVector):
           r_cart = A · r_frac
           r_frac = A⁻¹ · r_cart
     """
-    def __init__(self, data:Union[Cell,np.ndarray], **kwargs):
-        
+
+    def __init__(self, data: Union[Cell, np.ndarray], **kwargs):
+
         if isinstance(data, LatticeVectors):
             kwargs = SpecialDict(kwargs)
             kwargs["data"] = data.data
-            
-        elif isinstance(data,np.ndarray):
+
+        elif isinstance(data, np.ndarray):
             kwargs["data"] = data
-        elif isinstance(data,Cell):
+        elif isinstance(data, Cell):
             kwargs["data"] = data.array
         else:
             raise ValueError("Only LatticeVectors, np.ndarray and ase.cell.Cell supported.")
         super().__init__(**kwargs)
-        
+
     # @cached_property
     # def inv(self):
     #     return np.linalg.inv(self.data)
-    
+
+
 class Force(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
@@ -527,22 +513,23 @@ class Force(Tensor):
         kwargs["is_atomic"] = True
         super().__init__(**kwargs)
 
+
 class Stress(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
         kwargs["axes"] = [True, True]
         kwargs["is_atomic"] = False
         super().__init__(**kwargs)
-        
+
+
 class BornCharge(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
         kwargs["axes"] = [False, True]
         kwargs["is_atomic"] = True
-        super().__init__(
-            **kwargs
-        )
-        
+        super().__init__(**kwargs)
+
+
 class SpecialDict(dict):
     """
     Dictionary that enforces consistency of existing keys.
@@ -560,6 +547,3 @@ class SpecialDict(dict):
                     f"  new:      {value}"
                 )
         super().__setitem__(key, value)
-    
-        
-        

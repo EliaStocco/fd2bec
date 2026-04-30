@@ -19,21 +19,21 @@ class LinearSystem:
                 f"Number of rows in A ({self.A.shape[0]}) "
                 + f"must match length of b ({self.b.shape[0]})"
             )
-        self.x = None #np.full((self.n_rows,self.n_cols), np.nan)
-        
+        self.x = None  # np.full((self.n_rows,self.n_cols), np.nan)
+
     @property
     def n_unknowns(self):
         return self.A.shape[1]
-    
+
     @property
     def n_rows(self):
         return self.A.shape[0]
-    
+
     @property
     def n_cols(self):
         return self.A.shape[1]
-    
-    def solve(self,method="lstsq"):
+
+    def solve(self, method="lstsq"):
         """Solve the linear system Ax = b using the specified method."""
         rank = np.linalg.matrix_rank(self.A)
         if method == "pseudo-inverse":
@@ -54,5 +54,5 @@ class LinearSystem:
                 f"Rank mismatch: np.linalg.matrix_rank(A)={rank}"
                 + "vs np.linalg.lstsq(A,b)[2]={rank_lstsq}"
             )
-            
+
         self.x = x

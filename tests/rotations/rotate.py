@@ -14,6 +14,7 @@ Examples:
 """
 
 import argparse
+
 import numpy as np
 from ase.io import read, write
 
@@ -42,23 +43,11 @@ def rotation_matrix_from_euler(alpha, beta, gamma, degrees=False):
     cb, sb = np.cos(beta), np.sin(beta)
     cg, sg = np.cos(gamma), np.sin(gamma)
 
-    rz = np.array([
-        [ca, -sa, 0],
-        [sa,  ca, 0],
-        [0,    0, 1]
-    ])
+    rz = np.array([[ca, -sa, 0], [sa, ca, 0], [0, 0, 1]])
 
-    ry = np.array([
-        [cb, 0, sb],
-        [0,  1, 0],
-        [-sb, 0, cb]
-    ])
+    ry = np.array([[cb, 0, sb], [0, 1, 0], [-sb, 0, cb]])
 
-    rx = np.array([
-        [1,  0,   0],
-        [0, cg, -sg],
-        [0, sg,  cg]
-    ])
+    rx = np.array([[1, 0, 0], [0, cg, -sg], [0, sg, cg]])
 
     return rz @ ry @ rx
 
@@ -71,17 +60,20 @@ def random_euler_angles(n, degrees=False):
       beta  ∈ [0, π)
       gamma ∈ [0, 2π)
     """
-    alpha = np.random.uniform(0, 2*np.pi, n)
+    alpha = np.random.uniform(0, 2 * np.pi, n)
     beta = np.random.uniform(0, np.pi, n)
-    gamma = np.random.uniform(0, 2*np.pi, n)
+    gamma = np.random.uniform(0, 2 * np.pi, n)
 
     if degrees:
         return np.degrees(alpha), np.degrees(beta), np.degrees(gamma)
 
     return alpha, beta, gamma
 
+
 from ase import Atoms
-def rotate_atoms(atoms:Atoms, rotation_matrix):
+
+
+def rotate_atoms(atoms: Atoms, rotation_matrix):
     """
     Rotate both atomic positions and periodic cell around the center of mass.
     """
@@ -109,9 +101,7 @@ def main():
     parser.add_argument("output_file", help="Output file for rotated structures")
     parser.add_argument("N", type=int, help="Number of random rotated structures")
     parser.add_argument(
-        "--degrees",
-        action="store_true",
-        help="Store Euler angles in degrees instead of radians"
+        "--degrees", action="store_true", help="Store Euler angles in degrees instead of radians"
     )
 
     args = parser.parse_args()

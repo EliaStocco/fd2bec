@@ -5,14 +5,11 @@ import pytest
 from ase.io import read
 
 from fd2bec import ATOL
-from fd2bec.system import System
 from fd2bec.atomic import AtomicStructure
-from fd2bec.tensor import BornCharge
-from fd2bec.cli.generate_all_displacements import atomic_structure2all_displacements
-
 
 DATA_DIR = Path(__file__).parent / "MP/spacegroup_structures"
 # DATA_DIR = Path(__file__).parent / "MP/problems"
+
 
 @pytest.mark.parametrize("n", range(230))
 def test_symmetry_MP(n):
@@ -26,12 +23,12 @@ def test_symmetry_MP(n):
     filepath = files[0]
     atoms = read(filepath)
     unit_cell = AtomicStructure.from_ase(atoms)
-    if not np.allclose(unit_cell.cell.array , atoms.cell.array, atol=ATOL):
+    if not np.allclose(unit_cell.cell.array, atoms.cell.array, atol=ATOL):
         raise ValueError("There is a problem with the cell.")
     try:
-        unit_cell._test_symmetry(atol=ATOL*len(unit_cell))
+        unit_cell._test_symmetry(atol=ATOL * len(unit_cell))
     except Exception as e:
-        unit_cell._test_symmetry(atol=ATOL*len(unit_cell))
+        unit_cell._test_symmetry(atol=ATOL * len(unit_cell))
         raise e
 
 

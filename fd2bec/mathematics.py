@@ -35,9 +35,7 @@ def find_mapping(
         mapping[i] = j
         dists[i] = dist[j]
     ok = np.all(dists <= atol)
-    if not np.all(
-            np.sort(mapping) == np.arange(len(mapping))
-        ):
+    if not np.all(np.sort(mapping) == np.arange(len(mapping))):
         raise ValueError("Invalid mapping: not a permutation.")
     # if not ok:
     #     d = np.linalg.norm(a[:, None, :] - b[None, :, :], axis=-1)

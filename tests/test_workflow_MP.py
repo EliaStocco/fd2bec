@@ -5,12 +5,9 @@ import pytest
 from ase.io import read
 
 from fd2bec import ATOL
-from fd2bec.system import System
 from fd2bec.atomic import AtomicStructure
-from fd2bec.tensor import BornCharge
 from fd2bec.cli.generate_all_displacements import atomic_structure2all_displacements
-
-
+from fd2bec.tensor import BornCharge
 
 # from fd2bec.symmetry import is_sohncke
 
@@ -18,6 +15,7 @@ DATA_DIR = Path(__file__).parent / "MP/spacegroup_structures"
 # DATA_DIR = Path(__file__).parent / "MP/problems"
 
 AMPLITUDE = 0.01
+
 
 def run_workflow(filepath):
     atoms = read(filepath)
@@ -31,17 +29,17 @@ def run_workflow(filepath):
     bec = np.random.rand(Na, 3, 3)
 
     bec = BornCharge(data=bec)
-    tmp = unit_cell.to("fractional",bec)
-    new_bec = unit_cell.to("cartesian",tmp)
+    tmp = unit_cell.to("fractional", bec)
+    new_bec = unit_cell.to("cartesian", tmp)
     if not np.allclose(new_bec, bec, atol=ATOL):
         raise ValueError(f"Error in coordinate transformation for {filepath}")
 
     try:
-        tmp = unit_cell.to("fractional",bec)
+        tmp = unit_cell.to("fractional", bec)
         P = unit_cell.get_totally_symmetric_projection(tensor=tmp)
         tmp: np.ndarray = P @ tmp.flatten(full=True)  # symmetrize the BECs
         tmp = BornCharge(data=tmp.reshape((Na, 3, 3)))
-        bec = unit_cell.to("cartesian",tmp)
+        bec = unit_cell.to("cartesian", tmp)
     except Exception as e:
         raise ValueError(f"Error symmetrizing BECs for {filepath}: {e}")
 
@@ -54,7 +52,6 @@ def run_workflow(filepath):
 
     deltaR = d.reshape((-1, Na, 3))
     delta_mu = np.einsum("ijk,jkl->il", deltaR, bec)
-
 
     # system = System(
     #     unit_cell=unit_cell,
