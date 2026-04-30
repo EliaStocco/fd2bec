@@ -1,7 +1,7 @@
 # ToDo list
 Bugs:
  - `__get_symmetry_operations` with `Tensor`
- 
+
 Scripts:
  - script to visualize the difference between reference and computed BEC
  - script to visualize the convergence of the computed BEC at varying number of adopted structures
