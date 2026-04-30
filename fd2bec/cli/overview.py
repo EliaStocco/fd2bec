@@ -2,9 +2,9 @@ import argparse
 
 import numpy as np
 import pandas as pd
-from ase.io import read
 
 from fd2bec.cli import cli
+from fd2bec.io import read
 
 description = "Overview of the mathematical problem to solve."
 

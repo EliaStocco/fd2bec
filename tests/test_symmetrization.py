@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from ase.io import read
+from fd2bec.io import read
 
 from fd2bec import ATOL
 from fd2bec.atomic import AtomicStructure

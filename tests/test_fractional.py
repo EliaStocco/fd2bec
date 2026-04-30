@@ -3,7 +3,7 @@ from typing import Dict, Tuple
 
 import numpy as np
 import pytest
-from ase.io import read
+from fd2bec.io import read
 
 from fd2bec import ATOL
 from fd2bec.tensor import BornCharge, Dipole, Force, Stress, Tensor, Vector

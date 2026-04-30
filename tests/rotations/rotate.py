@@ -16,7 +16,7 @@ Examples:
 import argparse
 
 import numpy as np
-from ase.io import read, write
+from fd2bec.io import read, write
 
 
 def rotation_matrix_from_euler(alpha, beta, gamma, degrees=False):

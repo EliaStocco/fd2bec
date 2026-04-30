@@ -1,10 +1,10 @@
 import argparse
 
 import numpy as np
-from ase.io import read
 
 from fd2bec import float_format
 from fd2bec.cli import cli
+from fd2bec.io import read
 
 description = "Generate (normally distributed) cartesian displacements."
 

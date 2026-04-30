@@ -2,11 +2,11 @@ import argparse
 import json
 
 import numpy as np
-from ase.io import read
 
 from fd2bec import SYMPREC
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import cli, str2bool
+from fd2bec.io import read
 
 description = "Prepare the file to solve the linear system to get Born Effective Charges."
 
