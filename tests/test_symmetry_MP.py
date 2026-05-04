@@ -1,28 +1,35 @@
 from pathlib import Path
-
+import re
 import numpy as np
 import pytest
+import spglib
+from ase.utils import atoms_to_spglib_cell
 from fd2bec.io import read
 
 from fd2bec import ATOL, SYMPREC
 from fd2bec.atomic import AtomicStructure
 from fd2bec.mathematics import wrap
 
-DATA_DIR = Path(__file__).parent / "MP/spacegroup_structures"
-# DATA_DIR = Path(__file__).parent / "MP/problems"
 
-
-@pytest.mark.parametrize("n", range(230))
-def test_symmetry_MP(n):
-    pattern = DATA_DIR / f"SG_{n}_mp-*.cif"
-    files = list(pattern.parent.glob(pattern.name))
-
-    if not files:
-        pytest.skip(f"No files found for space group {n}")
-
-    assert len(files) == 1, f"Expected exactly one file matching {pattern}, but found {len(files)}"
-    filepath = files[0]
+def test_space_group(sg_case):
+    
+    dataset, filepath, n = sg_case
+    
     atoms = read(filepath)
+
+    cell = atoms_to_spglib_cell(atoms)
+
+    dataset = spglib.get_symmetry_dataset(cell, symprec=SYMPREC)
+    number = dataset.number             # e.g. 225
+    
+    assert number == n, f"Wrong space group: {n} != {number} on file {filepath}"
+    
+def __test_symmetry_MP(sg_case):
+    
+    dataset, filepath, n = sg_case
+
+    atoms = read(filepath)
+
     atomic_structure = AtomicStructure.from_ase(atoms)
     new_atoms = atoms.copy()
     N = atoms.get_global_number_of_atoms()

@@ -72,55 +72,56 @@ def prepare_args(descr):
 def main(args):
 
     print(f"Reading input structures from {args.input} ... ", end="")
-    structures:List[Atoms] = read(args.input,index=":")
+    structures: List[Atoms] = read(args.input, index=":")
     print("done")
-    
-    Ns = len(structures) 
+
+    Ns = len(structures)
     Na = structures[0].get_global_number_of_atoms()
     print("n. structures: ", Ns)
     print("n. atoms: ", Na)
-    
+
     pos = np.asarray([atoms.get_positions() for atoms in structures])
-    assert np.all([np.allclose(pos_i,pos[0]) for pos_i in pos]), "You have provided different geometries."
-    
-    print(f"Extracting electric field from  {args.efield_keyword} ... ", end="")    
+    assert np.all(
+        [np.allclose(pos_i, pos[0]) for pos_i in pos]
+    ), "You have provided different geometries."
+
+    print(f"Extracting electric field from  {args.efield_keyword} ... ", end="")
     efield = np.asarray([atoms.info["efield"] for atoms in structures])
     print("done")
-    print("efield.shape: ",efield.shape)
-    
-    print(f"Extracting forces from  {args.forces_keyword} ... ", end="")    
+    print("efield.shape: ", efield.shape)
+
+    print(f"Extracting forces from  {args.forces_keyword} ... ", end="")
     forces = np.asarray([atoms.arrays["REF_forces"] for atoms in structures])
     print("done")
-    print("forces.shape: ",forces.shape)
-    
-    
-    print(f"Preparing linear systems ... ", end="")   
-    all_ls:List[LinearSystem] = [] 
-    ones = np.full((Ns,1),1.)
-    A = np.hstack((ones,efield))
+    print("forces.shape: ", forces.shape)
+
+    print(f"Preparing linear systems ... ", end="")
+    all_ls: List[LinearSystem] = []
+    ones = np.full((Ns, 1), 1.0)
+    A = np.hstack((ones, efield))
     for n in range(Na):
-        b = forces[:,n,:]
-        all_ls.append(LinearSystem(A=A,b=b))
+        b = forces[:, n, :]
+        all_ls.append(LinearSystem(A=A, b=b))
     print("done")
-    
-    print(f"Solving linear systems  ... ", end="")   
+
+    print(f"Solving linear systems  ... ", end="")
     for ls in all_ls:
         ls.solve()
     print("done")
-    
-    bec = np.zeros((Na,3,3))
-    print(f"Extracting Born Charges  ... ", end="") 
-    for n in range(Na):  
-        bec[n,:,:] = all_ls[n].x[1:,:]
+
+    bec = np.zeros((Na, 3, 3))
+    print(f"Extracting Born Charges  ... ", end="")
+    for n in range(Na):
+        bec[n, :, :] = all_ls[n].x[1:, :]
     print("done")
 
     print(f"Writing Born Charges to {args.output} ... ", end="")
-    np.savetxt(args.output, bec.reshape((Na,9)), fmt=float_format)
+    np.savetxt(args.output, bec.reshape((Na, 9)), fmt=float_format)
     print("done")
-    
-    print(f"Symmetrizing Born Charges  ... ", end="") 
+
+    print(f"Symmetrizing Born Charges  ... ", end="")
     aperiodic = structures[0].copy()
-    aperiodic.set_cell([100,100,100])
+    aperiodic.set_cell([100, 100, 100])
     from pymatgen.core import Molecule
     from pymatgen.symmetry.analyzer import PointGroupAnalyzer, SpacegroupAnalyzer
 
@@ -128,11 +129,10 @@ def main(args):
     z = BornCharge(data=bec)
     P = unit_cell.get_totally_symmetric_projection(tensor=z)
     print("done")
-    
-    
+
     p = Path(args.output)
     new_filename = p.with_name(f"{p.stem}_sym{p.suffix}")
-    
+
 
 if __name__ == "__main__":
     main()  # pylint: disable=no-value-for-parameter

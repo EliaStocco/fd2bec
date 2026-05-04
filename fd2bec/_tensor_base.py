@@ -3,6 +3,7 @@ from functools import cached_property
 from typing import List, Tuple
 import numpy as np
 
+
 @dataclass
 class Tensor:
     """
@@ -325,6 +326,7 @@ class Tensor:
             return self.data.astype(dtype)
         return self.data
 
+
 class SpecialDict(dict):
     """
     Dictionary that enforces consistency of existing keys.
@@ -424,6 +426,7 @@ def pq_to_axes(p: int, q: int) -> list[bool]:
         raise ValueError("p and q must be non-negative integers")
 
     return [False] * p + [True] * q
+
 
 def contract(R: np.ndarray, x: np.ndarray) -> np.ndarray:
     return np.einsum("ij,...j->...i", R, x)

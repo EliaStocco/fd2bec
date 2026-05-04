@@ -1,17 +1,17 @@
 # generated using pymatgen
 data_Cs2Zr(AgTe2)2
 _symmetry_space_group_name_H-M   'P 1'
-_cell_length_a   8.40743337
-_cell_length_b   8.40743337
+_cell_length_a   6.62328938
+_cell_length_b   15.45547738
 _cell_length_c   6.61764724
 _cell_angle_alpha   90.00000000
 _cell_angle_beta   90.00000000
-_cell_angle_gamma   133.60586723
+_cell_angle_gamma   90.00000000
 _symmetry_Int_Tables_number   1
 _chemical_formula_structural   Cs2Zr(AgTe2)2
-_chemical_formula_sum   'Cs2 Zr1 Ag2 Te4'
-_cell_volume   338.71136690
-_cell_formula_units_Z   1
+_chemical_formula_sum   'Cs4 Zr2 Ag4 Te8'
+_cell_volume   677.42273380
+_cell_formula_units_Z   2
 loop_
  _symmetry_equiv_pos_site_id
  _symmetry_equiv_pos_as_xyz
@@ -24,12 +24,21 @@ loop_
  _atom_site_fract_y
  _atom_site_fract_z
  _atom_site_occupancy
-  Cs  Cs0  1  0.50000000  -0.00000000  0.25867355  1
-  Cs  Cs1  1  -0.00000000  0.50000000  0.74132645  1
-  Zr  Zr2  1  -0.00000000  -0.00000000  0.00000000  1
-  Ag  Ag3  1  -0.00000000  -0.00000000  0.50000000  1
-  Ag  Ag4  1  0.50000000  0.50000000  0.00000000  1
-  Te  Te5  1  0.86323004  0.65540258  0.23961410  1
-  Te  Te6  1  0.13676996  0.34459742  0.23961410  1
-  Te  Te7  1  0.65540258  0.86323004  0.76038590  1
-  Te  Te8  1  0.34459742  0.13676996  0.76038590  1
+  Cs  Cs0  1  0.75000000  0.25000000  0.25867355  1
+  Cs  Cs1  1  0.25000000  0.25000000  0.74132645  1
+  Cs  Cs2  1  0.25000000  0.75000000  0.25867355  1
+  Cs  Cs3  1  0.75000000  0.75000000  0.74132645  1
+  Zr  Zr4  1  0.00000000  0.00000000  0.00000000  1
+  Zr  Zr5  1  0.50000000  0.50000000  0.00000000  1
+  Ag  Ag6  1  0.00000000  0.00000000  0.50000000  1
+  Ag  Ag7  1  0.50000000  0.00000000  0.00000000  1
+  Ag  Ag8  1  0.50000000  0.50000000  0.50000000  1
+  Ag  Ag9  1  0.00000000  0.50000000  0.00000000  1
+  Te  Te10  1  0.25931631  0.39608627  0.23961410  1
+  Te  Te11  1  0.24068369  0.10391373  0.23961410  1
+  Te  Te12  1  0.75931631  0.10391373  0.76038590  1
+  Te  Te13  1  0.74068369  0.39608627  0.76038590  1
+  Te  Te14  1  0.75931631  0.89608627  0.23961410  1
+  Te  Te15  1  0.74068369  0.60391373  0.23961410  1
+  Te  Te16  1  0.25931631  0.60391373  0.76038590  1
+  Te  Te17  1  0.24068369  0.89608627  0.76038590  1

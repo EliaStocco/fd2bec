@@ -7,12 +7,12 @@ from ase.io import read as ase_read
 from ase.io import write as ase_write
 
 
-def write(*argv,**kwargs):
-    return ase_write(*argv,**kwargs)
+def write(*argv, **kwargs):
+    return ase_write(*argv, **kwargs)
 
 
-def read(*argv,**kwargs):
-    structures = ase_read(*argv,**kwargs)
+def read(*argv, **kwargs):
+    structures = ase_read(*argv, **kwargs)
     if isinstance(structures, Atoms):
         return format_atoms(structures)
     elif isinstance(structures, list):

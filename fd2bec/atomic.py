@@ -8,10 +8,9 @@ import spglib
 from ase import Atoms
 from ase.cell import Cell
 from ase.data import atomic_numbers
-from ase.geometry import cellpar_to_cell
 from typing import Dict, Any, Tuple
 
-from fd2bec import ATOL, DEBUG, SYMPREC, Basis, validate_types
+from fd2bec import ATOL, DEBUG, SYMPREC, Basis
 from fd2bec.mathematics import affine2homogeneous, append_one, find_mapping, invert_indices, wrap
 from fd2bec.tensor import Position, Tensor
 
@@ -38,12 +37,9 @@ class AtomicStructure:
     """
 
     symbols: tuple[str, ...]
-    # cellpar: np.ndarray
     cell: Cell
     frac_pos: np.ndarray
-    kwargs: Dict[str, Any] = field(
-        default_factory=lambda: {"symprec": SYMPREC}
-    )
+    symprec: Dict[str, Any] = field(default_factory=SYMPREC)
 
     def __post_init__(self):
         """
@@ -52,23 +48,20 @@ class AtomicStructure:
         - Copying NumPy arrays
         - Marking arrays as read-only
         """
-        assert isinstance(self.cell,Cell)
-        assert isinstance(self.frac_pos,np.ndarray)
+        assert isinstance(self.cell, Cell)
+        assert isinstance(self.frac_pos, np.ndarray)
         object.__setattr__(self, "symbols", tuple(self.symbols))
-        object.__setattr__(self, "kwargs", self.kwargs if self.kwargs is not None else {"symprec": SYMPREC})
+        object.__setattr__(self, "symprec", self.symprec)
         object.__setattr__(self, "cell", self.cell)
 
-        # cellpar = np.array(self.cellpar, copy=True)
         frac_pos = np.array(self.frac_pos, copy=True)
-
-        # cellpar.setflags(write=False)
         frac_pos.setflags(write=False)
-
-        # object.__setattr__(self, "cellpar", cellpar)
         object.__setattr__(self, "frac_pos", frac_pos)
 
     @classmethod
-    def from_ase(cls, atoms: Atoms, keyword: str = "positions", kwargs=None) -> 'AtomicStructure':
+    def from_ase(
+        cls, atoms: Atoms, keyword: str = "positions", symprec: float = SYMPREC
+    ) -> "AtomicStructure":
         """
         Create an AtomicStructure from an ASE Atoms object.
 
@@ -87,23 +80,18 @@ class AtomicStructure:
             symbols=tuple(atoms.get_chemical_symbols()),
             frac_pos=frac_pos,
             cell=atoms.cell,
-            kwargs=kwargs
+            symprec=symprec,
         )
 
-    # @cached_property
-    # def cell(self) -> Cell:
-    #     return Cell.fromcellpar(self.cellpar)
-
-    @validate_types
     def to(self, basis: Basis, tensor: Tensor, **kwargs) -> Tensor:
         cell = tensor.cell if tensor.cell is not None else self.cell.array
         return tensor.transform(cell, None, basis, **kwargs)
 
-    def __eq__(self, other: 'AtomicStructure') -> bool:
+    def __eq__(self, other: "AtomicStructure") -> bool:
         """Check if two AtomicStructure instances are equal."""
         return self.is_equal_to(other)
 
-    def is_equal_to(self, other: 'AtomicStructure', atol=ATOL) -> bool:
+    def is_equal_to(self, other: "AtomicStructure", atol=ATOL) -> bool:
         """
         Compare two structures for equality.
 
@@ -210,12 +198,14 @@ class AtomicStructure:
             "cell": self.cell.array.tolist(),
             "frac_pos": self.frac_pos.tolist(),
         }
-        
+
     @cached_property
     def spglib_cell(self):
-        return self.cell.array, \
-            self.frac_pos, \
+        return (
+            self.cell.array,
+            self.frac_pos,
             [atomic_numbers[s] for s in self.symbols],
+        )
 
     @cached_property
     def spglib_dataset(self) -> spglib.SpglibDataset:
@@ -227,21 +217,20 @@ class AtomicStructure:
         tuple
             (cell, scaled_positions, atomic_numbers) for spglib.
         """
-        return spglib.get_symmetry_dataset(self.spglib_cell, **self.kwargs)
-    
+        return spglib.get_symmetry_dataset(self.spglib_cell, symprec=self.symprec)
+
     @cached_property
-    def conventional(self)->'AtomicStructure':
-        cell, positions, numbers = spglib.standardize_cell(
-            self.spglib_cell,
-            **self.kwargs
-        )
+    def conventional(self) -> 'AtomicStructure':
+        cell, positions, numbers = spglib.standardize_cell(self.spglib_cell, symprec=self.symprec)
         return replace(
             self,
             cell=Cell(cell),
             frac_pos=positions,
-            symbols=[list(atomic_numbers.keys())[list(atomic_numbers.values()).index(n)] for n in numbers]
+            symbols=[
+                list(atomic_numbers.keys())[list(atomic_numbers.values()).index(n)] for n in numbers
+            ],
         )
-    
+
     def get_rotations(self, convetional: bool = False) -> np.ndarray:
         """
         Return symmetry rotation matrices.
@@ -292,7 +281,7 @@ class AtomicStructure:
 
         P = self.spglib_dataset.transformation_matrix
         Pinv = np.linalg.inv(P)
-        
+
         # if not np.allclose(P, np.eye(3),atol=ATOL):
         #     raise ValueError(f"Transformation matrix is not identity.")
 
@@ -404,7 +393,7 @@ class AtomicStructure:
         quantities (vectors, rank-2 tensors, etc.) in the same basis.
         """
         return self.get_rotations(convetional), self.get_translations(convetional)
-    
+
     def _test_symmetry(self, atol=ATOL) -> bool:
         spg = self.spglib_dataset
         R = spg.rotations
@@ -423,7 +412,7 @@ class AtomicStructure:
                 raise ValueError("Symmetry operation does not preserve atomic positions")
         return True
 
-    def _get_atoms_mapping(self, other: 'AtomicStructure', atol=ATOL) -> np.ndarray:
+    def _get_atoms_mapping(self, other: "AtomicStructure", atol=ATOL) -> np.ndarray:
         """
         Build an atom index mapping from `other` to `self`, computed per species
         using the provided `find_mapping` function.
@@ -452,9 +441,9 @@ class AtomicStructure:
 
             mapping[idx_other] = idx_self[local_map]
 
-        assert np.all(np.sort(mapping) == np.arange(len(self))), (
-            "Invalid mapping: not a permutation"
-        )
+        assert np.all(
+            np.sort(mapping) == np.arange(len(self))
+        ), "Invalid mapping: not a permutation"
 
         return mapping
 
@@ -605,9 +594,6 @@ class AtomicStructure:
         """
         Flattened affine symmetry operations for the atomic coordinates.
         """
-        # assert kwargs.pop("rank", 1) == 1, "error"
-        # assert kwargs.pop("atomic", True), "error"
-        # assert kwargs.pop("affine", True), "error"
         tensor = Position(data=self.frac_pos, basis="fractional")
         return self.get_symmetry_operations(tensor=tensor)
 

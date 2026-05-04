@@ -3,6 +3,7 @@ import numpy as np
 from ase.cell import Cell
 from typing import Union
 
+
 class Vector(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
