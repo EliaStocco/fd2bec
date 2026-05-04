@@ -42,7 +42,7 @@ def test_symmetrizer(structure):
 
     flat_pos = frac_pos.flatten()
     pos1 = append_one(flat_pos)
-    H = atomic_structure.get_homogeneous_symmetry_operations()
+    H = atomic_structure.homogeneous_symmetry_operations
     new_pos = H @ pos1
     assert np.allclose(
         pos1, new_pos, atol=ATOL * len(atomic_structure)

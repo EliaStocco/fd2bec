@@ -84,7 +84,7 @@ def main(args):
     print(f"Number of atoms in the unit cell: {Na}")
     unit_cell = AtomicStructure.from_ase(unit_cell)
 
-    spg_uc = unit_cell.to_spglib_cell(symprec=args.symprec)
+    spg_uc = unit_cell.spglib_dataset(symprec=args.symprec)
 
     # ----------------------#
     # Coefficients

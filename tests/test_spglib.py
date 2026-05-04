@@ -101,7 +101,7 @@ def test_structures_spacegroup_positions(structure):
         if not atomic_structure.is_equal_to(tmp, atol=atol):
             # compute distances for debugging
 
-            mapping = atomic_structure.__get_atoms_mapping(tmp)
+            mapping = atomic_structure._get_atoms_mapping(tmp)
             diff = wrap(atomic_structure.frac_pos[mapping] - tmp.frac_pos)
             max_dev = np.max(np.abs(diff))
 
