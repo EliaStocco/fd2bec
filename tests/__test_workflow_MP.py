@@ -23,7 +23,7 @@ def run_workflow(filepath):
     if not np.all(unit_cell.cell == atoms.cell):
         pytest.skip("There is a problem with the cell.")
 
-    # unit_cell._test_symmetry_pbc_fractional(atol=ATOL)
+    # unit_cell._test_symmetry(atol=ATOL)
 
     Na = atoms.get_global_number_of_atoms()
     bec = np.random.rand(Na, 3, 3)

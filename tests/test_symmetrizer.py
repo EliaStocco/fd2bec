@@ -23,7 +23,7 @@ def test_symmetrizer(structure):
         pytest.skip("Too many atoms.")
 
     atomic_structure = AtomicStructure.from_ase(atoms)
-    assert atomic_structure._test_symmetry_pbc_fractional(), "Error in AtomicStructure._test_symmetry_pbc_fractional() method"
+    assert atomic_structure._test_symmetry(), "Error in AtomicStructure._test_symmetry() method"
 
     # ----------------------#
     # affine

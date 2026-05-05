@@ -31,7 +31,7 @@ def test_conventional(sg_case):
     twice_conventional_cell = conventional_cell.conventional
     assert conventional_cell.is_equal_to(twice_conventional_cell), "Twice conventional is not equal to conventional cell."
 
-    # conventional_cell._test_symmetry_pbc_fractional()
+    # conventional_cell._test_symmetry()
 
 
 if __name__ == "__main__":
