@@ -115,7 +115,7 @@ class Tensor:
         mats: list[np.ndarray],
         *,
         method: str = "recursive",
-        basis: str | None = None,
+        basis: str = None,
     ) -> "Tensor":
         """
         Apply already-prepared per-axis matrices to tensor.
