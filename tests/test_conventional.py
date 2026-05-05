@@ -15,16 +15,16 @@ def test_conventional(sg_case):
         f"Different space groups: {unit_cell.space_group} != {conventional_cell.space_group}."
     assert unit_cell.space_group == n , f"Wrong space group: {unit_cell.space_group} != {n}."
 
-    # if np.allclose(unit_cell.spglib_dataset.origin_shift,0,atol=ATOL):
+    # if np.allclose(unit_cell._spglib_dataset.origin_shift,0,atol=ATOL):
     #     pytest.skip("origin_shift is trivial.")
-    # if np.allclose(unit_cell.spglib_dataset.transformation_matrix,np.eye(3),atol=ATOL):
+    # if np.allclose(unit_cell._spglib_dataset.transformation_matrix,np.eye(3),atol=ATOL):
     #     pytest.skip("transformation_matrix is trivial.")
 
     # if unit_cell.is_equal_to(conventional_cell):
     #     pytest.skip("Unit cell is already conventional.")
 
-    P = conventional_cell.spglib_dataset.transformation_matrix
-    O = conventional_cell.spglib_dataset.origin_shift
+    P = conventional_cell._spglib_dataset.transformation_matrix
+    O = conventional_cell._spglib_dataset.origin_shift
     assert np.allclose(P,np.eye(3))
     assert np.allclose(O,0)
 

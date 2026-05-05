@@ -12,7 +12,7 @@ from ase.cell import Cell
 
 from fd2bec import ATOL, DEBUG, SYMPREC, Basis
 from fd2bec.mathematics import affine2homogeneous, append_one, find_mapping, invert_indices, wrap
-from fd2bec.tensor import Position, Tensor
+from fd2bec.tensor import Position, Tensor, Rotation, Translation
 from fd2bec.tools import numbers2symbols, symbols2numbers
 
 
@@ -179,7 +179,7 @@ class AtomicStructure:
     @cached_property
     def space_group(self) -> int:
         """Space group number of the structure."""
-        return self.spglib_dataset.number
+        return self._spglib_dataset.number
 
     @cached_property
     def species(self) -> set[str]:
@@ -237,7 +237,7 @@ class AtomicStructure:
         return symbols2numbers(self.symbols)
 
     @cached_property
-    def spglib_cell(self):
+    def _spglib_cell(self):
         assert np.allclose(self.positions, self.frac_pos @ self.cell.array)
         return (
             self.cell.array,
@@ -246,7 +246,7 @@ class AtomicStructure:
         )
 
     @cached_property
-    def spglib_dataset(self) -> spglib.SpglibDataset:
+    def _spglib_dataset(self) -> spglib.SpglibDataset:
         """
         Convert the structure to a spglib-compatible cell representation.
 
@@ -255,15 +255,15 @@ class AtomicStructure:
         tuple
             (cell, scaled_positions, atomic_numbers) for spglib.
         """
-        return spglib.get_symmetry_dataset(self.spglib_cell, symprec=self.symprec)
+        return spglib.get_symmetry_dataset(self._spglib_cell, symprec=self.symprec)
 
     @cached_property
-    def standardize(self):
-        return spglib.standardize_cell(self.spglib_cell, symprec=self.symprec)
+    def standardized(self):
+        return spglib.standardize_cell(self._spglib_cell, symprec=self.symprec)
 
     @cached_property
     def conventional(self) -> "AtomicStructure":
-        cell, frac_pos, numbers = self.standardize
+        cell, frac_pos, numbers = self.standardized
         return type(self)(
             cell=Cell(cell), frac_pos=frac_pos, symbols=numbers2symbols(numbers), check=False
         )
@@ -273,8 +273,17 @@ class AtomicStructure:
         self, basis: Basis = "fractional"
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Return spglib symmetry (R, t) where x' = R x + t in fractional coords."""
+        
         if basis == "fractional":
-            return self.spglib_dataset.rotations, self.spglib_dataset.translations
+            return self._spglib_dataset.rotations, self._spglib_dataset.translations
+        
+        elif basis == "cartesian":
+            
+            R = Rotation(data=self._spglib_dataset.rotations,basis="fractional",cell=self.cell).to("cartesian")
+            T = Translation(data=self._spglib_dataset.translations,basis="fractional",cell=self.cell).to("cartesian")
+            
+            return R.data, T.data
+        
         else:
             raise NotImplementedError
 
@@ -360,7 +369,7 @@ class AtomicStructure:
         inv_map : ndarray of shape (Nops, Natoms)
             Inverse atom mappings for each symmetry operation.
         """
-        spg = self.spglib_dataset
+        spg = self._spglib_dataset
         R = spg.rotations
         T = spg.translations
         mappings = [None] * len(R)
@@ -421,7 +430,7 @@ class AtomicStructure:
         #     x = self.frac_pos.copy()
         x_flat = tensor.flatten(full=True)
 
-        spg = self.spglib_dataset
+        spg = self._spglib_dataset
         R = spg.rotations.copy()
         T = spg.translations.copy()
         if atomic:

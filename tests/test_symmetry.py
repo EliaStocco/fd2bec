@@ -19,15 +19,17 @@ def test_space_group(sg_case):
     assert number == n, f"Wrong space group: {n} != {number} on file {filepath}"
 
 
-def test_symmetry(sg_case):
+@pytest.mark.parametrize("basis",["fractional","cartesian"])
+def test_symmetry(sg_case,basis):
     dataset, filepath, n = sg_case
     atoms = read(filepath)
     atomic_structure = AtomicStructure.from_ase(atoms)
     assert atomic_structure.space_group == n, f"Wrong space group: {n} != {atomic_structure.space_group} on file {filepath}"
-    atomic_structure._test_symmetry()
-    atomic_structure.conventional._test_symmetry()
+    atomic_structure._test_symmetry(basis=basis)
+    atomic_structure.conventional._test_symmetry(basis=basis)
 
-def test_translations(sg_case):
+@pytest.mark.parametrize("basis",["fractional","cartesian"])
+def test_translations(sg_case,basis):
     """
     Verify origin-shift invariance of spglib translations.
 
@@ -41,7 +43,7 @@ def test_translations(sg_case):
 
     orig = atoms.copy()
     original = AtomicStructure.from_ase(atoms)
-    original._test_symmetry()
+    original._test_symmetry(basis=basis)
     R, T = original.get_space_group_operations()
 
     for _ in range(10):
@@ -52,7 +54,7 @@ def test_translations(sg_case):
         shift_frac = atoms.cell.scaled_positions(shift)
 
         atomic_structure = AtomicStructure.from_ase(atoms)
-        atomic_structure._test_symmetry()
+        atomic_structure._test_symmetry(basis=basis)
 
         R_prime, T_prime = atomic_structure.get_space_group_operations()
 
