@@ -119,6 +119,7 @@ class AtomicStructure:
             symprec=symprec,
         )
 
+    # @validate_types
     def to(self, basis: Basis, tensor: Tensor, **kwargs) -> Tensor:
         cell = tensor.cell if tensor.cell is not None else self.cell.array
         return tensor.transform(cell, None, basis, **kwargs)
@@ -267,21 +268,29 @@ class AtomicStructure:
             cell=Cell(cell), frac_pos=frac_pos, symbols=numbers2symbols(numbers), check=False
         )
 
-    def get_space_group_operatios(self,basis="fractional") -> Tuple[np.ndarray, np.ndarray]:
+    # @validate_types
+    def get_space_group_operations(
+        self, basis: Basis = "fractional"
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Return spglib symmetry (R, t) where x' = R x + t in fractional coords."""
         if basis == "fractional":
             return self.spglib_dataset.rotations, self.spglib_dataset.translations
         else:
-            raise NotImplemented
+            raise NotImplementedError
 
-    def _test_symmetry_pbc_fractional(self, atol=ATOL) -> bool:
+    def _test_symmetry(self, basis: Basis = "fractional", atol=ATOL):
         """
         Check symmetry: apply x' = R x + t (fractional coords) for all operations.
         """
-        R, T = self.get_space_group_operatios()
+        R, T = self.get_space_group_operations(basis=basis)
         for _, (r, t) in enumerate(zip(R, T)):
-            new_pos = self.frac_pos @ r.T + t
-            new_structure = self.clone(frac_pos=new_pos)
+            if basis == "fractional":
+                new_pos = self.frac_pos @ r.T + t
+                new_structure = self.clone(frac_pos=new_pos)
+            else:
+                new_pos = self.positions @ r.T + t
+                new_structure = self.clone(positions=new_pos)
+
             if not self.is_equal_to(new_structure, atol=atol):
                 self.is_equal_to(new_structure, atol=atol)
                 raise ValueError("Symmetry operation does not preserve the structure.")
@@ -291,7 +300,6 @@ class AtomicStructure:
             diff = wrap(self.frac_pos[mapping] - new_structure.frac_pos)
             if not np.allclose(diff, 0, atol=atol):
                 raise ValueError("Symmetry operation does not preserve atomic positions")
-        return True
 
     def _get_atoms_mapping(self, other: "AtomicStructure", atol=ATOL) -> np.ndarray:
         """
