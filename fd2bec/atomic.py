@@ -271,7 +271,7 @@ class AtomicStructure:
         """Return spglib symmetry (R, t) where x' = R x + t in fractional coords."""
         return self.spglib_dataset.rotations, self.spglib_dataset.translations
 
-    def _test_symmetry(self, atol=ATOL) -> bool:
+    def _test_symmetry_pbc_fractional(self, atol=ATOL) -> bool:
         """
         Check symmetry: apply x' = R x + t (fractional coords) for all operations.
         """

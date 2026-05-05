@@ -89,9 +89,9 @@ def test_structures_spacegroup_positions(structure):
     new_frac = frac_pos.copy()
 
     atomic_structure = AtomicStructure.from_ase(atoms)
-    assert atomic_structure._test_symmetry(
+    assert atomic_structure._test_symmetry_pbc_fractional(
         atol=atol
-    ), "Error in AtomicStructure._test_symmetry() method"
+    ), "Error in AtomicStructure._test_symmetry_pbc_fractional() method"
 
     for op_idx, (R, t) in enumerate(zip(dataset.rotations, dataset.translations)):
         new_frac = new_frac @ R + t[None, :]
