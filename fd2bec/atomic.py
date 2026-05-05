@@ -39,7 +39,8 @@ class AtomicStructure:
     """
 
     symbols: List[str]
-    cell: Cell
+    cell: Cell = field(default=None)
+    pbc: bool = field(default=None)
     frac_pos: np.ndarray = field(default=None)
     positions: np.ndarray = field(default=None)
     symprec: Dict[str, Any] = field(default=SYMPREC)
@@ -59,6 +60,16 @@ class AtomicStructure:
         If `check` is True, compares against the conventional cell and
         emits a warning if the structure is not in standard form.
         """
+        if self.cell is None:
+            assert self.pbc is None or not self.pbc, "Please provide 'cell' for periodic structures."
+            self.pbc = False
+        else:
+            assert self.pbc is None or self.pbc, "'pbc' has to be None or True if you specify a 'cell'."
+            self.pbc = True
+            
+        if not self.pbc:
+            self.cell = np.full((3,3),np.nan)
+             
         if isinstance(self.cell, np.ndarray):
             self.cell = Cell(self.cell)
 
@@ -91,8 +102,13 @@ class AtomicStructure:
             if not self.is_equal_to(conventional):
                 warn("You are not using a conventional unit cell.")
 
-    def clone(self, frac_pos=None, positions=None, **kwargs) -> "AtomicStructure":
-        return replace(self, frac_pos=frac_pos, positions=positions, **kwargs)
+    def clone(self, frac_pos=None, positions=None, pbc=None, cell=None,**kwargs) -> "AtomicStructure":
+        """
+        Clone a 'AtomicStructure' by replacing the provided attributes.
+        In this way one can choose either to initialize via 'positions' and '__post_init__' will retrieve 'frac_pos'
+        or viceversa, and the same for 'pbc' and 'cell'.
+        """
+        return replace(self, frac_pos=frac_pos, positions=positions, pbc=pbc, cell=cell, **kwargs)
 
     @classmethod
     def from_ase(
