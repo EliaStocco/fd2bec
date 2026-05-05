@@ -58,7 +58,7 @@ save("C3v_NH3", Atoms(["N","H","H","H"], positions=pts))
 # C4v (square pyramid)
 pts = [(0,0,0)] + circle_points(4, r=1.2, z=0) + [(0,0,1.2)]
 save("C4v_square_pyramidal",
-     Atoms(["X","F","F","F","F","F"], positions=pts))
+     Atoms(["O","F","F","F","F","F"], positions=pts))
 
 # C3h (planar trigonal + mirror)
 pts = [(0,0,0)] + circle_points(3, r=1.2, z=0)
@@ -108,7 +108,7 @@ save("D2d_allene",
 # S4 (twisted square)
 square = circle_points(4, r=1.2)
 twisted = [(x, y, 0.3*(-1)**i) for i,(x,y,_) in enumerate(square)]
-save("S4_distorted_square", Atoms(["X"]*4, positions=twisted))
+save("S4_distorted_square", Atoms(["S"]*4, positions=twisted))
 
 # ----------------------------
 # LINEAR
