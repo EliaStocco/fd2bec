@@ -102,13 +102,18 @@ class AtomicStructure:
             if not self.is_equal_to(conventional):
                 warn("You are not using a conventional unit cell.")
 
-    def clone(self, frac_pos=None, positions=None, pbc=None, cell=None,**kwargs) -> "AtomicStructure":
+    def clone(self, frac_pos=None, positions=None,**kwargs) -> "AtomicStructure":
         """
         Clone a 'AtomicStructure' by replacing the provided attributes.
         In this way one can choose either to initialize via 'positions' and '__post_init__' will retrieve 'frac_pos'
-        or viceversa, and the same for 'pbc' and 'cell'.
+        or viceversa, and let  '__post_init__' retrieve 'pbc'.
         """
-        return replace(self, frac_pos=frac_pos, positions=positions, pbc=pbc, cell=cell, **kwargs)
+        if "pbc" not in kwargs:
+            kwargs["pbc"] = self.pbc
+        if not kwargs["pbc"]:
+            assert "cell" not in kwargs
+            kwargs["cell"] = None
+        return replace(self, frac_pos=frac_pos, positions=positions,**kwargs)
 
     @classmethod
     def from_ase(
