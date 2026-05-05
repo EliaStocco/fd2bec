@@ -267,9 +267,12 @@ class AtomicStructure:
             cell=Cell(cell), frac_pos=frac_pos, symbols=numbers2symbols(numbers), check=False
         )
 
-    def get_space_group_operatios(self) -> Tuple[np.ndarray, np.ndarray]:
+    def get_space_group_operatios(self,basis="fractional") -> Tuple[np.ndarray, np.ndarray]:
         """Return spglib symmetry (R, t) where x' = R x + t in fractional coords."""
-        return self.spglib_dataset.rotations, self.spglib_dataset.translations
+        if basis == "fractional":
+            return self.spglib_dataset.rotations, self.spglib_dataset.translations
+        else:
+            raise NotImplemented
 
     def _test_symmetry_pbc_fractional(self, atol=ATOL) -> bool:
         """
