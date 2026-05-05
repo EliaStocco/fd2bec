@@ -98,9 +98,10 @@ class AtomicStructure:
         self.cell.array.setflags(write=False)
 
         if check:
-            conventional = self.conventional
-            if not self.is_equal_to(conventional):
-                warn("You are not using a conventional unit cell.")
+            if self.pbc:
+                conventional = self.conventional
+                if not self.is_equal_to(conventional):
+                    warn("You are not using a conventional unit cell.")
 
     def clone(self, frac_pos=None, positions=None,**kwargs) -> "AtomicStructure":
         """
@@ -133,10 +134,15 @@ class AtomicStructure:
             Immutable representation of the structure.
         """
         positions = atoms.arrays[keyword]
+        pbc = atoms.get_pbc()
+        if not (np.all(pbc) or not np.any(pbc)):
+            raise ValueError("mixed PBC: inconsistent boundary conditions")
+        pbc = bool(np.all(pbc))
         return cls(
             symbols=atoms.get_chemical_symbols(),
             positions=positions.copy(),
-            cell=atoms.cell.copy(),
+            cell=atoms.cell.copy() if pbc else None,
+            pbc=pbc,
             symprec=symprec,
         )
 
