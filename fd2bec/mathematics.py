@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 
@@ -179,3 +179,19 @@ def homogeneous2affine(H: np.ndarray, tol=ATOL) -> Tuple[np.ndarray, np.ndarray]
         return R, t
 
     raise ValueError("Input must be a 2D or 3D array.")
+
+
+def block_diag(matrices: List[np.ndarray]):
+    total_rows = sum(m.shape[0] for m in matrices)
+    total_cols = sum(m.shape[1] for m in matrices)
+
+    out = np.zeros((total_rows, total_cols))
+
+    r = c = 0
+    for m in matrices:
+        rows, cols = m.shape
+        out[r : r + rows, c : c + cols] = m
+        r += rows
+        c += cols
+
+    return out

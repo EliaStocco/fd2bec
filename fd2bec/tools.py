@@ -1,7 +1,16 @@
 import numpy as np
 import spglib
 from ase import Atoms
+from ase.data import atomic_numbers
 from ase.utils import atoms_to_spglib_cell
+
+
+def symbols2numbers(symbols):
+    return [atomic_numbers[s] for s in symbols]
+
+
+def numbers2symbols(numbers):
+    return [list(atomic_numbers.keys())[list(atomic_numbers.values()).index(n)] for n in numbers]
 
 
 def ase2spglib_dataset(atoms: Atoms, **kwargs) -> spglib.SpglibDataset:

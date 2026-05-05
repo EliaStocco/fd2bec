@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from typing import List, Tuple
+
 import numpy as np
 
 

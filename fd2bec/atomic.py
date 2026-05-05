@@ -1,21 +1,22 @@
 # pylint: disable=invalid-name
 import warnings
-from dataclasses import dataclass, replace, field
+from dataclasses import InitVar, dataclass, field, replace
 from functools import cached_property
+from typing import Any, Dict, List, Tuple
+from warnings import warn
 
 import numpy as np
 import spglib
 from ase import Atoms
 from ase.cell import Cell
-from ase.data import atomic_numbers
-from typing import Dict, Any, Tuple
 
 from fd2bec import ATOL, DEBUG, SYMPREC, Basis
 from fd2bec.mathematics import affine2homogeneous, append_one, find_mapping, invert_indices, wrap
 from fd2bec.tensor import Position, Tensor
+from fd2bec.tools import numbers2symbols, symbols2numbers
 
 
-@dataclass(frozen=True)
+@dataclass
 class AtomicStructure:
     """
     Immutable representation of an atomic structure.
@@ -25,8 +26,9 @@ class AtomicStructure:
     symbols : tuple[str, ...]
         Chemical symbols of atoms in order.
     cell : ase.Cell
-    frac_pos : np.ndarray
-        Fractional (scaled) atomic positions with shape (N, 3).
+        lattice vectors
+    positions : np.ndarray
+        cartesian atomic positions with shape (N, 3).
 
     Notes
     -----
@@ -36,27 +38,61 @@ class AtomicStructure:
     - Derived properties (`species`, `frac_pos_dict`) are cached for efficiency.
     """
 
-    symbols: tuple[str, ...]
+    symbols: List[str]
     cell: Cell
-    frac_pos: np.ndarray
-    symprec: Dict[str, Any] = field(default_factory=SYMPREC)
+    frac_pos: np.ndarray = field(default=None)
+    positions: np.ndarray = field(default=None)
+    symprec: Dict[str, Any] = field(default=SYMPREC)
 
-    def __post_init__(self):
-        """
-        Enforce immutability by:
-        - Converting symbols to tuple
-        - Copying NumPy arrays
-        - Marking arrays as read-only
-        """
-        assert isinstance(self.cell, Cell)
-        assert isinstance(self.frac_pos, np.ndarray)
-        object.__setattr__(self, "symbols", tuple(self.symbols))
-        object.__setattr__(self, "symprec", self.symprec)
-        object.__setattr__(self, "cell", self.cell)
+    # init-only (NOT stored)
+    check: InitVar[bool] = True
 
-        frac_pos = np.array(self.frac_pos, copy=True)
-        frac_pos.setflags(write=False)
-        object.__setattr__(self, "frac_pos", frac_pos)
+    def __post_init__(self, check):
+        """
+        Normalize and validate structural data.
+
+        Ensures `cell` is an ase.Cell, derives missing coordinates
+        (`positions` or `frac_pos`) from the other, and checks their
+        consistency if both are provided. Arrays are marked read-only
+        to enforce immutability.
+
+        If `check` is True, compares against the conventional cell and
+        emits a warning if the structure is not in standard form.
+        """
+        if isinstance(self.cell, np.ndarray):
+            self.cell = Cell(self.cell)
+
+        if self.frac_pos is None:
+            assert isinstance(self.positions, np.ndarray)
+            self.frac_pos = self.cell.scaled_positions(self.positions)
+
+        elif self.positions is None:
+            assert isinstance(self.frac_pos, np.ndarray)
+            self.positions = self.cell.cartesian_positions(self.frac_pos)
+
+        elif self.frac_pos is None and self.positions is None:
+            raise ValueError("You need to provide either 'positions' or 'frac_pos'.")
+
+        elif self.frac_pos is not None and self.positions is not None:
+            test = self.cell.cartesian_positions(self.frac_pos)
+            if not np.allclose(self.positions, test, atol=ATOL):
+                raise ValueError(
+                    "The provided 'positions' and 'frac_pos' are not coherent with each other."
+                )
+        else:
+            raise ValueError("This is a coding error")
+
+        self.positions.setflags(write=False)
+        self.frac_pos.setflags(write=False)
+        self.cell.array.setflags(write=False)
+
+        if check:
+            conventional = self.conventional
+            if not self.is_equal_to(conventional):
+                warn("You are not using a conventional unit cell.")
+
+    def clone(self, frac_pos=None, positions=None, **kwargs) -> "AtomicStructure":
+        return replace(self, frac_pos=frac_pos, positions=positions, **kwargs)
 
     @classmethod
     def from_ase(
@@ -75,11 +111,11 @@ class AtomicStructure:
         AtomicStructure
             Immutable representation of the structure.
         """
-        frac_pos = atoms.cell.scaled_positions(atoms.arrays[keyword])
+        positions = atoms.arrays[keyword]
         return cls(
-            symbols=tuple(atoms.get_chemical_symbols()),
-            frac_pos=frac_pos,
-            cell=atoms.cell,
+            symbols=atoms.get_chemical_symbols(),
+            positions=positions.copy(),
+            cell=atoms.cell.copy(),
             symprec=symprec,
         )
 
@@ -156,10 +192,6 @@ class AtomicStructure:
         return set(self.symbols)
 
     @cached_property
-    def positions(self) -> np.ndarray:
-        return self.cell.cartesian_positions(self.frac_pos)
-
-    @cached_property
     def frac_pos_dict(self) -> dict[str, np.ndarray]:
         """
         Fractional positions grouped by chemical species.
@@ -196,15 +228,20 @@ class AtomicStructure:
         return {
             "symbols": list(self.symbols),
             "cell": self.cell.array.tolist(),
-            "frac_pos": self.frac_pos.tolist(),
+            "positions": self.positions.tolist(),
         }
 
     @cached_property
+    def atomic_numbers(self):
+        return symbols2numbers(self.symbols)
+
+    @cached_property
     def spglib_cell(self):
+        assert np.allclose(self.positions, self.frac_pos @ self.cell.array)
         return (
             self.cell.array,
             self.frac_pos,
-            [atomic_numbers[s] for s in self.symbols],
+            self.atomic_numbers,
         )
 
     @cached_property
@@ -220,187 +257,28 @@ class AtomicStructure:
         return spglib.get_symmetry_dataset(self.spglib_cell, symprec=self.symprec)
 
     @cached_property
-    def conventional(self) -> 'AtomicStructure':
-        cell, positions, numbers = spglib.standardize_cell(self.spglib_cell, symprec=self.symprec)
-        return replace(
-            self,
-            cell=Cell(cell),
-            frac_pos=positions,
-            symbols=[
-                list(atomic_numbers.keys())[list(atomic_numbers.values()).index(n)] for n in numbers
-            ],
+    def standardize(self):
+        return spglib.standardize_cell(self.spglib_cell, symprec=self.symprec)
+
+    @cached_property
+    def conventional(self) -> "AtomicStructure":
+        cell, frac_pos, numbers = self.standardize
+        return type(self)(
+            cell=Cell(cell), frac_pos=frac_pos, symbols=numbers2symbols(numbers), check=False
         )
 
-    def get_rotations(self, convetional: bool = False) -> np.ndarray:
-        """
-        Return symmetry rotation matrices.
-
-        Parameters
-        ----------
-        convetional : bool, default=False
-            If True, return the raw rotation matrices from spglib, which are
-            defined in the standardized (conventional) cell basis.
-            If False, return rotation matrices transformed into the basis of
-            the original input structure.
-
-        Returns
-        -------
-        np.ndarray
-            Array of shape (n_sym, 3, 3) containing rotation matrices.
-
-        Notes
-        -----
-        spglib defines symmetry operations in a standardized coordinate system:
-
-            x_std = P x + o
-
-        where:
-            P : transformation_matrix
-            o : origin_shift
-
-        The returned rotations R (when convetional=True) act on x_std:
-
-            x_std' = R x_std + t
-
-        To express rotations in the original coordinate system, we apply a
-        change of basis:
-
-            R_eff = P^{-1} R P
-
-        These R_eff can be directly applied to fractional coordinates of the
-        original structure:
-
-            x' = R_eff x + t_eff
-
-        and are also the correct rotations to use for transforming tensorial
-        quantities (vectors, rank-2 tensors, etc.).
-        """
-        R = self.spglib_dataset.rotations  # (n, 3, 3)
-        if convetional:
-            return R
-
-        P = self.spglib_dataset.transformation_matrix
-        Pinv = np.linalg.inv(P)
-
-        # if not np.allclose(P, np.eye(3),atol=ATOL):
-        #     raise ValueError(f"Transformation matrix is not identity.")
-
-        return R @ P
-        # return np.einsum("ab,nbc,cd->nad", Pinv, R, P)
-
-    def get_translations(self, convetional: bool = False) -> np.ndarray:
-        """
-        Return symmetry translation vectors.
-
-        Parameters
-        ----------
-        convetional : bool, default=False
-            If True, return the raw translation vectors from spglib, defined
-            in the standardized (conventional) cell basis.
-            If False, return translation vectors transformed into the basis
-            of the original input structure.
-
-        Returns
-        -------
-        np.ndarray
-            Array of shape (n_sym, 3) containing translation vectors.
-
-        Notes
-        -----
-        In spglib, symmetry operations are defined in the standardized frame:
-
-            x_std = P x + o
-            x_std' = R x_std + t
-
-        To express the full affine transformation in the original coordinates:
-
-            x' = R_eff x + t_eff
-
-        the effective translation is:
-
-            t_eff = P^{-1} (t + R o - o)
-
-        where:
-            P : transformation_matrix
-            o : origin_shift
-            R : rotation matrix
-            t : translation vector (in standardized frame)
-
-        Unlike rotations, translations depend on the origin shift `o`, which
-        accounts for the difference between the input structure's origin and
-        the standardized cell used internally by spglib.
-
-        The returned t_eff can be directly used together with R_eff from
-        `get_rotations(convetional=False)` to transform positions:
-
-            x' = x @ R_eff.T + t_eff   (row-vector convention)
-        """
-        T = self.spglib_dataset.translations  # (n, 3)
-        if convetional:
-            return T
-
-        P = self.spglib_dataset.transformation_matrix
-        O = self.spglib_dataset.origin_shift
-        Pinv = np.linalg.inv(P)
-        R = self.spglib_dataset.rotations
-
-        shifted = T + np.einsum("nij,j->ni", R, O) - O
-        return shifted @ Pinv.T
-
-    def get_space_group_operatios(self, convetional: bool = False) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Return symmetry operations (rotations and translations) of the space group.
-
-        Parameters
-        ----------
-        convetional : bool, default=False
-            If True, return symmetry operations as provided by spglib, i.e.
-            defined in the standardized (conventional) cell basis.
-            If False, return symmetry operations transformed into the basis
-            of the original input structure.
-
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray]
-            A tuple (R, T) where:
-            - R : np.ndarray of shape (n_sym, 3, 3)
-                Rotation matrices.
-            - T : np.ndarray of shape (n_sym, 3)
-                Translation vectors.
-
-        Notes
-        -----
-        Symmetry operations are affine transformations of the form:
-
-            x' = R x + t
-
-        When `convetional=True`, (R, t) correspond to the standardized
-        coordinate system used internally by spglib.
-
-        When `convetional=False`, the returned (R, t) are transformed into
-        the original coordinate system of the structure using the
-        transformation matrix P and origin shift o:
-
-            R_eff = P^{-1} R P
-            t_eff = P^{-1} (t + R o - o)
-
-        These effective operations can be applied directly to fractional
-        coordinates of the original structure (row-vector convention):
-
-            x' = x @ R.T + t
-
-        and the rotations can be used consistently to transform tensorial
-        quantities (vectors, rank-2 tensors, etc.) in the same basis.
-        """
-        return self.get_rotations(convetional), self.get_translations(convetional)
+    def get_space_group_operatios(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Return spglib symmetry (R, t) where x' = R x + t in fractional coords."""
+        return self.spglib_dataset.rotations, self.spglib_dataset.translations
 
     def _test_symmetry(self, atol=ATOL) -> bool:
-        spg = self.spglib_dataset
-        R = spg.rotations
-        T = spg.translations
+        """
+        Check symmetry: apply x' = R x + t (fractional coords) for all operations.
+        """
+        R, T = self.get_space_group_operatios()
         for _, (r, t) in enumerate(zip(R, T)):
-            new_pos = self.frac_pos @ r + t
-            new_structure = replace(self, frac_pos=new_pos)
+            new_pos = self.frac_pos @ r.T + t
+            new_structure = self.clone(frac_pos=new_pos)
             if not self.is_equal_to(new_structure, atol=atol):
                 self.is_equal_to(new_structure, atol=atol)
                 raise ValueError("Symmetry operation does not preserve the structure.")
@@ -441,9 +319,9 @@ class AtomicStructure:
 
             mapping[idx_other] = idx_self[local_map]
 
-        assert np.all(
-            np.sort(mapping) == np.arange(len(self))
-        ), "Invalid mapping: not a permutation"
+        assert np.all(np.sort(mapping) == np.arange(len(self))), (
+            "Invalid mapping: not a permutation"
+        )
 
         return mapping
 
@@ -477,7 +355,7 @@ class AtomicStructure:
         mappings = [None] * len(R)
         for n, (r, t) in enumerate(zip(R, T)):
             new_pos = self.frac_pos @ r + t
-            new_structure = replace(self, frac_pos=new_pos)
+            new_structure = self.clone(frac_pos=new_pos)
             mappings[n] = self._get_atoms_mapping(new_structure)
         mappings = np.asarray(mappings)
         inv_map = invert_indices(mappings, axis=1)

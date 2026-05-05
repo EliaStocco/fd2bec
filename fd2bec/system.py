@@ -67,7 +67,7 @@ class System:
 
     @property
     def min_num_displacements(self):
-        return self.linear_system.n_unknowns
+        return self.linear_system.n_cols
 
     def solve(self, **kwargs):
         self.linear_system.solve(**kwargs)
@@ -84,7 +84,7 @@ class System:
         return bec
 
     def rank_type(self):
-        if self.linear_system.n_cols < self.linear_system.n_unknowns:
+        if self.linear_system.n_cols < self.linear_system.n_rows:
             return "overdetermined"
         elif self.linear_system.n_cols == self.linear_system.n_rows:
             return "determined"

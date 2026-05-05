@@ -1,7 +1,9 @@
-from ._tensor_base import Tensor, SpecialDict
+from typing import Union
+
 import numpy as np
 from ase.cell import Cell
-from typing import Union
+
+from ._tensor_base import SpecialDict, Tensor
 
 
 class Vector(Tensor):

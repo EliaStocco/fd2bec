@@ -34,7 +34,7 @@ def validate_types(func):
     return wrapper
 
 
-SYMPREC = 1e-2
+SYMPREC = 1e-4
 ATOL = 1e-5
 DEBUG = True
 float_format = "%24.12e"
