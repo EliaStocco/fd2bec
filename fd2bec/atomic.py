@@ -2,7 +2,7 @@
 import warnings
 from dataclasses import InitVar, dataclass, field, replace
 from functools import cached_property
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 from warnings import warn
 
 import numpy as np
@@ -162,7 +162,7 @@ class AtomicStructure:
         """Check if two AtomicStructure instances are equal."""
         return self.is_equal_to(other)
 
-    def is_equal_to(self, other: "AtomicStructure", atol=ATOL, debug=True) -> bool:
+    def is_equal_to(self, other: "AtomicStructure", atol=ATOL, debug=True, reason=False) -> Union[bool,Tuple[bool,str]]:
         """
         Compare two structures for equality.
 
@@ -179,17 +179,19 @@ class AtomicStructure:
         -------
         bool
         """
-        if self.pbc != other.pbc:
-            return False
-
         if not isinstance(other, AtomicStructure):
             return NotImplemented
+        
+        if self.pbc != other.pbc:
+            return (False, "different pbc") if reason else False
+
+        
 
         if self.species != other.species:
-            return False
+            return (False, "different species") if reason else False
 
         if not np.allclose(self.cell, other.cell, equal_nan=True):
-            return False
+            return (False, "different cell") if reason else False
 
         if debug:
             mapping = self._get_atoms_mapping(other, atol=atol)
@@ -199,15 +201,15 @@ class AtomicStructure:
                     other, atol=atol
                 )  # will raise ValueError if not equal
             except ValueError:
-                return False
+                return (False, "mapping") if reason else False
         if self.pbc:
             diff = wrap(self.frac_pos[mapping] - other.frac_pos)
         else:
             diff = self.positions[mapping] - other.positions
         if not np.allclose(diff, 0, atol=atol):
-            return False
+            return False, "large difference" if reason else False
 
-        return True
+        return (True, "") if reason else True
 
     def __len__(self):
         """
@@ -392,13 +394,16 @@ class AtomicStructure:
                 new_structure = self.clone(positions=new_pos)
 
             if not self.is_equal_to(new_structure, atol=atol):
-                self.is_equal_to(new_structure, atol=atol)
-                raise ValueError("Symmetry operation does not preserve the structure.")
+                ok, reason = self.is_equal_to(new_structure, atol=atol,reason=True)
+                raise ValueError(f"Symmetry operation does not preserve the structure. Reason: {reason}")
             if self.pbc:
                 if self.space_group != new_structure.space_group:
                     raise ValueError("Symmetry operation does not preserve the space group")
             mapping = self._get_atoms_mapping(new_structure)
-            diff = wrap(self.frac_pos[mapping] - new_structure.frac_pos)
+            if self.pbc:
+                diff = wrap(self.frac_pos[mapping] - new_structure.frac_pos)
+            else:
+                diff = self.positions[mapping] - new_structure.positions
             if not np.allclose(diff, 0, atol=atol):
                 raise ValueError("Symmetry operation does not preserve atomic positions")
 
@@ -443,54 +448,63 @@ class AtomicStructure:
         #     pass
 
         return mapping
+    
+    def __get_all_atoms_mapping(self)->np.ndarray:
+        R, T = self.get_symmetry_operations(basis="cartesian")
+        mapping = [None]*len(R)
+        for n,(r,t) in enumerate(zip(R,T)):
+            new_pos = self.positions @ r.T + t
+            new_structure = self.clone(positions=new_pos)
+            mapping[n] = self._get_atoms_mapping(new_structure)
+        return np.asarray(mapping)
 
-    def __get_all_atoms_mapping(self, debug=DEBUG):
-        """
-        Compute inverse atom index mappings for all symmetry operations.
+    # def __get_all_atoms_mapping(self, debug=DEBUG):
+    #     """
+    #     Compute inverse atom index mappings for all symmetry operations.
 
-        For each space-group operation (R, t), the function applies the transformation
-        to the fractional coordinates, builds the transformed structure, and determines
-        how atom indices map back to the original structure.
+    #     For each space-group operation (R, t), the function applies the transformation
+    #     to the fractional coordinates, builds the transformed structure, and determines
+    #     how atom indices map back to the original structure.
 
-        Returns an array inv_map such that for each operation k:
-            inv_map[k, i] gives the index in the transformed structure corresponding to
-            atom i in the original structure.
+    #     Returns an array inv_map such that for each operation k:
+    #         inv_map[k, i] gives the index in the transformed structure corresponding to
+    #         atom i in the original structure.
 
-        Parameters
-        ----------
-        debug : bool, optional
-            If True, performs consistency checks on the mappings.
-        **kwargs :
-            Passed to the spglib cell construction.
+    #     Parameters
+    #     ----------
+    #     debug : bool, optional
+    #         If True, performs consistency checks on the mappings.
+    #     **kwargs :
+    #         Passed to the spglib cell construction.
 
-        Returns
-        -------
-        inv_map : ndarray of shape (Nops, Natoms)
-            Inverse atom mappings for each symmetry operation.
-        """
-        spg = self._spglib_dataset
-        R = spg.rotations
-        T = spg.translations
-        mappings = [None] * len(R)
-        for n, (r, t) in enumerate(zip(R, T)):
-            new_pos = self.frac_pos @ r + t
-            new_structure = self.clone(frac_pos=new_pos)
-            mappings[n] = self._get_atoms_mapping(new_structure)
-        mappings = np.asarray(mappings)
-        inv_map = invert_indices(mappings, axis=1)
+    #     Returns
+    #     -------
+    #     inv_map : ndarray of shape (Nops, Natoms)
+    #         Inverse atom mappings for each symmetry operation.
+    #     """
+    #     spg = self._spglib_dataset
+    #     R = spg.rotations
+    #     T = spg.translations
+    #     mappings = [None] * len(R)
+    #     for n, (r, t) in enumerate(zip(R, T)):
+    #         new_pos = self.frac_pos @ r.T + t
+    #         new_structure = self.clone(frac_pos=new_pos)
+    #         mappings[n] = self._get_atoms_mapping(new_structure)
+    #     mappings = np.asarray(mappings)
+    #     inv_map = invert_indices(mappings, axis=1)
 
-        if debug:
-            for r, t, m, im in zip(R, T, mappings, inv_map):
-                new_pos = self.frac_pos @ r + t
-                if not np.allclose(wrap(new_pos - self.frac_pos[m]), 0, atol=SYMPREC):
-                    raise ValueError("Error in computing atom mapping for symmetry operation.")
-                if not np.allclose(wrap(new_pos[im] - self.frac_pos), 0, atol=SYMPREC):
-                    raise ValueError("Error in computing atom mapping for symmetry operation.")
-                new_pos = self.frac_pos[im] @ r + t
-                if not np.allclose(wrap(new_pos - self.frac_pos), 0, atol=SYMPREC):
-                    raise ValueError("Error in computing atom mapping for symmetry operation.")
+    #     if debug:
+    #         for r, t, m, im in zip(R, T, mappings, inv_map):
+    #             new_pos = self.frac_pos @ r + t
+    #             if not np.allclose(wrap(new_pos - self.frac_pos[m]), 0, atol=SYMPREC):
+    #                 raise ValueError("Error in computing atom mapping for symmetry operation.")
+    #             if not np.allclose(wrap(new_pos[im] - self.frac_pos), 0, atol=SYMPREC):
+    #                 raise ValueError("Error in computing atom mapping for symmetry operation.")
+    #             new_pos = self.frac_pos[im] @ r + t
+    #             if not np.allclose(wrap(new_pos - self.frac_pos), 0, atol=SYMPREC):
+    #                 raise ValueError("Error in computing atom mapping for symmetry operation.")
 
-        return inv_map
+    #     return inv_map
 
     def get_tensor_symmetry_operations(self, tensor: Tensor):
         """
@@ -525,13 +539,9 @@ class AtomicStructure:
         atomic = tensor.is_atomic
         rank = sum(tensor.rank)
 
-        # if affine:
-        #     x = self.frac_pos.copy()
         x_flat = tensor.flatten(full=True)
 
-        spg = self._spglib_dataset
-        R = spg.rotations.copy()
-        T = spg.translations.copy()
+        R, T = self.get_symmetry_operations(basis=tensor.basis)
         if atomic:
             mappings = self.__get_all_atoms_mapping()
         else:
@@ -663,7 +673,10 @@ class AtomicStructure:
         S = np.real(S)
 
         # Solve for theta
-        theta = np.linalg.lstsq(S, x, rcond=None)[0]  # if x is not None else None
+        if not np.any(np.isnan(x.data)):
+            theta = np.linalg.lstsq(S, x.data, rcond=None)[0]  # if x is not None else None
+        else:
+            theta = np.full(S.shape[1],np.nan)
 
         # ------------------------
         # Real-space interpretation of modes

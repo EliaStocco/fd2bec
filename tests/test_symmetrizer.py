@@ -1,111 +1,91 @@
-import numpy as np
+
 import pytest
 from fd2bec.io import read
+from pathlib import Path
 
-from fd2bec import ATOL
 from fd2bec.atomic import AtomicStructure
-from fd2bec.mathematics import append_one, remove_one
+from typing import Dict, Tuple, Type
 
 # # from fd2bec.conftest import structure # noqa: F401
-from fd2bec.tensor import AtomicVector, BornCharge, Force, Position
+from fd2bec.tensor import BornCharge, Force, Position, Dipole, Stress, Tensor
 
 
-def test_symmetrizer(structure):
-    """
-    Test that the structures have the correct number of atoms,
-    correct space group, and that atomic positions are symmetric.
-    """
-    n, file_path = structure
+instructions: Dict[str, Tuple[str, type]] = {
+    "positions": ("array", Position),
+    "MACE_BEC": ("array", BornCharge),
+    "MACE_forces": ("array", Force),
+    "MACE_dipole": ("info", Dipole),
+    "MACE_stress": ("info", Stress),
+}
 
-    atoms = read(file_path, index=0)
+DATA_DIR = Path(__file__).parent / "molecules/point_group_dataset"
+xyz_files = sorted(DATA_DIR.glob("*.xyz"))
+@pytest.mark.parametrize("filepath", xyz_files)
+def test_symmetrizer_molecules(filepath):
+
+    atoms = read(filepath)
     Natoms = atoms.get_global_number_of_atoms()
-    if Natoms > 200:
-        pytest.skip("Too many atoms.")
+    atomic_structure = AtomicStructure.from_ase(atoms)
+    atomic_structure._test_symmetry(basis="cartesian"), "Error in AtomicStructure._test_symmetry() method"
+
+    for keyword, (_, classname) in instructions.items():
+        classname:Type[Tensor]
+        if keyword == "positions":
+            tensor = classname(data=atoms.get_positions()) # I need the positions in this case
+        else:
+            tensor = classname.template(Natoms)
+        S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=tensor)
+
+def test_theta_length_periodic(sg_case):
+    dataset, filepath, n = sg_case
+    atoms = read(filepath)
+    Natoms = atoms.get_global_number_of_atoms()
 
     atomic_structure = AtomicStructure.from_ase(atoms)
-    assert atomic_structure._test_symmetry(), "Error in AtomicStructure._test_symmetry() method"
 
-    # ----------------------#
-    # affine
-    # ----------------------#
-    # for name in ["positions"]:  # "REF_atomic-oxn-dipole"
+    lengths = {}
 
-    # params = {"rank": 1, "affine": True, "atomic": True}
+    for basis in ["fractional", "cartesian"]:
+        atomic_structure._test_symmetry(basis=basis)
 
-    tensor = Position(data=atoms.arrays["positions"], cell=atoms.cell)
-    frac_pos = atomic_structure.to(basis="fractional", tensor=tensor).data
-    assert np.allclose(
-        frac_pos @ atomic_structure.cell,
-        atoms.arrays["positions"],
-        atol=ATOL * len(atomic_structure),
-    ), "Error with fractional 'positions'"
+        lengths[basis] = {}
 
-    flat_pos = frac_pos.flatten()
-    pos1 = append_one(flat_pos)
-    H = atomic_structure.homogeneous_symmetry_operations
-    new_pos = H @ pos1
-    assert np.allclose(
-        pos1, new_pos, atol=ATOL * len(atomic_structure)
-    ), "Error with symmetrizer when using 'positions'."
+        for keyword, (_, classname) in instructions.items():
+            classname:Type[Tensor]
+            if keyword == "positions":
+                tensor = classname(data=atoms.get_positions()) # I need the positions in this case
+            else:
+                tensor = classname.template(Natoms)
 
-    x = tensor.to("fractional")
-    S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=x)
-    assert np.allclose(
-        remove_one(S @ theta), flat_pos, atol=ATOL * len(atomic_structure)
-    ), "Error with symmetrizer when using 'positions'."
+            _, theta, _ = atomic_structure.get_symmetrizer(tensor=tensor)
+            lengths[basis][keyword] = len(theta)
 
-    # ----------------------#
-    # vectors
-    # ----------------------#
-    for name, classname in [("REF_forces", Force), ("REF_atomic_dipoles", AtomicVector)]:
+    for key in lengths["fractional"]:
+        assert lengths["fractional"][key] == lengths["cartesian"][key], \
+            f"len(theta) depends on basis for {key}"
 
-        array = atoms.arrays[name]
-        # params = {"rank": 1, "affine": False, "atomic": True}
-        tensor = classname(data=array)
-        frac_vector = atomic_structure.to(basis="fractional", tensor=tensor)  # .data
-        # assert np.allclose(
-        #     frac_vector @ atomic_structure.cell,
-        #     array,
-        #     atol=ATOL * len(atomic_structure),
-        # ), f"Error with fractional {name}"
+@pytest.mark.parametrize("basis",["fractional","cartesian"])
+def test_symmetrizer_periodic(sg_case,basis):
 
-        # flat_vector = frac_vector.flatten()
-        # R = atomic_structure.get_tensor_symmetry_operations(**params)
-        # assert np.allclose(
-        #     R @ flat_vector, flat_vector, atol=ATOL * len(atomic_structure)
-        # ), f"Error with symmetrizer when using {name}."
+    dataset, filepath, n = sg_case
+    atoms = read(filepath)
+    Natoms = atoms.get_global_number_of_atoms()
+    atomic_structure = AtomicStructure.from_ase(atoms)
+    assert atomic_structure.space_group == n, \
+        f"Wrong space group: {n} != {atomic_structure.space_group} on file {filepath}"
+    atomic_structure._test_symmetry(basis=basis), "Error in AtomicStructure._test_symmetry() method"
 
-        R = atomic_structure.get_tensor_symmetry_operations(tensor=frac_vector)
-        S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=frac_vector)
-        # assert np.allclose(
-        #     S @ theta, flat_vector, atol=ATOL * len(atomic_structure)
-        # ), f"Error with symmetrizer when using {name}."
+    for keyword, (_, classname) in instructions.items():
+        classname:Type[Tensor]
+        if keyword == "positions":
+            tensor = classname(data=atoms.get_positions()) # I need the positions in this case
+        else:
+            tensor = classname.template(Natoms)
+        S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=tensor)
 
-    # ----------------------#
-    # Born Charges
-    # ----------------------#
-    # for name in ["REF_BEC"]:
-    # params = {"rank": 2, "affine": False, "atomic": True}
 
-    tensor = BornCharge(data=atoms.arrays["REF_BEC"].reshape((-1, 3, 3)))
-    frac_bec = atomic_structure.to(basis="fractional", tensor=tensor)
-    tmp = atomic_structure.to(basis="cartesian", tensor=frac_bec).data
-    assert np.allclose(
-        tmp, tensor, atol=ATOL * len(atomic_structure)
-    ), "Error with fractional 'REF_BEC'"
 
-    # frac_bec = frac_bec.data.flatten()
-    R = atomic_structure.get_tensor_symmetry_operations(tensor=frac_bec)
-    S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=frac_vector)
-
-    # assert np.allclose(
-    #     R @ flat_vector, flat_vector, atol=ATOL * len(atomic_structure)
-    # ), "Error with symmetrizer when using 'REF_BEC'."
-
-    # S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=frac_bec, **params)
-    # assert np.allclose(
-    #     S @ theta, flat_vector, atol=ATOL * len(atomic_structure)
-    # ), "Error with symmetrizer when using 'REF_BEC'."
+          
 
 
 if __name__ == "__main__":

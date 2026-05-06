@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from typing import List, Tuple
+from warnings import warn
 
 import numpy as np
 
@@ -19,19 +20,38 @@ class Tensor:
         - fractional (lattice coordinates)
     """
 
-    data: np.ndarray
     axes: List[bool]
+    data: np.ndarray = field(default=None)
     cell: np.ndarray = field(default=None)
     is_atomic: bool = field(default=None)
     is_affine: bool = field(default=False)
-    shape: Tuple[int] = field(init=False)
+    # shape: Tuple[int] = field(init=False)
     basis: str = field(default="cartesian")
 
     def __post_init__(self):
-        self.shape = self.data.shape
+        if self.data is not None:
+            tot_rank = sum(self.rank)
+            shapes = np.asarray(self.data.shape[-tot_rank:])
+            if not np.allclose(shapes,3):
+                raise ValueError("Wrong shape.")
         if self.is_affine and self.rank != (1, 0):
             raise ValueError("Affine tensors can only be of rank-(1,0) (positions).")
-
+    
+    @property
+    def shape(self):
+        return self.data.shape
+    
+    @classmethod
+    def template(cls,natoms:int=None) -> "Tensor":
+        empty = cls()
+        tot_rank = sum(empty.rank)
+        data = np.full((3,)*tot_rank,np.nan)
+        if empty.is_atomic:
+            data = np.asarray([ data.copy() for _ in range(natoms) ])
+        elif natoms is not None:
+            warn(f"You provided 'natoms' = {natoms} for a tensor which is not atomic.")
+        return cls(data=data)
+    
     @property
     def rank(self) -> Tuple[int, int]:
         return axes_to_pq(self.axes)
@@ -309,13 +329,6 @@ class Tensor:
         else:
             shape = self.shape[: -len(self.axes)] + (-1,)
             return self.data.reshape(shape)
-
-    @cached_property
-    def template(self) -> np.ndarray:
-        n = len(self.axes)
-        if self.is_atomic:
-            n += 1
-        return np.zeros(self.shape[-n:])
 
     def contract(self, R: np.ndarray) -> "Tensor":
         arr = self.flatten()

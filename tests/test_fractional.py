@@ -1,7 +1,8 @@
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Type
 
 import numpy as np
+from ase import Atoms
 import pytest
 from fd2bec.io import read
 
@@ -56,14 +57,7 @@ def test_fractional(n, method):
             )
 
 
-import numpy as np
-import pytest
-
-# assumes you already have:
-# Vector, Dipole, Tensor, instructions, FILE, etc.
-
-
-def _apply_all_keywords(atoms, keyword, classname):
+def _apply_all_keywords(atoms:Atoms, keyword):
     if keyword == "MACE_BEC":
         return atoms2bec(atoms, keyword)
     elif keyword in atoms.arrays:
@@ -76,10 +70,10 @@ def _apply_all_keywords(atoms, keyword, classname):
 def test_recursive_vs_flat_fractional(n):
     atoms = read(FILE, index=n)
 
-    for keyword, (where, classname) in instructions.items():
+    for keyword, (_, classname) in instructions.items():
 
-        array = _apply_all_keywords(atoms, keyword, classname)
-
+        array = _apply_all_keywords(atoms, keyword)
+        classname:Type[Tensor]
         original = classname(data=array, cell=atoms.cell)
 
         # ------------------------------------------------------------
