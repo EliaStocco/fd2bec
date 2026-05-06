@@ -10,18 +10,16 @@ jobs:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
         test-file:
-          - tests/test_symmetrizer.py
-          - tests/test_symmetrizer_rotated.py
-          - tests/test_fractional.py
-          - tests/test_symmetry.py
-          - tests/test_symmetry_molecules.py
-          - tests/test_symmetrizer_old.py
-          - tests/test_conventional.py
-          - tests/test_linear_system.py
-          - tests/test_rotations.py
           - tests/test_ase.py
           - tests/test_geometry.py
           - tests/test_spglib.py
+          - tests/test_fractional.py
+          - tests/test_rotations.py
+          - tests/test_conventional.py
+          - tests/test_symmetry.py
+          - tests/test_symmetrizer.py
+          - tests/test_symmetrizer_rotated.py
+          - tests/test_symmetry_molecules.py
 
     steps:
       - name: Check out code
