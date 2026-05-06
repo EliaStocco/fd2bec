@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field, replace
-from functools import cached_property
 from typing import List, Tuple
 from warnings import warn
-
+from fd2bec import Basis
 import numpy as np
 
 
@@ -20,13 +19,13 @@ class Tensor:
         - fractional (lattice coordinates)
     """
 
-    axes: List[bool]
+    axes: List[bool] # ToDo: it would be better to change the name of this attribute
     data: np.ndarray = field(default=None)
     cell: np.ndarray = field(default=None)
-    is_atomic: bool = field(default=None)
+    is_atomic: bool = field(default=None) # ToDo: a tensor might have more than one axis which is 'atomic'(e.g. force constant matrix)
     is_affine: bool = field(default=False)
     # shape: Tuple[int] = field(init=False)
-    basis: str = field(default="cartesian")
+    basis: Basis = field(default="cartesian")
 
     def __post_init__(self):
         if self.data is not None:
@@ -135,7 +134,7 @@ class Tensor:
         mats: list[np.ndarray],
         *,
         method: str = "recursive",
-        basis: str = None,
+        basis: Basis = None,
     ) -> "Tensor":
         """
         Apply already-prepared per-axis matrices to tensor.
@@ -258,7 +257,7 @@ class Tensor:
             basis=to,
         )
 
-    def to(self, basis: str, **kwargs):
+    def to(self, basis: Basis, **kwargs):
         return self.transform(self.cell, None, basis, **kwargs)
 
     def rotation_operator(self, R: np.ndarray) -> np.ndarray:
