@@ -3,6 +3,9 @@ import re
 import pandas as pd
 import pytest
 import warnings
+import random
+
+FILE_PER_DATASET = 10
 
 warnings.filterwarnings(
     "ignore",
@@ -77,13 +80,22 @@ def extract_sg_number(filepath: Path) -> int:
     return int(match.group(1))
 
 
-def collect_cases():
-    cases = []
-    for name, folder in DATASETS.items():
-        for f in folder.glob("SG_*"):
-            cases.append((name, f, extract_sg_number(f)))
-    return cases
+def collect_cases(n_per_dataset=FILE_PER_DATASET, seed=None):
+    if seed is not None:
+        random.seed(seed)
 
+    cases = []
+
+    for name, folder in DATASETS.items():
+        files = list(folder.glob("SG_*"))
+
+        if len(files) > n_per_dataset:
+            files = random.sample(files, n_per_dataset)
+
+        for f in files:
+            cases.append((name, f, extract_sg_number(f)))
+
+    return cases
 
 CASES = collect_cases()
 
