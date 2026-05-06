@@ -64,9 +64,9 @@ def df_to_pdf(df, filename):
 
 
 DATASETS = {
+    "mp": Path(__file__).parent / "MP/spacegroup_structures",
     "synthetic_rotated": Path(__file__).parent / "synthetic/sg_prototypes_rotated",
     "synthetic": Path(__file__).parent / "synthetic/sg_prototypes",
-    "mp": Path(__file__).parent / "MP/spacegroup_structures",
 }
 
 
