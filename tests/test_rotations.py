@@ -214,10 +214,10 @@ def test_rotation_operator(n, method):
     s_rot = np.einsum("ij,...j->...i", s_R, stress.flatten())
     b_rot = np.einsum("ij,...j->...i", b_R, bec.flatten())
 
-    assert np.allclose(dip_rot, dipole.contract(dip_R), atol=ATOL), "Dipole mismatch"
-    assert np.allclose(f_rot, forces.contract(f_R), atol=ATOL), "Forces mismatch"
-    assert np.allclose(s_rot, stress.contract(s_R), atol=ATOL), "Stress mismatch"
-    assert np.allclose(b_rot, bec.contract(b_R), atol=ATOL), "Born charge mismatch"
+    assert np.allclose(dip_rot, dipole.contract(dip_R).flatten(), atol=ATOL), "Dipole mismatch"
+    assert np.allclose(f_rot, forces.contract(f_R).flatten(), atol=ATOL), "Forces mismatch"
+    assert np.allclose(s_rot, stress.contract(s_R).flatten(), atol=ATOL), "Stress mismatch"
+    assert np.allclose(b_rot, bec.contract(b_R).flatten(), atol=ATOL), "Born charge mismatch"
 
     # ------------------------------------------------------------
     # Consistency check vs the OTHER method

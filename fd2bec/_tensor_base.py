@@ -332,7 +332,7 @@ class Tensor:
 
     def contract(self, R: np.ndarray) -> "Tensor":
         arr = self.flatten()
-        arr = contract(R, arr)
+        arr = contract(R, arr).reshape(self.shape)
         return replace(self, data=arr)
 
     def __array__(self, dtype=None):
