@@ -119,13 +119,15 @@ class BornCharge(Tensor):
         kwargs["axes"] = [False, True]
         kwargs["is_atomic"] = True
         super().__init__(**kwargs)
-        
+
+
 class Rotation(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
         kwargs["axes"] = [False, True]
         kwargs["is_atomic"] = False
         super().__init__(**kwargs)
+
 
 class Translation(GlobalVector):
     pass

@@ -70,12 +70,12 @@ def test_symmetrizer(structure):
         # ), f"Error with fractional {name}"
 
         # flat_vector = frac_vector.flatten()
-        # R = atomic_structure.get_symmetry_operations(**params)
+        # R = atomic_structure.get_tensor_symmetry_operations(**params)
         # assert np.allclose(
         #     R @ flat_vector, flat_vector, atol=ATOL * len(atomic_structure)
         # ), f"Error with symmetrizer when using {name}."
 
-        R = atomic_structure.get_symmetry_operations(tensor=frac_vector)
+        R = atomic_structure.get_tensor_symmetry_operations(tensor=frac_vector)
         S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=frac_vector)
         # assert np.allclose(
         #     S @ theta, flat_vector, atol=ATOL * len(atomic_structure)
@@ -95,7 +95,7 @@ def test_symmetrizer(structure):
     ), "Error with fractional 'REF_BEC'"
 
     # frac_bec = frac_bec.data.flatten()
-    R = atomic_structure.get_symmetry_operations(tensor=frac_bec)
+    R = atomic_structure.get_tensor_symmetry_operations(tensor=frac_bec)
     S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=frac_vector)
 
     # assert np.allclose(

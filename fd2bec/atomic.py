@@ -15,6 +15,9 @@ from fd2bec.mathematics import affine2homogeneous, append_one, find_mapping, inv
 from fd2bec.tensor import Position, Tensor, Rotation, Translation
 from fd2bec.tools import numbers2symbols, symbols2numbers
 
+from pymatgen.core import Molecule
+from pymatgen.symmetry.analyzer import PointGroupAnalyzer
+
 
 @dataclass
 class AtomicStructure:
@@ -35,7 +38,7 @@ class AtomicStructure:
     - The class is fully immutable:
         - `symbols` is stored as a tuple
         - NumPy arrays are copied and marked read-only
-    - Derived properties (`species`, `frac_pos_dict`) are cached for efficiency.
+    - Derived properties (`species`, `pos_dict`) are cached for efficiency.
     """
 
     symbols: List[str]
@@ -61,15 +64,19 @@ class AtomicStructure:
         emits a warning if the structure is not in standard form.
         """
         if self.cell is None:
-            assert self.pbc is None or not self.pbc, "Please provide 'cell' for periodic structures."
+            assert (
+                self.pbc is None or not self.pbc
+            ), "Please provide 'cell' for periodic structures."
             self.pbc = False
         else:
-            assert self.pbc is None or self.pbc, "'pbc' has to be None or True if you specify a 'cell'."
+            assert (
+                self.pbc is None or self.pbc
+            ), "'pbc' has to be None or True if you specify a 'cell'."
             self.pbc = True
-            
+
         if not self.pbc:
-            self.cell = np.full((3,3),np.nan)
-             
+            self.cell = np.full((3, 3), np.nan)
+
         if isinstance(self.cell, np.ndarray):
             self.cell = Cell(self.cell)
 
@@ -103,7 +110,7 @@ class AtomicStructure:
                 if not self.is_equal_to(conventional):
                     warn("You are not using a conventional unit cell.")
 
-    def clone(self, frac_pos=None, positions=None,**kwargs) -> "AtomicStructure":
+    def clone(self, frac_pos=None, positions=None, **kwargs) -> "AtomicStructure":
         """
         Clone a 'AtomicStructure' by replacing the provided attributes.
         In this way one can choose either to initialize via 'positions' and '__post_init__' will retrieve 'frac_pos'
@@ -114,7 +121,7 @@ class AtomicStructure:
         if not kwargs["pbc"]:
             assert "cell" not in kwargs
             kwargs["cell"] = None
-        return replace(self, frac_pos=frac_pos, positions=positions,**kwargs)
+        return replace(self, frac_pos=frac_pos, positions=positions, **kwargs)
 
     @classmethod
     def from_ase(
@@ -155,7 +162,7 @@ class AtomicStructure:
         """Check if two AtomicStructure instances are equal."""
         return self.is_equal_to(other)
 
-    def is_equal_to(self, other: "AtomicStructure", atol=ATOL) -> bool:
+    def is_equal_to(self, other: "AtomicStructure", atol=ATOL, debug=True) -> bool:
         """
         Compare two structures for equality.
 
@@ -172,22 +179,31 @@ class AtomicStructure:
         -------
         bool
         """
+        if self.pbc != other.pbc:
+            return False
+        
         if not isinstance(other, AtomicStructure):
             return NotImplemented
 
         if self.species != other.species:
             return False
 
-        if not np.allclose(self.cell, other.cell):
+        if not np.allclose(self.cell, other.cell, equal_nan=True):
             return False
 
-        try:
-            mapping = self._get_atoms_mapping(
-                other, atol=atol
-            )  # will raise ValueError if not equal
-        except ValueError:
-            return False
-        diff = wrap(self.frac_pos[mapping] - other.frac_pos)
+        if debug:
+            mapping = self._get_atoms_mapping(other, atol=atol)
+        else:
+            try:
+                mapping = self._get_atoms_mapping(
+                    other, atol=atol
+                )  # will raise ValueError if not equal
+            except ValueError:
+                return False
+        if self.pbc:
+            diff = wrap(self.frac_pos[mapping] - other.frac_pos)
+        else:
+            diff = self.positions[mapping] - other.positions
         if not np.allclose(diff, 0, atol=atol):
             return False
 
@@ -206,7 +222,10 @@ class AtomicStructure:
     @cached_property
     def space_group(self) -> int:
         """Space group number of the structure."""
-        return self._spglib_dataset.number
+        if self.pbc:
+            return self._spglib_dataset.number
+        else:
+            return -1
 
     @cached_property
     def species(self) -> set[str]:
@@ -244,6 +263,31 @@ class AtomicStructure:
 
         return result
 
+    @cached_property
+    def pos_dict(self) -> dict[str, np.ndarray]:
+        """
+        Cartesian positions grouped by chemical species.
+
+        Returns
+        -------
+        dict[str, np.ndarray]
+            Mapping: species -> (n_atoms, 3) array of fractional positions.
+
+        Notes
+        -----
+        - Returned arrays are copies and read-only.
+        - Safe to use without risking mutation of internal state.
+        """
+        symbols_arr = np.asarray(self.symbols)
+        result = {}
+
+        for s in self.species:
+            arr = self.positions[symbols_arr == s].copy()
+            arr.setflags(write=False)
+            result[s] = arr
+
+        return result
+
     def to_json(self) -> dict:
         """
         Convert the structure to a YAML-serializable dictionary.
@@ -273,6 +317,10 @@ class AtomicStructure:
         )
 
     @cached_property
+    def __pymatge_molecule(self) -> Molecule:
+        return Molecule(self.symbols, self.positions)
+
+    @cached_property
     def _spglib_dataset(self) -> spglib.SpglibDataset:
         """
         Convert the structure to a spglib-compatible cell representation.
@@ -296,29 +344,45 @@ class AtomicStructure:
         )
 
     # @validate_types
-    def get_space_group_operations(
-        self, basis: Basis = "fractional"
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """Return spglib symmetry (R, t) where x' = R x + t in fractional coords."""
-        
+    def get_symmetry_operations(self, basis: Basis = "cartesian") -> Tuple[np.ndarray, np.ndarray]:
+        """Return space/point group symmetry operatios (R, t) such that x' = R x + t."""
+
         if basis == "fractional":
+            assert self.pbc, "'fractional' is supported only for periodic structures."
             return self._spglib_dataset.rotations, self._spglib_dataset.translations
-        
+
         elif basis == "cartesian":
-            
-            R = Rotation(data=self._spglib_dataset.rotations,basis="fractional",cell=self.cell).to("cartesian")
-            T = Translation(data=self._spglib_dataset.translations,basis="fractional",cell=self.cell).to("cartesian")
-            
-            return R.data, T.data
-        
+            if self.pbc:
+                R = Rotation(
+                    data=self._spglib_dataset.rotations, basis="fractional", cell=self.cell
+                ).to("cartesian")
+                T = Translation(
+                    data=self._spglib_dataset.translations, basis="fractional", cell=self.cell
+                ).to("cartesian")
+
+                return R.data, T.data
+            else:
+                pga = PointGroupAnalyzer(
+                    self.__pymatge_molecule,
+                    tolerance=self.symprec,
+                    eigen_tolerance=self.symprec,
+                    matrix_tolerance=self.symprec,
+                )
+
+                S = pga.get_symmetry_operations()
+                R = np.asarray([s.rotation_matrix for s in S])
+                T = np.asarray([s.translation_vector for s in S])
+
+                return R, T
+
         else:
             raise NotImplementedError
 
-    def _test_symmetry(self, basis: Basis = "fractional", atol=ATOL):
+    def _test_symmetry(self, basis: Basis = "cartesian", atol=ATOL):
         """
         Check symmetry: apply x' = R x + t (fractional coords) for all operations.
         """
-        R, T = self.get_space_group_operations(basis=basis)
+        R, T = self.get_symmetry_operations(basis=basis)
         for _, (r, t) in enumerate(zip(R, T)):
             if basis == "fractional":
                 new_pos = self.frac_pos @ r.T + t
@@ -330,8 +394,9 @@ class AtomicStructure:
             if not self.is_equal_to(new_structure, atol=atol):
                 self.is_equal_to(new_structure, atol=atol)
                 raise ValueError("Symmetry operation does not preserve the structure.")
-            if self.space_group != new_structure.space_group:
-                raise ValueError("Symmetry operation does not preserve the space group")
+            if self.pbc:
+                if self.space_group != new_structure.space_group:
+                    raise ValueError("Symmetry operation does not preserve the space group")
             mapping = self._get_atoms_mapping(new_structure)
             diff = wrap(self.frac_pos[mapping] - new_structure.frac_pos)
             if not np.allclose(diff, 0, atol=atol):
@@ -348,27 +413,34 @@ class AtomicStructure:
             mapping[i] = index in self corresponding to atom i in other
         """
         mapping = np.zeros(len(self), dtype=int)
+        assert self.pbc == other.pbc, "Different pbc."
 
         for s in self.species:
             idx_self = np.where(np.array(self.symbols) == s)[0]
             idx_other = np.where(np.array(other.symbols) == s)[0]
 
-            a = self.frac_pos_dict[s]
-            b = other.frac_pos_dict[s]
+            if not self.pbc:
+                a = self.pos_dict[s]
+                b = other.pos_dict[s]
+            else:
+                a = self.frac_pos_dict[s]
+                b = other.frac_pos_dict[s]
 
-            local_map, ok, dists = find_mapping(a, b, atol=atol * len(a))
+            local_map, ok, dists = find_mapping(a, b, atol=atol * len(a), pbc=self.pbc)
             if not ok:
                 raise ValueError(
                     f"Mapping failed for species {s}."
                     + f" Total distance: {np.linalg.norm(dists)}."
-                    + " All distances {dists.tolist()}"
+                    + f" All distances {dists.tolist()}"
                 )
 
             mapping[idx_other] = idx_self[local_map]
 
-        assert np.all(np.sort(mapping) == np.arange(len(self))), (
-            "Invalid mapping: not a permutation"
-        )
+        # try:
+        if not np.all(np.sort(mapping) == np.arange(len(self))):
+            raise ValueError(f"Invalid mapping: {mapping.tolist()}")
+        # except:
+        #     pass
 
         return mapping
 
@@ -420,7 +492,7 @@ class AtomicStructure:
 
         return inv_map
 
-    def get_symmetry_operations(self, tensor: Tensor):
+    def get_tensor_symmetry_operations(self, tensor: Tensor):
         """
         Construct flattened symmetry operations acting on a vector representation.
 
@@ -520,7 +592,7 @@ class AtomicStructure:
         Flattened affine symmetry operations for the atomic coordinates.
         """
         tensor = Position(data=self.frac_pos, basis="fractional")
-        return self.get_symmetry_operations(tensor=tensor)
+        return self.get_tensor_symmetry_operations(tensor=tensor)
 
     @cached_property
     def homogeneous_symmetry_operations(self):
@@ -533,7 +605,7 @@ class AtomicStructure:
 
     def get_totally_symmetric_projection(self, tensor: Tensor):
         """Construct the projection operator onto the totally symmetric representation."""
-        G, T = self.get_symmetry_operations(tensor=tensor)
+        G, T = self.get_tensor_symmetry_operations(tensor=tensor)
         if tensor.is_affine:
             G = affine2homogeneous(G, T)
         P = np.mean(G, axis=0)

@@ -44,7 +44,7 @@ def test_translations(sg_case,basis):
     orig = atoms.copy()
     original = AtomicStructure.from_ase(atoms)
     original._test_symmetry(basis=basis)
-    R, T = original.get_space_group_operations()
+    R, T = original.get_symmetry_operations(basis=basis)
 
     for _ in range(10):
         shift = np.random.rand(3)
@@ -56,7 +56,7 @@ def test_translations(sg_case,basis):
         atomic_structure = AtomicStructure.from_ase(atoms)
         atomic_structure._test_symmetry(basis=basis)
 
-        R_prime, T_prime = atomic_structure.get_space_group_operations()
+        R_prime, T_prime = atomic_structure.get_symmetry_operations(basis=basis)
 
         # row-vector consistent transformation:
         T_test = T + shift_frac[None, :] @ (np.eye(3) - R.transpose(0, 2, 1))
