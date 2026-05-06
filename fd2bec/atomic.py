@@ -181,7 +181,7 @@ class AtomicStructure:
         """
         if self.pbc != other.pbc:
             return False
-        
+
         if not isinstance(other, AtomicStructure):
             return NotImplemented
 
