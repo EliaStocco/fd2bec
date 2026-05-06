@@ -162,7 +162,7 @@ class AtomicStructure:
         """Check if two AtomicStructure instances are equal."""
         return self.is_equal_to(other)
 
-    def is_equal_to(self, other: "AtomicStructure", atol=ATOL, debug=True, reason=False) -> Union[bool,Tuple[bool,str]]:
+    def is_equal_to(self, other: "AtomicStructure", atol=ATOL, reason=False) -> Union[bool,Tuple[bool,str]]:
         """
         Compare two structures for equality.
 
@@ -193,15 +193,12 @@ class AtomicStructure:
         if not np.allclose(self.cell, other.cell, equal_nan=True):
             return (False, "different cell") if reason else False
 
-        if debug:
-            mapping = self._get_atoms_mapping(other, atol=atol)
-        else:
-            try:
-                mapping = self._get_atoms_mapping(
-                    other, atol=atol
-                )  # will raise ValueError if not equal
-            except ValueError:
-                return (False, "mapping") if reason else False
+        try:
+            mapping = self._get_atoms_mapping(
+                other, atol=atol
+            )  # will raise ValueError if not equal
+        except ValueError:
+            return (False, "mapping") if reason else False
         if self.pbc:
             diff = wrap(self.frac_pos[mapping] - other.frac_pos)
         else:
