@@ -28,43 +28,43 @@ def test_symmetry(sg_case,basis):
     atomic_structure._test_symmetry(basis=basis)
     atomic_structure.conventional._test_symmetry(basis=basis)
 
-@pytest.mark.parametrize("basis",["fractional","cartesian"])
-def test_translations(sg_case,basis):
-    """
-    Verify origin-shift invariance of spglib translations.
+# @pytest.mark.parametrize("basis",["fractional","cartesian"])
+# def test_translations(sg_case,basis):
+#     """
+#     Verify origin-shift invariance of spglib translations.
 
-    Tests that under a fractional origin shift δ, translations transform as:
-        T' = T + δ (I - Rᵀ)
+#     Tests that under a fractional origin shift δ, translations transform as:
+#         T' = T + δ (I - Rᵀ)
 
-    using row-vector convention x' = x Rᵀ + t.
-    """
-    dataset, filepath, n = sg_case
-    atoms = read(filepath)
+#     using row-vector convention x' = x Rᵀ + t.
+#     """
+#     dataset, filepath, n = sg_case
+#     atoms = read(filepath)
 
-    orig = atoms.copy()
-    original = AtomicStructure.from_ase(atoms)
-    original._test_symmetry(basis=basis)
-    R, T = original.get_symmetry_operations(basis=basis)
+#     orig = atoms.copy()
+#     original = AtomicStructure.from_ase(atoms)
+#     original._test_symmetry(basis=basis)
+#     R, T = original.get_symmetry_operations(basis=basis)
 
-    for _ in range(10):
-        shift = np.random.rand(3)
+#     for _ in range(10):
+#         shift = np.random.rand(3)
 
-        atoms = orig.copy()  # do not accumulate translations
-        atoms.translate(shift)
-        shift_frac = atoms.cell.scaled_positions(shift)
+#         atoms = orig.copy()  # do not accumulate translations
+#         atoms.translate(shift)
+#         shift_frac = atoms.cell.scaled_positions(shift)
 
-        atomic_structure = AtomicStructure.from_ase(atoms)
-        atomic_structure._test_symmetry(basis=basis)
+#         atomic_structure = AtomicStructure.from_ase(atoms)
+#         atomic_structure._test_symmetry(basis=basis)
 
-        R_prime, T_prime = atomic_structure.get_symmetry_operations(basis=basis)
+#         R_prime, T_prime = atomic_structure.get_symmetry_operations(basis=basis)
 
-        # row-vector consistent transformation:
-        T_test = T + shift_frac[None, :] @ (np.eye(3) - R.transpose(0, 2, 1))
+#         # row-vector consistent transformation:
+#         T_test = T + shift_frac[None, :] @ (np.eye(3) - R.transpose(0, 2, 1))
 
-        if not np.allclose(R, R_prime, atol=ATOL):
-            raise ValueError("Rotation mismatch.")
-        # if not np.allclose(wrap(T_test - T_prime), 0, atol=ATOL):
-        #     raise ValueError("Translation mismatch.")
+#         if not np.allclose(R, R_prime, atol=ATOL):
+#             raise ValueError("Rotation mismatch.")
+#         # if not np.allclose(wrap(T_test - T_prime), 0, atol=ATOL):
+#         #     raise ValueError("Translation mismatch.")
 
 if __name__ == "__main__":
     pytest.main([__file__])

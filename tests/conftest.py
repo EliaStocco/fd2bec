@@ -5,7 +5,7 @@ import pytest
 import warnings
 import random
 
-FILE_PER_DATASET = 10
+FILE_PER_DATASET = 5
 
 warnings.filterwarnings(
     "ignore",

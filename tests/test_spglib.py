@@ -81,7 +81,7 @@ def test_structures_spacegroup_positions(structure):
     atomic_structure = AtomicStructure.from_ase(atoms)
     atomic_structure._test_symmetry(
         atol=ATOL
-    ), "Error in AtomicStructure._test_symmetry() method"
+    )
 
     
 

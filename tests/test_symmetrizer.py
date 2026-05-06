@@ -26,7 +26,7 @@ def test_symmetrizer_molecules(filepath):
     atoms = read(filepath)
     Natoms = atoms.get_global_number_of_atoms()
     atomic_structure = AtomicStructure.from_ase(atoms)
-    atomic_structure._test_symmetry(basis="cartesian"), "Error in AtomicStructure._test_symmetry() method"
+    atomic_structure._test_symmetry(basis="cartesian")
 
     for keyword, (_, classname) in instructions.items():
         classname:Type[Tensor]
@@ -73,7 +73,7 @@ def test_symmetrizer_periodic(sg_case,basis):
     atomic_structure = AtomicStructure.from_ase(atoms)
     assert atomic_structure.space_group == n, \
         f"Wrong space group: {n} != {atomic_structure.space_group} on file {filepath}"
-    atomic_structure._test_symmetry(basis=basis), "Error in AtomicStructure._test_symmetry() method"
+    atomic_structure._test_symmetry(basis=basis)
 
     for keyword, (_, classname) in instructions.items():
         classname:Type[Tensor]

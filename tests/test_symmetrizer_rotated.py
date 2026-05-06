@@ -29,7 +29,7 @@ def test_symmetrizer(n,basis):
     atoms = read(FILE, index=n)
     Natoms = atoms.get_global_number_of_atoms()
     atomic_structure = AtomicStructure.from_ase(atoms)
-    atomic_structure._test_symmetry(basis=basis), "Error in AtomicStructure._test_symmetry() method"
+    atomic_structure._test_symmetry(basis=basis)
 
     for keyword, (where, classname) in instructions.items():
         if keyword == "MACE_BEC":
