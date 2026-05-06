@@ -18,7 +18,8 @@ dependencies = [
     "tqdm",
     "pathlib",
     "spglib",
-    "ase"
+    "ase",
+    "pymatgen",
 ]
 
 [project.optional-dependencies]
@@ -40,7 +41,6 @@ dev-mp = [
     "black==24.8.0",
     "pytest",
     "pytest-cov",
-    "pymatgen",
     "mp-api",
     "python_requires>=3.11; python_version < '3.11'"
 ]
@@ -73,6 +73,7 @@ line-length = 100
 apply_displacements = "fd2bec.cli.apply_displacements:main"
 bec2charges = "fd2bec.cli.bec2charges:main"
 bec_extxyz2txt = "fd2bec.cli.bec_extxyz2txt:main"
+dFdE2bec = "fd2bec.cli.dFdE2bec:main"
 generate_all_displacements = "fd2bec.cli.generate_all_displacements:main"
 generate_random_displacements = "fd2bec.cli.generate_random_displacements:main"
 generate_supercell = "fd2bec.cli.generate_supercell:main"
@@ -121,7 +122,7 @@ fail-under = 10
 # from-stdin =
 
 # Files or directories to be skipped. They should be base names, not paths.
-ignore = ["CVS"]
+ignore = ["fd2bec/system.py", "fd2bec/linear_system.py", "fd2bec/cli/prepare_linear_system.py"]
 
 # Add files or directories matching the regular expressions patterns to the
 # ignore-list. The regex matches against paths and can be in Posix or Windows
