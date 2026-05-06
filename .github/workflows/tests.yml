@@ -31,7 +31,7 @@ jobs:
         run: |
           start=$(date +%s)
 
-          if ! pytest -q tests/test_ase.py; then
+          if ! pytest -q -x tests/test_ase.py; then
             end=$(date +%s)
             echo "❌ Failed in tests/test_ase.py ($((end-start))s)"
             pytest -vv --ff --nf -x tests/test_ase.py
@@ -45,7 +45,7 @@ jobs:
         run: |
           start=$(date +%s)
 
-          if ! pytest -q tests/test_geometry.py; then
+          if ! pytest -q -x tests/test_geometry.py; then
             end=$(date +%s)
             echo "❌ Failed in tests/test_geometry.py ($((end-start))s)"
             pytest -vv --ff --nf -x tests/test_geometry.py
@@ -59,7 +59,7 @@ jobs:
         run: |
           start=$(date +%s)
 
-          if ! pytest -q tests/test_spglib.py; then
+          if ! pytest -q -x tests/test_spglib.py; then
             end=$(date +%s)
             echo "❌ Failed in tests/test_spglib.py ($((end-start))s)"
             pytest -vv --ff --nf -x tests/test_spglib.py
@@ -73,7 +73,7 @@ jobs:
         run: |
           start=$(date +%s)
 
-          if ! pytest -q tests/test_fractional.py; then
+          if ! pytest -q -x tests/test_fractional.py; then
             end=$(date +%s)
             echo "❌ Failed in tests/test_fractional.py ($((end-start))s)"
             pytest -vv --ff --nf -x tests/test_fractional.py
@@ -87,7 +87,7 @@ jobs:
         run: |
           start=$(date +%s)
 
-          if ! pytest -q tests/test_rotations.py; then
+          if ! pytest -q -x tests/test_rotations.py; then
             end=$(date +%s)
             echo "❌ Failed in tests/test_rotations.py ($((end-start))s)"
             pytest -vv --ff --nf -x tests/test_rotations.py
@@ -101,7 +101,7 @@ jobs:
         run: |
           start=$(date +%s)
 
-          if ! pytest -q tests/test_conventional.py; then
+          if ! pytest -q -x tests/test_conventional.py; then
             end=$(date +%s)
             echo "❌ Failed in tests/test_conventional.py ($((end-start))s)"
             pytest -vv --ff --nf -x tests/test_conventional.py
@@ -115,7 +115,7 @@ jobs:
         run: |
           start=$(date +%s)
 
-          if ! pytest -q tests/test_symmetry.py; then
+          if ! pytest -q -x tests/test_symmetry.py; then
             end=$(date +%s)
             echo "❌ Failed in tests/test_symmetry.py ($((end-start))s)"
             pytest -vv --ff --nf -x tests/test_symmetry.py
@@ -129,7 +129,7 @@ jobs:
         run: |
           start=$(date +%s)
 
-          if ! pytest -q tests/test_symmetrizer.py; then
+          if ! pytest -q -x tests/test_symmetrizer.py; then
             end=$(date +%s)
             echo "❌ Failed in tests/test_symmetrizer.py ($((end-start))s)"
             pytest -vv --ff --nf -x tests/test_symmetrizer.py
@@ -143,7 +143,7 @@ jobs:
         run: |
           start=$(date +%s)
 
-          if ! pytest -q tests/test_symmetrizer_rotated.py; then
+          if ! pytest -q -x tests/test_symmetrizer_rotated.py; then
             end=$(date +%s)
             echo "❌ Failed in tests/test_symmetrizer_rotated.py ($((end-start))s)"
             pytest -vv --ff --nf -x tests/test_symmetrizer_rotated.py
@@ -157,7 +157,7 @@ jobs:
         run: |
           start=$(date +%s)
 
-          if ! pytest -q tests/test_symmetry_molecules.py; then
+          if ! pytest -q -x tests/test_symmetry_molecules.py; then
             end=$(date +%s)
             echo "❌ Failed in tests/test_symmetry_molecules.py ($((end-start))s)"
             pytest -vv --ff --nf -x tests/test_symmetry_molecules.py
