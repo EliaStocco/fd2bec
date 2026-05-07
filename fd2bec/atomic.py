@@ -555,8 +555,11 @@ class AtomicStructure:
                 S = pga.get_symmetry_operations()
                 R = np.asarray([s.rotation_matrix for s in S])
                 T = np.asarray([s.translation_vector for s in S])
+                
+                O = np.mean(self.positions,axis=0)
+                Teff = T + O[None,:] - np.asarray( [O @ r.T for r in R ])
 
-                return R, T
+                return R, Teff
 
         else:
             raise NotImplementedError

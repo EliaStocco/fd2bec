@@ -94,9 +94,9 @@ def symmetrize_forces(structures:List[Atoms], efield:np.ndarray, forces:np.ndarr
         if not np.allclose(e,0):
             atom = Atom("Og",position=100*e/np.linalg.norm(e))
             s.append(atom)
-        pos = s.get_positions()
-        pos -= np.mean(pos,axis=0)
-        s.set_positions(pos)
+        # pos = s.get_positions()
+        # pos -= np.mean(pos,axis=0)
+        # s.set_positions(pos)
         broken_symmetry[n] = s.copy()
     atomic_structures = [ AtomicStructure.from_ase(s) for s in broken_symmetry ]
     _forces = [None]*N
