@@ -617,6 +617,13 @@ class AtomicStructure:
             G = affine2homogeneous(G, T)
         P = np.mean(G, axis=0)
         return P
+    
+    def symmetrize(self, tensor: Tensor, debug=True)->Tensor:
+        P = self.get_totally_symmetric_projection(tensor=tensor)
+        out = P @ tensor.flatten(full=True)
+        assert np.allclose(out, P @ out, atol=ATOL), "error"
+        out = np.reshape(out,tensor.shape)
+        return type(tensor)(data=out) 
 
     def get_symmetrizer(
         self,
