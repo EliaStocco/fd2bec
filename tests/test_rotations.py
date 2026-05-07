@@ -6,7 +6,7 @@ from ase import Atoms
 from fd2bec.io import read
 
 from fd2bec import ATOL
-from fd2bec.tensor import BornCharge, Dipole, Force, Stress
+from fd2bec.tensor import BornCharges, Dipole, Forces, Stress
 from fd2bec.tools import atoms2bec
 
 REF = Path(__file__).parent / "rotations/start.extxyz"
@@ -144,9 +144,9 @@ def test_rotations_tensors(n, method):
     # Build tensors
     # ------------------------------------------------------------
     dipole = Dipole(data=atoms.info["MACE_dipole"], cell=atoms.cell)
-    forces = Force(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
+    forces = Forces(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
     stress = Stress(data=atoms.info["MACE_stress"], cell=atoms.cell)
-    bec = BornCharge(data=reconstruct_bec(atoms), cell=atoms.cell)
+    bec = BornCharges(data=reconstruct_bec(atoms), cell=atoms.cell)
     # cell = LatticeVectors(data=atoms.cell, cell=atoms.cell)
 
     # ------------------------------------------------------------
@@ -195,9 +195,9 @@ def test_rotation_operator(n, method):
     # Build tensors
     # ------------------------------------------------------------
     dipole = Dipole(data=atoms.info["MACE_dipole"], cell=atoms.cell)
-    forces = Force(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
+    forces = Forces(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
     stress = Stress(data=atoms.info["MACE_stress"], cell=atoms.cell)
-    bec = BornCharge(data=reconstruct_bec(atoms), cell=atoms.cell)
+    bec = BornCharges(data=reconstruct_bec(atoms), cell=atoms.cell)
     # cell = LatticeVectors(data=atoms.cell, cell=atoms.cell)
 
     # ------------------------------------------------------------

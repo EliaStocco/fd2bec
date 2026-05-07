@@ -7,7 +7,7 @@ from fd2bec.atomic import AtomicStructure
 from fd2bec.mathematics import append_one, remove_one
 
 # # from fd2bec.conftest import structure # noqa: F401
-from fd2bec.tensor import AtomicVector, BornCharge, Force, Position
+from fd2bec.tensor import AtomicVector, BornCharges, Forces, Position
 
 
 def test_symmetrizer(structure):
@@ -57,7 +57,7 @@ def test_symmetrizer(structure):
     # ----------------------#
     # vectors
     # ----------------------#
-    for name, classname in [("REF_forces", Force), ("REF_atomic_dipoles", AtomicVector)]:
+    for name, classname in [("REF_forces", Forces), ("REF_atomic_dipoles", AtomicVector)]:
 
         array = atoms.arrays[name]
         # params = {"rank": 1, "affine": False, "atomic": True}
@@ -87,7 +87,7 @@ def test_symmetrizer(structure):
     # for name in ["REF_BEC"]:
     # params = {"rank": 2, "affine": False, "atomic": True}
 
-    tensor = BornCharge(data=atoms.arrays["REF_BEC"].reshape((-1, 3, 3)))
+    tensor = BornCharges(data=atoms.arrays["REF_BEC"].reshape((-1, 3, 3)))
     frac_bec = atomic_structure.to(basis="fractional", tensor=tensor)
     tmp = atomic_structure.to(basis="cartesian", tensor=frac_bec).data
     assert np.allclose(

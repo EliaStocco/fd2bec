@@ -7,13 +7,13 @@ from fd2bec.atomic import AtomicStructure
 from typing import Dict, Tuple, Type
 
 # # from fd2bec.conftest import structure # noqa: F401
-from fd2bec.tensor import BornCharge, Force, Position, Dipole, Stress, Tensor
+from fd2bec.tensor import BornCharges, Forces, Position, Dipole, Stress, Tensor
 
 
 instructions: Dict[str, Tuple[str, type]] = {
     "positions": ("array", Position),
-    "MACE_BEC": ("array", BornCharge),
-    "MACE_forces": ("array", Force),
+    "MACE_BEC": ("array", BornCharges),
+    "MACE_forces": ("array", Forces),
     "MACE_dipole": ("info", Dipole),
     "MACE_stress": ("info", Stress),
 }

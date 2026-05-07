@@ -73,9 +73,9 @@ class StackedLinearSystem(LinearSystem):
     def __post_init__(self):
         n_parallel = self.systems[0].n_parallel
         all_parallel = [sys.n_parallel for sys in self.systems]
-        assert all([p == n_parallel for p in all_parallel]), (
-            "Different number of parallel solutions."
-        )
+        assert all(
+            [p == n_parallel for p in all_parallel]
+        ), "Different number of parallel solutions."
         self.list_n_rows = [sys.n_rows for sys in self.systems]
         self.list_n_cols = [sys.n_cols for sys in self.systems]
         self.A = block_diag([sys.A for sys in self.systems])

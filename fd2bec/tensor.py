@@ -97,7 +97,7 @@ class LatticeVectors(GlobalVector):
     #     return np.linalg.inv(self.data)
 
 
-class Force(Tensor):
+class Forces(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
         kwargs["axes"] = [True]
@@ -113,7 +113,7 @@ class Stress(Tensor):
         super().__init__(**kwargs)
 
 
-class BornCharge(Tensor):
+class BornCharges(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
         kwargs["axes"] = [False, True]

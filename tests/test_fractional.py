@@ -7,15 +7,15 @@ import pytest
 from fd2bec.io import read
 
 from fd2bec import ATOL
-from fd2bec.tensor import BornCharge, Dipole, Force, Stress, Tensor, Vector
+from fd2bec.tensor import BornCharges, Dipole, Forces, Stress, Tensor, Vector
 from fd2bec.tools import atoms2bec
 
 FILE = Path(__file__).parent / "rotations/rotated.extxyz"
 
 instructions: Dict[str, Tuple[str, type]] = {
     "positions": ("array", Vector),
-    "MACE_BEC": ("array", BornCharge),
-    "MACE_forces": ("array", Force),
+    "MACE_BEC": ("array", BornCharges),
+    "MACE_forces": ("array", Forces),
     "MACE_dipole": ("info", Dipole),
     "MACE_stress": ("info", Stress),
 }
