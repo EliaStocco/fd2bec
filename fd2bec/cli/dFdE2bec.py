@@ -4,23 +4,15 @@ from typing import List
 from warnings import warn
 
 import numpy as np
-from ase import Atoms
+from ase import Atoms, Atom
 
 from fd2bec import ATOL, SYMPREC, float_format
 
-# from fd2bec.atomic import AtomicStructure
+from fd2bec.atomic import AtomicStructure
+from fd2bec.tensor import Forces, BornCharges
 from fd2bec.cli import cli
 from fd2bec.io import read
 from fd2bec.linear_system import LinearSystem, StackedLinearSystem
-
-# from fd2bec.tensor import BornCharge
-
-# from pymatgen.core import Molecule
-# from pymatgen.symmetry.analyzer import PointGroupAnalyzer
-
-# # convert ASE -> pymatgen
-# from ase.io import write
-# from pymatgen.io.ase import AseAtomsAdaptor
 
 
 description = (
@@ -59,7 +51,7 @@ def prepare_args(descr):
         default="REF_forces",
     )
     parser.add_argument(
-        "-s",
+        "-sp",
         "--symprec",
         **argv,
         type=float,
@@ -76,6 +68,15 @@ def prepare_args(descr):
         default=False,
     )
     parser.add_argument(
+        "-s",
+        "--symmetrize",
+        type=str,
+        required=False,
+        help="symmetrize forces, bec, both, or none (default: %(default)s)",
+        default="none",
+        choices=["forces", "bec", "none", "both"]
+    )
+    parser.add_argument(
         "-o",
         "--output",
         **argv,
@@ -86,6 +87,39 @@ def prepare_args(descr):
     )
     return parser
 
+def symmetrize_forces(structures:List[Atoms], efield:np.ndarray, forces:np.ndarray)->np.ndarray:
+    N = len(structures)
+    broken_symmetry = [None]*N
+    for n,(s,e) in enumerate(zip(structures,efield)):
+        if not np.allclose(e,0):
+            atom = Atom("Og",position=100*e/np.linalg.norm(e))
+            s.append(atom)
+        pos = s.get_positions()
+        pos -= np.mean(pos,axis=0)
+        s.set_positions(pos)
+        broken_symmetry[n] = s.copy()
+    atomic_structures = [ AtomicStructure.from_ase(s) for s in broken_symmetry ]
+    _forces = [None]*N
+    for n,(s,e) in enumerate(zip(atomic_structures,efield)):
+        s._test_symmetry()
+        # f = forces[n]
+        if not np.allclose(e,0):
+            f = np.vstack((forces[n],np.zeros(3)))
+        else:
+            f = forces[n]
+        _forces[n] = Forces(data=f)
+    for n in range(N):
+        sym_forces = atomic_structures[n].symmetrize(tensor=_forces[n]).data
+        if not np.allclose(efield[n],0):
+            _forces[n] = sym_forces[:-1,:]
+        else:
+            _forces[n] = sym_forces
+    return np.asarray(_forces)
+
+def symmetrize_bec(structure:Atoms,bec:np.ndarray)->np.ndarray:
+    tensor = BornCharges(data=bec)
+    atomic_structure = AtomicStructure.from_ase(structure)
+    return atomic_structure.symmetrize(tensor=tensor).data
 
 @cli(prepare_args, description)
 def main(args):
@@ -100,9 +134,9 @@ def main(args):
     print("n. atoms: ", Na)
 
     pos = np.asarray([atoms.get_positions() for atoms in structures])
-    assert np.all([np.allclose(pos_i, pos[0]) for pos_i in pos]), (
-        "You have provided different geometries."
-    )
+    assert np.all(
+        [np.allclose(pos_i, pos[0]) for pos_i in pos]
+    ), "You have provided different geometries."
 
     print(f"Extracting electric field from '{args.efield_keyword}' ... ", end="")
     efield = np.asarray([atoms.info["efield"] for atoms in structures])
@@ -120,6 +154,18 @@ def main(args):
         print("Cleaning forces ... ", end="")
         forces -= np.mean(forces, axis=1, keepdims=True)
         print("done")
+        
+    if args.symmetrize in ["forces","both"]:
+        print("Symmetrizing forces ... ",end="")
+        forces = symmetrize_forces(structures,efield,forces)
+        print("done")
+    else:
+        print("Not symmetrizing forces")
+        # mask = forces.flatten() != 0
+        # relative = np.abs(
+        #     (forces.flatten()[mask] - sym_forces.flatten()[mask])
+        #     / forces.flatten()[mask]
+        # ).mean()
 
     for n, f in enumerate(forces):
         sum_forces = np.mean(f, axis=0)
@@ -146,6 +192,13 @@ def main(args):
     for n in range(Na):
         bec[n, :, :] = all_ls[n].x[1:, :]
     print("done")
+    
+    if args.symmetrize in ["bec","both"]:
+        print("Symmetrizing Born Charges ... ",end="")
+        bec = symmetrize_bec(structures[0],bec)
+        print("done")
+    else:
+        print("Not symmetrizing Born Charges")
 
     file = Path(args.output) / "bec.txt"
     print(f"Writing Born Charges to {file} ... ", end="")
@@ -162,27 +215,6 @@ def main(args):
     print(f"Writing sum of Born Charges with ASR applied to {file} ... ", end="")
     np.savetxt(file, bec.reshape((Na, 9)) - asr.reshape((1, 9)), fmt=float_format)
     print("done")
-
-    # print("Symmetrizing Born Charges  ... ", end="")
-    # aperiodic = structures[0].copy()
-
-    # pmg_mol = AseAtomsAdaptor.get_molecule(aperiodic)
-
-    # analyzer = PointGroupAnalyzer(pmg_mol, tolerance=1e-3)
-
-    # H = analyzer.get_symmetry_operations()
-    # R = np.asarray([ h.rotation_matrix for h in H])
-    # T = np.asarray([ h.translation_vector for h in H])
-
-    # aperiodic.set_cell([100, 100, 100])
-
-    # unit_cell = AtomicStructure.from_ase(aperiodic)
-    # z = BornCharge(data=bec)
-    # P = unit_cell.get_totally_symmetric_projection(tensor=z)
-    # print("done")
-
-    # p = Path(args.output)
-    # new_filename = p.with_name(f"{p.stem}_sym{p.suffix}")
 
     return
 
