@@ -1,17 +1,17 @@
 # generated using pymatgen
 data_CsLiMnS2
 _symmetry_space_group_name_H-M   'P 1'
-_cell_length_a   7.65534826
-_cell_length_b   7.65534826
-_cell_length_c   7.65534826
-_cell_angle_alpha   148.43948249
-_cell_angle_beta   148.43948249
-_cell_angle_gamma   45.23701790
+_cell_length_a   4.16372400
+_cell_length_b   4.16372400
+_cell_length_c   14.13309000
+_cell_angle_alpha   90.00000000
+_cell_angle_beta   90.00000000
+_cell_angle_gamma   90.00000000
 _symmetry_Int_Tables_number   1
 _chemical_formula_structural   CsLiMnS2
-_chemical_formula_sum   'Cs1 Li1 Mn1 S2'
-_cell_volume   122.50984672
-_cell_formula_units_Z   1
+_chemical_formula_sum   'Cs2 Li2 Mn2 S4'
+_cell_volume   245.01969344
+_cell_formula_units_Z   2
 loop_
  _symmetry_equiv_pos_site_id
  _symmetry_equiv_pos_as_xyz
@@ -25,7 +25,12 @@ loop_
  _atom_site_fract_z
  _atom_site_occupancy
   Cs  Cs0  1  0.00000000  0.00000000  0.00000000  1
-  Li  Li1  1  0.25000000  0.75000000  0.50000000  1
-  Mn  Mn2  1  0.75000000  0.25000000  0.50000000  1
-  S  S3  1  0.65884200  0.65884200  0.00000000  1
-  S  S4  1  0.34115800  0.34115800  0.00000000  1
+  Cs  Cs1  1  0.50000000  0.50000000  0.50000000  1
+  Li  Li2  1  0.50000000  0.00000000  0.25000000  1
+  Li  Li3  1  0.00000000  0.50000000  0.75000000  1
+  Mn  Mn4  1  0.00000000  0.50000000  0.25000000  1
+  Mn  Mn5  1  0.50000000  0.00000000  0.75000000  1
+  S  S6  1  0.50000000  0.50000000  0.15884200  1
+  S  S7  1  0.00000000  0.00000000  0.34115800  1
+  S  S8  1  0.00000000  0.00000000  0.65884200  1
+  S  S9  1  0.50000000  0.50000000  0.84115800  1

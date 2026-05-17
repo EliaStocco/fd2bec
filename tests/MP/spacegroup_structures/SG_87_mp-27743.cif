@@ -1,17 +1,17 @@
 # generated using pymatgen
 data_BiF5
 _symmetry_space_group_name_H-M   'P 1'
-_cell_length_a   4.28053345
-_cell_length_b   5.00197272
-_cell_length_c   5.00197213
-_cell_angle_alpha   79.45047709
-_cell_angle_beta   64.66660398
-_cell_angle_gamma   64.66662423
+_cell_length_a   6.39358829
+_cell_length_b   6.39358829
+_cell_length_c   4.28053345
+_cell_angle_alpha   90.00000000
+_cell_angle_beta   90.00000000
+_cell_angle_gamma   90.00000000
 _symmetry_Int_Tables_number   1
 _chemical_formula_structural   BiF5
-_chemical_formula_sum   'Bi1 F5'
-_cell_volume   87.48976145
-_cell_formula_units_Z   1
+_chemical_formula_sum   'Bi2 F10'
+_cell_volume   174.97952291
+_cell_formula_units_Z   2
 loop_
  _symmetry_equiv_pos_site_id
  _symmetry_equiv_pos_as_xyz
@@ -24,9 +24,15 @@ loop_
  _atom_site_fract_y
  _atom_site_fract_z
  _atom_site_occupancy
-  Bi  Bi0  1  0.00000000  -0.00000000  -0.00000000  1
-  F  F1  1  0.70561140  0.19388137  0.39489582  1
-  F  F2  1  0.50000000  -0.00000000  -0.00000000  1
-  F  F3  1  0.29438860  0.80611863  0.60510418  1
-  F  F4  1  0.89949378  0.39489582  0.80611863  1
-  F  F5  1  0.10050622  0.60510418  0.19388137  1
+  Bi  Bi0  1  0.00000000  0.00000000  0.00000000  1
+  Bi  Bi1  1  0.50000000  0.50000000  0.50000000  1
+  F  F2  1  0.89949277  0.70561140  0.00000000  1
+  F  F3  1  0.00000000  0.00000000  0.50000000  1
+  F  F4  1  0.10050723  0.29438860  0.00000000  1
+  F  F5  1  0.79438860  0.39949277  0.50000000  1
+  F  F6  1  0.20561140  0.60050723  0.50000000  1
+  F  F7  1  0.39949277  0.20561140  0.50000000  1
+  F  F8  1  0.50000000  0.50000000  0.00000000  1
+  F  F9  1  0.60050723  0.79438860  0.50000000  1
+  F  F10  1  0.29438860  0.89949277  0.00000000  1
+  F  F11  1  0.70561140  0.10050723  0.00000000  1

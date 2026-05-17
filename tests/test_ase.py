@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from ase.io import read
+from fd2bec.io import read
 
 
 def test_read(structure):

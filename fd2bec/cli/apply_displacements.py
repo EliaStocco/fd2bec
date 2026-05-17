@@ -3,9 +3,9 @@ from typing import List
 
 import numpy as np
 from ase import Atoms
-from ase.io import read, write
 
 from fd2bec.cli import cli
+from fd2bec.io import read, write
 
 description = "Apply the displacements to an atomic structure."
 

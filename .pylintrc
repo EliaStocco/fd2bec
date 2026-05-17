@@ -8,3 +8,6 @@ disable=
     too-many-statements,
     too-many-positional-arguments,
     too-many-arguments
+
+[MASTER]
+ignore=fd2bec/system.py,fd2bec/linear_system.py,fd2bec/cli/prepare_linear_system.py

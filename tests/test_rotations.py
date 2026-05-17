@@ -3,10 +3,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 from ase import Atoms
-from ase.io import read
+from fd2bec.io import read
 
 from fd2bec import ATOL
-from fd2bec.tensor import BornCharge, Dipole, Force, Stress
+from fd2bec.tensor import BornCharges, Dipole, Forces, Stress
 from fd2bec.tools import atoms2bec
 
 REF = Path(__file__).parent / "rotations/start.extxyz"
@@ -144,9 +144,9 @@ def test_rotations_tensors(n, method):
     # Build tensors
     # ------------------------------------------------------------
     dipole = Dipole(data=atoms.info["MACE_dipole"], cell=atoms.cell)
-    forces = Force(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
+    forces = Forces(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
     stress = Stress(data=atoms.info["MACE_stress"], cell=atoms.cell)
-    bec = BornCharge(data=reconstruct_bec(atoms), cell=atoms.cell)
+    bec = BornCharges(data=reconstruct_bec(atoms), cell=atoms.cell)
     # cell = LatticeVectors(data=atoms.cell, cell=atoms.cell)
 
     # ------------------------------------------------------------
@@ -195,9 +195,9 @@ def test_rotation_operator(n, method):
     # Build tensors
     # ------------------------------------------------------------
     dipole = Dipole(data=atoms.info["MACE_dipole"], cell=atoms.cell)
-    forces = Force(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
+    forces = Forces(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
     stress = Stress(data=atoms.info["MACE_stress"], cell=atoms.cell)
-    bec = BornCharge(data=reconstruct_bec(atoms), cell=atoms.cell)
+    bec = BornCharges(data=reconstruct_bec(atoms), cell=atoms.cell)
     # cell = LatticeVectors(data=atoms.cell, cell=atoms.cell)
 
     # ------------------------------------------------------------
@@ -214,10 +214,10 @@ def test_rotation_operator(n, method):
     s_rot = np.einsum("ij,...j->...i", s_R, stress.flatten())
     b_rot = np.einsum("ij,...j->...i", b_R, bec.flatten())
 
-    assert np.allclose(dip_rot, dipole.contract(dip_R), atol=ATOL), "Dipole mismatch"
-    assert np.allclose(f_rot, forces.contract(f_R), atol=ATOL), "Forces mismatch"
-    assert np.allclose(s_rot, stress.contract(s_R), atol=ATOL), "Stress mismatch"
-    assert np.allclose(b_rot, bec.contract(b_R), atol=ATOL), "Born charge mismatch"
+    assert np.allclose(dip_rot, dipole.contract(dip_R).flatten(), atol=ATOL), "Dipole mismatch"
+    assert np.allclose(f_rot, forces.contract(f_R).flatten(), atol=ATOL), "Forces mismatch"
+    assert np.allclose(s_rot, stress.contract(s_R).flatten(), atol=ATOL), "Stress mismatch"
+    assert np.allclose(b_rot, bec.contract(b_R).flatten(), atol=ATOL), "Born charge mismatch"
 
     # ------------------------------------------------------------
     # Consistency check vs the OTHER method

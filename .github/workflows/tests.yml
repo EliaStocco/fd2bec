@@ -1,0 +1,168 @@
+name: CI
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:  ["3.11"] # ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+
+      # -------------------- TEST FILES --------------------
+
+      - name: tests/test_ase.py
+        run: |
+          start=$(date +%s)
+
+          if ! pytest -q -x tests/test_ase.py; then
+            end=$(date +%s)
+            echo "❌ Failed in tests/test_ase.py ($((end-start))s)"
+            pytest -vv --ff --nf -x tests/test_ase.py
+            exit 1
+          fi
+
+          end=$(date +%s)
+          echo "✅ tests/test_ase.py passed ($((end-start))s)"
+
+      - name: tests/test_geometry.py
+        run: |
+          start=$(date +%s)
+
+          if ! pytest -q -x tests/test_geometry.py; then
+            end=$(date +%s)
+            echo "❌ Failed in tests/test_geometry.py ($((end-start))s)"
+            pytest -vv --ff --nf -x tests/test_geometry.py
+            exit 1
+          fi
+
+          end=$(date +%s)
+          echo "✅ tests/test_geometry.py passed ($((end-start))s)"
+
+      - name: tests/test_spglib.py
+        run: |
+          start=$(date +%s)
+
+          if ! pytest -q -x tests/test_spglib.py; then
+            end=$(date +%s)
+            echo "❌ Failed in tests/test_spglib.py ($((end-start))s)"
+            pytest -vv --ff --nf -x tests/test_spglib.py
+            exit 1
+          fi
+
+          end=$(date +%s)
+          echo "✅ tests/test_spglib.py passed ($((end-start))s)"
+
+      - name: tests/test_fractional.py
+        run: |
+          start=$(date +%s)
+
+          if ! pytest -q -x tests/test_fractional.py; then
+            end=$(date +%s)
+            echo "❌ Failed in tests/test_fractional.py ($((end-start))s)"
+            pytest -vv --ff --nf -x tests/test_fractional.py
+            exit 1
+          fi
+
+          end=$(date +%s)
+          echo "✅ tests/test_fractional.py passed ($((end-start))s)"
+
+      - name: tests/test_rotations.py
+        run: |
+          start=$(date +%s)
+
+          if ! pytest -q -x tests/test_rotations.py; then
+            end=$(date +%s)
+            echo "❌ Failed in tests/test_rotations.py ($((end-start))s)"
+            pytest -vv --ff --nf -x tests/test_rotations.py
+            exit 1
+          fi
+
+          end=$(date +%s)
+          echo "✅ tests/test_rotations.py passed ($((end-start))s)"
+
+      - name: tests/test_conventional.py
+        run: |
+          start=$(date +%s)
+
+          if ! pytest -q -x tests/test_conventional.py; then
+            end=$(date +%s)
+            echo "❌ Failed in tests/test_conventional.py ($((end-start))s)"
+            pytest -vv --ff --nf -x tests/test_conventional.py
+            exit 1
+          fi
+
+          end=$(date +%s)
+          echo "✅ tests/test_conventional.py passed ($((end-start))s)"
+
+      - name: tests/test_symmetry.py
+        run: |
+          start=$(date +%s)
+
+          if ! pytest -q -x tests/test_symmetry.py; then
+            end=$(date +%s)
+            echo "❌ Failed in tests/test_symmetry.py ($((end-start))s)"
+            pytest -vv --ff --nf -x tests/test_symmetry.py
+            exit 1
+          fi
+
+          end=$(date +%s)
+          echo "✅ tests/test_symmetry.py passed ($((end-start))s)"
+
+      - name: tests/test_symmetrizer.py
+        run: |
+          start=$(date +%s)
+
+          if ! pytest -q -x tests/test_symmetrizer.py; then
+            end=$(date +%s)
+            echo "❌ Failed in tests/test_symmetrizer.py ($((end-start))s)"
+            pytest -vv --ff --nf -x tests/test_symmetrizer.py
+            exit 1
+          fi
+
+          end=$(date +%s)
+          echo "✅ tests/test_symmetrizer.py passed ($((end-start))s)"
+
+      - name: tests/test_symmetrizer_rotated.py
+        run: |
+          start=$(date +%s)
+
+          if ! pytest -q -x tests/test_symmetrizer_rotated.py; then
+            end=$(date +%s)
+            echo "❌ Failed in tests/test_symmetrizer_rotated.py ($((end-start))s)"
+            pytest -vv --ff --nf -x tests/test_symmetrizer_rotated.py
+            exit 1
+          fi
+
+          end=$(date +%s)
+          echo "✅ tests/test_symmetrizer_rotated.py passed ($((end-start))s)"
+
+      - name: tests/test_symmetry_molecules.py
+        run: |
+          start=$(date +%s)
+
+          if ! pytest -q -x tests/test_symmetry_molecules.py; then
+            end=$(date +%s)
+            echo "❌ Failed in tests/test_symmetry_molecules.py ($((end-start))s)"
+            pytest -vv --ff --nf -x tests/test_symmetry_molecules.py
+            exit 1
+          fi
+
+          end=$(date +%s)
+          echo "✅ tests/test_symmetry_molecules.py passed ($((end-start))s)"

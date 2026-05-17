@@ -1,17 +1,17 @@
 # generated using pymatgen
 data_AlReGe
 _symmetry_space_group_name_H-M   'P 1'
-_cell_length_a   4.66321766
-_cell_length_b   4.66321766
-_cell_length_c   4.66321766
-_cell_angle_alpha   139.32415175
-_cell_angle_beta   139.32415175
-_cell_angle_gamma   58.88093018
+_cell_length_a   3.24146196
+_cell_length_b   3.24146196
+_cell_length_c   8.12208376
+_cell_angle_alpha   90.00000000
+_cell_angle_beta   90.00000000
+_cell_angle_gamma   90.00000000
 _symmetry_Int_Tables_number   1
 _chemical_formula_structural   AlReGe
-_chemical_formula_sum   'Al1 Re1 Ge1'
-_cell_volume   42.66967420
-_cell_formula_units_Z   1
+_chemical_formula_sum   'Al2 Re2 Ge2'
+_cell_volume   85.33934841
+_cell_formula_units_Z   2
 loop_
  _symmetry_equiv_pos_site_id
  _symmetry_equiv_pos_as_xyz
@@ -24,6 +24,9 @@ loop_
  _atom_site_fract_y
  _atom_site_fract_z
  _atom_site_occupancy
-  Al  Al0  1  0.66477194  0.66477194  -0.00000000  1
-  Re  Re1  1  0.99703551  0.99703551  -0.00000000  1
-  Ge  Ge2  1  0.33819255  0.33819255  0.00000000  1
+  Al  Al0  1  0.50000000  0.50000000  0.16477194  1
+  Al  Al1  1  0.00000000  0.00000000  0.66477194  1
+  Re  Re2  1  0.50000000  0.50000000  0.49703551  1
+  Re  Re3  1  0.00000000  0.00000000  0.99703551  1
+  Ge  Ge4  1  0.00000000  0.00000000  0.33819255  1
+  Ge  Ge5  1  0.50000000  0.50000000  0.83819255  1

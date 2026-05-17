@@ -2,9 +2,9 @@ import argparse
 
 import numpy as np
 from ase.build import make_supercell
-from ase.io import read, write
 
 from fd2bec.cli import cli, ilist
+from fd2bec.io import read, write
 
 description = """Generate supercell structures from a unit cell structure.
     -t/--type:

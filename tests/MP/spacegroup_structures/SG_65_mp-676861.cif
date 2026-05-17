@@ -1,17 +1,17 @@
 # generated using pymatgen
 data_AlSbO4
 _symmetry_space_group_name_H-M   'P 1'
-_cell_length_a   3.01452656
-_cell_length_b   4.49953692
-_cell_length_c   4.49953692
-_cell_angle_alpha   91.38428452
+_cell_length_a   6.28597394
+_cell_length_b   6.43970973
+_cell_length_c   3.01452656
+_cell_angle_alpha   90.00000000
 _cell_angle_beta   90.00000000
 _cell_angle_gamma   90.00000000
 _symmetry_Int_Tables_number   1
 _chemical_formula_structural   AlSbO4
-_chemical_formula_sum   'Al1 Sb1 O4'
-_cell_volume   61.01378781
-_cell_formula_units_Z   1
+_chemical_formula_sum   'Al2 Sb2 O8'
+_cell_volume   122.02757561
+_cell_formula_units_Z   2
 loop_
  _symmetry_equiv_pos_site_id
  _symmetry_equiv_pos_as_xyz
@@ -24,9 +24,15 @@ loop_
  _atom_site_fract_y
  _atom_site_fract_z
  _atom_site_occupancy
-  Al  Al0  1  0.50000000  0.50000000  0.50000000  1
-  Sb  Sb1  1  0.00000000  0.00000000  -0.00000000  1
-  O  O2  1  0.00000000  0.68922426  0.68922426  1
-  O  O3  1  0.50000000  0.20195179  0.79804821  1
-  O  O4  1  0.50000000  0.79804821  0.20195179  1
-  O  O5  1  -0.00000000  0.31077574  0.31077574  1
+  Al  Al0  1  0.50000000  0.00000000  0.50000000  1
+  Al  Al1  1  0.00000000  0.50000000  0.50000000  1
+  Sb  Sb2  1  0.00000000  0.00000000  0.00000000  1
+  Sb  Sb3  1  0.50000000  0.50000000  0.00000000  1
+  O  O4  1  0.68922426  0.00000000  0.00000000  1
+  O  O5  1  0.50000000  0.70195179  0.50000000  1
+  O  O6  1  0.50000000  0.29804821  0.50000000  1
+  O  O7  1  0.31077574  0.00000000  0.00000000  1
+  O  O8  1  0.18922426  0.50000000  0.00000000  1
+  O  O9  1  0.00000000  0.20195179  0.50000000  1
+  O  O10  1  0.00000000  0.79804821  0.50000000  1
+  O  O11  1  0.81077574  0.50000000  0.00000000  1

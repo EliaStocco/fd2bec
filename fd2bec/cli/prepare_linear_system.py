@@ -2,11 +2,11 @@ import argparse
 import json
 
 import numpy as np
-from ase.io import read
 
 from fd2bec import SYMPREC
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import cli, str2bool
+from fd2bec.io import read
 
 description = "Prepare the file to solve the linear system to get Born Effective Charges."
 
@@ -84,7 +84,7 @@ def main(args):
     print(f"Number of atoms in the unit cell: {Na}")
     unit_cell = AtomicStructure.from_ase(unit_cell)
 
-    spg_uc = unit_cell.to_spglib_cell(symprec=args.symprec)
+    spg_uc = unit_cell._spglib_dataset(symprec=args.symprec)
 
     # ----------------------#
     # Coefficients
@@ -166,9 +166,7 @@ def main(args):
     system_type = (
         "overdetermined"
         if A_coeff.shape[0] > x.shape[0]
-        else "underdetermined"
-        if A_coeff.shape[0] < x.shape[0]
-        else "determined"
+        else "underdetermined" if A_coeff.shape[0] < x.shape[0] else "determined"
     )
     print(f"System type: {system_type}")
 
