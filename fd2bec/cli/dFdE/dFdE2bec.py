@@ -30,10 +30,10 @@ def prepare_args(descr):
         **argv,
         type=str,
         required=True,
-        help="path to extxyz file with all structures (e.g. structures.extxyz)",
+        help="path to extxyz file with all structures produced by 'build_dataset4dFdE' (e.g. structures.extxyz)",
     )
     parser.add_argument(
-        "-e",
+        "-ek",
         "--efield_keyword",
         **argv,
         type=str,

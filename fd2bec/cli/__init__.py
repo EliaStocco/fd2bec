@@ -4,6 +4,11 @@ import time
 from functools import wraps
 from typing import Union
 
+KEYWORDS = {
+    "forces" : "REF_forces",
+    "efield" : "REF_efield"
+}
+
 
 # ---------------------------------------#
 def str2bool(v: Union[bool, str]):
@@ -75,12 +80,13 @@ def cli(prepare_parser=None, description=None):
             print(f"Running: {' '.join(sys.argv)}\n")
 
             # --- run main ---
-
+            print("Let's start!\n")
             result = main_func(args)
+            print("\nJob done :)\n")
 
             # --- footer ---
             elapsed = time.time() - start
-            print(f"\nFinished in {elapsed:.2f}s")
+            print(f"Finished in {elapsed:.2f}s")
 
             return result
 
