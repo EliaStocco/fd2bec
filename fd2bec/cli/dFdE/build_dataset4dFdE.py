@@ -78,6 +78,8 @@ def prepare_args(descr):
 @cli(prepare_args, description)
 def main(args):
     
+    assert Path(args.output).suffix == ".extxyz", f"'{args.output}' must be an extxyz file."
+    
     print(f"Reading input structures from '{args.input}' ... ", end="")
     structures: List[Atoms] = []
     input_path = Path(args.input)

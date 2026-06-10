@@ -10,7 +10,7 @@ from fd2bec import ATOL, SYMPREC, float_format
 
 from fd2bec.atomic import AtomicStructure
 from fd2bec.tensor import Forces, BornCharges
-from fd2bec.cli import cli
+from fd2bec.cli import cli, KEYWORDS
 from fd2bec.io import read
 from fd2bec.linear_system import LinearSystem, StackedLinearSystem
 
@@ -31,24 +31,6 @@ def prepare_args(descr):
         type=str,
         required=True,
         help="path to extxyz file with all structures produced by 'build_dataset4dFdE' (e.g. structures.extxyz)",
-    )
-    parser.add_argument(
-        "-ek",
-        "--efield_keyword",
-        **argv,
-        type=str,
-        required=False,
-        help="keyword for the electric field [V/ang] (default: %(default)s)",
-        default="efield",
-    )
-    parser.add_argument(
-        "-f",
-        "--forces_keyword",
-        **argv,
-        type=str,
-        required=False,
-        help="keyword for the forces [eV/ang] (default: %(default)s)",
-        default="REF_forces",
     )
     parser.add_argument(
         "-sp",
@@ -123,9 +105,11 @@ def symmetrize_bec(structure:Atoms,bec:np.ndarray)->np.ndarray:
 
 @cli(prepare_args, description)
 def main(args):
+    
+    assert Path(args.input).suffix == ".extxyz", f"'{args.input}' must be an extxyz file."
 
     print(f"Reading input structures from '{args.input}' ... ", end="")
-    structures: List[Atoms] = read(args.input, index=":")
+    structures: List[Atoms] = read(args.input, format="extxyz",index=":")
     print("done")
 
     Ns = len(structures)
@@ -138,13 +122,15 @@ def main(args):
         [np.allclose(pos_i, pos[0]) for pos_i in pos]
     ), "You have provided different geometries."
 
-    print(f"Extracting electric field from '{args.efield_keyword}' ... ", end="")
-    efield = np.asarray([atoms.info["efield"] for atoms in structures])
+    key = KEYWORDS['efield']
+    print(f"Extracting electric field from '{key}' ... ", end="")
+    efield = np.asarray([atoms.info[key] for atoms in structures])
     print("done")
     print("efield.shape: ", efield.shape)
 
-    print(f"Extracting forces from '{args.forces_keyword}' ... ", end="")
-    forces = np.asarray([atoms.arrays["REF_forces"] for atoms in structures])
+    key = KEYWORDS['forces']
+    print(f"Extracting forces from '{key}' ... ", end="")
+    forces = np.asarray([atoms.arrays[key] for atoms in structures])
     print("done")
     print("forces.shape: ", forces.shape)
 
