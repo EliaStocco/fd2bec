@@ -43,7 +43,7 @@ def test_symmetrizer(n,basis):
         template = classname.template(Natoms)
         tensor: Tensor = classname(data=array, cell=atoms.cell, basis="cartesian").to(basis=basis)
         atomic_structure.get_symmetrizer(tensor=tensor)
-        pass 
+        pass
 
 
 if __name__ == "__main__":

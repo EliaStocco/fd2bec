@@ -1,29 +1,22 @@
 import argparse
+import re
 from pathlib import Path
 from typing import List
 from warnings import warn
-from pathlib import Path
 
-import re
 import numpy as np
-from ase import Atoms, Atom
+from ase import Atoms
 
-from fd2bec import ATOL, float_format
-
-from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import cli, KEYWORDS
+from fd2bec.cli import KEYWORDS, cli
 from fd2bec.io import read, write
-from fd2bec.linear_system import LinearSystem, StackedLinearSystem
 
 # for file in raw/run-0/results/* ; do echo ${file} >> list.txt; done
 
 REGEX = {
-    "aims" : r"homogeneous_field\s+([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
+    "aims": r"homogeneous_field\s+([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
 }
 
-description = (
-    "Build the dataset to compute the Born Effective Charges as derivative of the forces w.r.t. applied electric field."
-)
+description = "Build the dataset to compute the Born Effective Charges as derivative of the forces w.r.t. applied electric field."
 
 
 def prepare_args(descr):
@@ -36,7 +29,7 @@ def prepare_args(descr):
         **argv,
         type=str,
         required=True,
-        help="txt file with the list of files to read or folder with the files"
+        help="txt file with the list of files to read or folder with the files",
     )
     parser.add_argument(
         "-er",
@@ -63,24 +56,20 @@ def prepare_args(descr):
         type=str,
         required=False,
         help="keyword for the forces [eV/ang] (default: %(default)s)",
-        default='forces',
+        default="forces",
     )
     parser.add_argument(
-        "-o",
-        "--output",
-        **argv,
-        type=str,
-        required=True,
-        help="extxyz output file"
+        "-o", "--output", **argv, type=str, required=True, help="extxyz output file"
     )
     return parser
 
+
 @cli(prepare_args, description)
 def main(args):
-    
+
     assert Path(args.output).suffix == ".extxyz", f"'{args.output}' must be an extxyz file."
-    
-    print(f"Reading input structures from '{args.input}' ... ", end="")
+
+    print(f"Reading input structures from '{args.input}'")
     structures: List[Atoms] = []
     input_path = Path(args.input)
     filenames = []
@@ -88,8 +77,14 @@ def main(args):
         for filename in sorted(input_path.iterdir()):
             if not filename.is_file():
                 continue
-            filenames.append(filename)
-            structures.append(read(filename,rename=False))
+            try:
+                atoms = read(filename)
+                structures.append(atoms)
+                filenames.append(filename)
+            except Exception as e:
+                warn(f"Exception while reading file '{filename}'. This file will be discarded.'")
+                print(e)
+
     elif input_path.is_file():
         with open(input_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -97,16 +92,24 @@ def main(args):
                 # skip empty lines and comments
                 if not filename or filename.startswith("#"):
                     continue
-                filenames.append(filename)
-                structures.append(read(filename,rename=False))
+                try:
+                    atoms = read(filename)
+                    structures.append(atoms)
+                    filenames.append(filename)
+                except Exception as e:
+                    warn(
+                        f"Exception while reading file '{filename}'. This file will be discarded.'"
+                    )
+                    print(e)
+
     else:
-        raise FileNotFoundError(
-            f"Input '{args.input}' is neither a file nor a directory."
-        )
-    print("done")
+        raise FileNotFoundError(f"Input '{args.input}' is neither a file nor a directory.")
+    # print("done")
     print("n. read files: ", len(structures))
-    
-    
+    print("List of all read files:")
+    for n, file in enumerate(filenames):
+        print(f"- {n}) {file}")
+
     info_keys = set()
     array_keys = set()
 
@@ -116,34 +119,31 @@ def main(args):
 
     print("info keys:", info_keys)
     print("arrays keys:", array_keys)
-    
+
     key = KEYWORDS["forces"]
     assert args.forces_keyword in array_keys, "error"
     print(f"Using '{args.forces_keyword}' as forces and saving them to '{key}'")
     for atoms in structures:
         atoms.arrays[key] = atoms.arrays.pop(args.forces_keyword)
 
-    
     if args.efield_regex in REGEX:
         args.efield_regex = REGEX[args.efield_regex]
-        
+
     print("Using the following regex to read the electric field from file:")
     print(args.efield_regex)
-    
+
     print("Using the following conversion factor to V/ang: ", args.efield_factor)
-    
+
     key = KEYWORDS["efield"]
     print(f"Extracting electric field from files and saving it to '{key}':")
     efield_pattern = re.compile(args.efield_regex)
     for atoms, file in zip(structures, filenames):
-
         print(f" - {file}: ", end="")
 
         efield = None
 
         with open(file, "r", encoding="utf-8") as f:
             for line in f:
-
                 match = efield_pattern.search(line)
 
                 if match:
@@ -162,11 +162,12 @@ def main(args):
         if efield is None:
             raise ValueError(f"Could not find electric field in file: {file}")
 
-        atoms.info[key] = efield*args.efield_factor
+        atoms.info[key] = efield * args.efield_factor
         print(efield)
-        
+
     print(f"Saving dataset to file '{args.output}'")
-    write(args.output,structures)
+    write(args.output, structures)
+
 
 if __name__ == "__main__":
     main()  # pylint: disable=no-value-for-parameter

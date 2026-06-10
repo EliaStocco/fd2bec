@@ -85,7 +85,7 @@ def test_symmetrizer_periodic(sg_case,basis):
 
 
 
-          
+
 
 
 if __name__ == "__main__":

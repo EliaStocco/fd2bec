@@ -9,14 +9,13 @@ import numpy as np
 import spglib
 from ase import Atoms
 from ase.cell import Cell
-
-from fd2bec import ATOL, DEBUG, SYMPREC, Basis
-from fd2bec.mathematics import affine2homogeneous, append_one, find_mapping, invert_indices, wrap
-from fd2bec.tensor import Position, Tensor, Rotation, Translation
-from fd2bec.tools import numbers2symbols, symbols2numbers
-
 from pymatgen.core import Molecule
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
+
+from fd2bec import ATOL, DEBUG, SYMPREC, Basis
+from fd2bec.mathematics import affine2homogeneous, append_one, find_mapping, wrap
+from fd2bec.tensor import Position, Rotation, Tensor, Translation
+from fd2bec.tools import numbers2symbols, symbols2numbers
 
 
 @dataclass
@@ -64,14 +63,14 @@ class AtomicStructure:
         emits a warning if the structure is not in standard form.
         """
         if self.cell is None:
-            assert (
-                self.pbc is None or not self.pbc
-            ), "Please provide 'cell' for periodic structures."
+            assert self.pbc is None or not self.pbc, (
+                "Please provide 'cell' for periodic structures."
+            )
             self.pbc = False
         else:
-            assert (
-                self.pbc is None or self.pbc
-            ), "'pbc' has to be None or True if you specify a 'cell'."
+            assert self.pbc is None or self.pbc, (
+                "'pbc' has to be None or True if you specify a 'cell'."
+            )
             self.pbc = True
 
         if not self.pbc:
@@ -162,7 +161,9 @@ class AtomicStructure:
         """Check if two AtomicStructure instances are equal."""
         return self.is_equal_to(other)
 
-    def is_equal_to(self, other: "AtomicStructure", atol=ATOL, reason=False) -> Union[bool,Tuple[bool,str]]:
+    def is_equal_to(
+        self, other: "AtomicStructure", atol=ATOL, reason=False
+    ) -> Union[bool, Tuple[bool, str]]:
         """
         Compare two structures for equality.
 
@@ -181,11 +182,9 @@ class AtomicStructure:
         """
         if not isinstance(other, AtomicStructure):
             return NotImplemented
-        
+
         if self.pbc != other.pbc:
             return (False, "different pbc") if reason else False
-
-        
 
         if self.species != other.species:
             return (False, "different species") if reason else False
@@ -340,7 +339,7 @@ class AtomicStructure:
         cell, frac_pos, numbers = self.standardized
         return type(self)(
             cell=Cell(cell), frac_pos=frac_pos, symbols=numbers2symbols(numbers), check=False
-        )    
+        )
 
     def _test_symmetry(self, basis: Basis = "cartesian", atol=ATOL):
         """
@@ -356,8 +355,10 @@ class AtomicStructure:
                 new_structure = self.clone(positions=new_pos)
 
             if not self.is_equal_to(new_structure, atol=atol):
-                ok, reason = self.is_equal_to(new_structure, atol=atol,reason=True)
-                raise ValueError(f"Symmetry operation does not preserve the structure. Reason: {reason}")
+                ok, reason = self.is_equal_to(new_structure, atol=atol, reason=True)
+                raise ValueError(
+                    f"Symmetry operation does not preserve the structure. Reason: {reason}"
+                )
             if self.pbc:
                 if self.space_group != new_structure.space_group:
                     raise ValueError("Symmetry operation does not preserve the space group")
@@ -410,11 +411,11 @@ class AtomicStructure:
         #     pass
 
         return mapping
-    
-    def __get_all_atoms_mapping(self)->np.ndarray:
+
+    def __get_all_atoms_mapping(self) -> np.ndarray:
         R, T = self.get_symmetry_operations(basis="cartesian")
-        mapping = [None]*len(R)
-        for n,(r,t) in enumerate(zip(R,T)):
+        mapping = [None] * len(R)
+        for n, (r, t) in enumerate(zip(R, T)):
             new_pos = self.positions @ r.T + t
             new_structure = self.clone(positions=new_pos)
             mapping[n] = self._get_atoms_mapping(new_structure)
@@ -555,15 +556,15 @@ class AtomicStructure:
                 S = pga.get_symmetry_operations()
                 R = np.asarray([s.rotation_matrix for s in S])
                 T = np.asarray([s.translation_vector for s in S])
-                
-                O = np.mean(self.positions,axis=0)
-                Teff = T + O[None,:] - np.asarray( [O @ r.T for r in R ])
+
+                O = np.mean(self.positions, axis=0)
+                Teff = T + O[None, :] - np.asarray([O @ r.T for r in R])
 
                 return R, Teff
 
         else:
             raise NotImplementedError
-        
+
     def get_totally_symmetric_projection(self, tensor: Tensor):
         """Construct the projection operator onto the totally symmetric representation."""
         G, T = self.get_tensor_symmetry_operations(tensor=tensor)
@@ -571,13 +572,13 @@ class AtomicStructure:
             G = affine2homogeneous(G, T)
         P = np.mean(G, axis=0)
         return P
-    
-    def symmetrize(self, tensor: Tensor, debug=True)->Tensor:
+
+    def symmetrize(self, tensor: Tensor, debug=True) -> Tensor:
         P = self.get_totally_symmetric_projection(tensor=tensor)
         out = P @ tensor.flatten(full=True)
         assert np.allclose(out, P @ out, atol=ATOL), "error"
-        out = np.reshape(out,tensor.shape)
-        return type(tensor)(data=out) 
+        out = np.reshape(out, tensor.shape)
+        return type(tensor)(data=out)
 
     def get_symmetrizer(
         self,
@@ -634,7 +635,7 @@ class AtomicStructure:
         if not np.any(np.isnan(x.data)):
             theta = np.linalg.lstsq(S, x.data, rcond=None)[0]  # if x is not None else None
         else:
-            theta = np.full(S.shape[1],np.nan)
+            theta = np.full(S.shape[1], np.nan)
 
         # ------------------------
         # Real-space interpretation of modes
