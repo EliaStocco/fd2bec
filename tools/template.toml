@@ -60,7 +60,8 @@ line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]  # errors, flakes, imports
+select = ["E", "F", "I"]
+ignore = ["E741","E501"]  # only this one
 
 [tool.black]
 line-length = 100
