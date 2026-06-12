@@ -1,5 +1,4 @@
 import argparse
-from typing import Tuple
 
 import numpy as np
 
@@ -42,19 +41,16 @@ def prepare_args(descr):
     return parser
 
 
-def atomic_structure2all_displacements(
-    unit_cell: AtomicStructure, amplitude: float, use_delta_dipole: bool = False
-) -> Tuple[np.ndarray, np.ndarray]:
+def atomic_structure2all_displacements(unit_cell: AtomicStructure, amplitude: float) -> np.ndarray:
     """Generate all symmetry inequivalent cartesian displacements
     for the given unit cell and amplitude."""
 
     N = 3 * len(unit_cell)
-    displacements = np.eye(N) * amplitude
+    plus = np.eye(N) * amplitude
+    minus = -plus.copy()
+    null = np.zeros((1, 3 * len(unit_cell)))
 
-    if not use_delta_dipole:
-        displacements = np.concatenate([np.zeros((1, 3 * len(unit_cell))), displacements], axis=0)
-
-    return displacements, displacements
+    return np.concatenate([plus, minus, null])
 
 
 @cli(prepare_args, description)
@@ -67,9 +63,7 @@ def main(args):
 
     N = 3 * atoms.get_global_number_of_atoms()
     print(f"Generating all {N} displacements ... ", end="")
-    displacements = atomic_structure2all_displacements(
-        unit_cell, args.amplitude, use_delta_dipole=True
-    )[0]
+    displacements = atomic_structure2all_displacements(unit_cell, args.amplitude)
     print("done")
 
     print(f"Writing cartesian displacements to {args.output} ... ", end="")
