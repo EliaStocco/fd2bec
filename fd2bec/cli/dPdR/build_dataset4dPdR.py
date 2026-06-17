@@ -10,7 +10,7 @@ from warnings import warn
 import numpy as np
 from ase import Atoms
 
-from fd2bec.cli import KEYWORDS, cli
+from fd2bec.cli import KEYWORDS, cli, extract_n
 from fd2bec.io import read, write
 
 # ============================================================
@@ -112,7 +112,7 @@ def filtered_temp_file(path, fmt):
 # ============================================================
 
 description = (
-    "Build dataset to compute Born Effective Charges as derivative of polarization w.r.t. nuclear displacements.\n"
+    "Build dataset to compute Born Effective Charges as derivative of polarization/dipole w.r.t. nuclear displacements.\n"
     "The script reads either polarization or dipole from DFT output files.\n\n"
     "Input parsing is controlled via '--format'. This can be:\n"
     "  (1) a predefined format key\n"
@@ -156,6 +156,15 @@ def prepare_args(descr):
     )
 
     parser.add_argument(
+        "-r",
+        "--reference",
+        **argv,
+        type=str,
+        required=True,
+        help="file with the reference structure",
+    )
+
+    parser.add_argument(
         "-f",
         "--format",
         **argv,
@@ -192,16 +201,18 @@ def main(args):
     factor = fmt["factor"]
     dtype = fmt["type"]
 
-    print(f"Reading input structures from '{args.input}'")
+    print(f"Reading input structures from '{args.reference}'")
+    reference = read(args.reference)
+    print("n. atoms: ", reference.get_global_number_of_atoms())
 
+    print(f"Reading input structures from '{args.input}'")
     structures: List[Atoms] = []
     filenames = []
     vectors = []  # polarization or dipole
-
     input_path = Path(args.input)
 
     if input_path.is_dir():
-        files = sorted(f for f in input_path.iterdir() if f.is_file())
+        files = sorted((f for f in input_path.iterdir() if f.is_file()), key=extract_n)
 
     elif input_path.is_file():
         with open(input_path, "r", encoding="utf-8") as f:
@@ -272,6 +283,13 @@ def main(args):
     print(f"Saving dipoles [e*ang] to atomic structures using the keyword '{key}'")
     for n, atoms in enumerate(structures):
         atoms.info[key] = dipoles[n]
+
+    key = KEYWORDS["displacements"]
+    print(f"Constructing cartesian displacements and saving them using keyword '{key}'")
+    pos0 = reference.get_positions()
+    displacements = [a.get_positions() - pos0 for a in structures]
+    for n, atoms in enumerate(structures):
+        atoms.arrays[key] = displacements[n]
 
     info_keys = set()
     array_keys = set()

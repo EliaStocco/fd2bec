@@ -1,10 +1,22 @@
 import argparse
+import re
 import sys
 import time
 from functools import wraps
+from pathlib import Path
 from typing import Union
 
-KEYWORDS = {"forces": "REF_forces", "efield": "REF_efield", "dipole": "REF_dipole"}
+KEYWORDS = {
+    "forces": "REF_forces",
+    "efield": "REF_efield",
+    "dipole": "REF_dipole",
+    "displacements": "displacements",
+}
+
+
+def extract_n(file_path: Path):
+    m = re.search(r"n=(\d+)", file_path.name)
+    return int(m.group(1)) if m else float("inf")
 
 
 # ---------------------------------------#

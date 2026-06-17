@@ -77,6 +77,7 @@ dFdE2bec = "fd2bec.cli.dFdE.dFdE2bec:main"
 
 # --- dPdR ---
 build_dataset4dPdR = "fd2bec.cli.dPdR.build_dataset4dPdR:main"
+dPdR2bec = "fd2bec.cli.dPdR.dPdR2bec:main"
 
 # --- displacements ---
 apply_displacements = "fd2bec.cli.displacements.apply_displacements:main"
@@ -95,6 +96,9 @@ solve_linear_system = "fd2bec.cli.general.solve_linear_system:main"
 
 # --- periodic ---
 generate_supercell = "fd2bec.cli.periodic.generate_supercell:main"
+
+# --- root ---
+tools = "fd2bec.cli.tools:main"
 
 [tool.pylint.main]
 # Analyse import fallback blocks. This can be used to support both Python 2 and 3

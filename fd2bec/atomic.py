@@ -3,7 +3,6 @@ import warnings
 from dataclasses import InitVar, dataclass, field, replace
 from functools import cached_property
 from typing import Any, Dict, List, Tuple, Union
-from warnings import warn
 
 import numpy as np
 import spglib
@@ -103,11 +102,11 @@ class AtomicStructure:
         self.frac_pos.setflags(write=False)
         self.cell.array.setflags(write=False)
 
-        if check:
-            if self.pbc:
-                conventional = self.conventional
-                if not self.is_equal_to(conventional):
-                    warn("You are not using a conventional unit cell.")
+        # if check:
+        #     if self.pbc:
+        #         conventional = self.conventional
+        #         if not self.is_equal_to(conventional):
+        #             warn("You are not using a conventional unit cell.")
 
     def clone(self, frac_pos=None, positions=None, **kwargs) -> "AtomicStructure":
         """

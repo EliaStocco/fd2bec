@@ -9,9 +9,11 @@ from ase import Atom, Atoms
 from fd2bec import ATOL, SYMPREC, float_format
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import KEYWORDS, cli
+from fd2bec.cli.tools import print_born_charges
 from fd2bec.io import read
 from fd2bec.linear_system import LinearSystem, StackedLinearSystem
-from fd2bec.tensor import BornCharges, Forces
+from fd2bec.tensor import Forces
+from fd2bec.tools import symmetrize_bec
 
 description = (
     "Compute the Born Effective Charges as derivative of the forces w.r.t. applied electric field."
@@ -116,12 +118,6 @@ def symmetrize_forces(
     return np.asarray(_forces)
 
 
-def symmetrize_bec(structure: Atoms, bec: np.ndarray) -> np.ndarray:
-    tensor = BornCharges(data=bec)
-    atomic_structure = AtomicStructure.from_ase(structure)
-    return atomic_structure.symmetrize(tensor=tensor).data
-
-
 @cli(prepare_args, description)
 def main(args):
 
@@ -215,16 +211,21 @@ def main(args):
     LS.solve()  # saves solutions in  all_ls[:].x
     print("done")
 
+    LS.summary()
+
     bec = np.zeros((Na, 3, 3))
     print("Extracting Born Charges  ... ", end="")
     for n in range(Na):
         bec[n, :, :] = all_ls[n].x[1:, :]
     print("done")
 
+    print_born_charges(structures[0], bec)
+
     if args.symmetrize in ["bec", "both"]:
         print("Symmetrizing Born Charges ... ", end="")
         bec = symmetrize_bec(structures[0], bec)
         print("done")
+        print_born_charges(structures[0], bec)
     else:
         print("Not symmetrizing Born Charges")
 
@@ -238,7 +239,7 @@ def main(args):
 
     file = folder / "asr.txt"
     print(f"Writing sum of all Born Charges to {file} ... ", end="")
-    asr = bec.sum(axis=0)
+    asr = bec.mean(axis=0)
     np.savetxt(file, asr, fmt=float_format)
     print("done")
 
