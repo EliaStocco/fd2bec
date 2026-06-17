@@ -1,0 +1,1 @@
+This folder contains script useful to compute the Born Effective Charges as derivatives of the polarization w.r.t. the nuclear displacements

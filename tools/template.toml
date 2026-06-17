@@ -33,17 +33,17 @@ dev = [
     "pytest-cov",
 ]
 
-dev-mp = [
-    "pylint",
-    "pre-commit",
-    "ruff",
-    "isort",
-    "black==24.8.0",
-    "pytest",
-    "pytest-cov",
-    "mp-api",
-    "python_requires>=3.11; python_version < '3.11'"
-]
+# dev-mp = [
+#     "pylint",
+#     "pre-commit",
+#     "ruff",
+#     "isort",
+#     "black==24.8.0",
+#     "pytest",
+#     "pytest-cov",
+#     "mp-api",
+#     "python_requires>=3.11; python_version < '3.11'"
+# ]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

@@ -27,8 +27,9 @@ def prepare_args(descr):
         "--amplitude",
         **argv,
         type=float,
-        required=True,
-        help="amplitude of the displacement",
+        required=False,
+        help="amplitude of the displacement (default: %(default)s)",
+        default=1e-3,
     )
     parser.add_argument(
         "-o",

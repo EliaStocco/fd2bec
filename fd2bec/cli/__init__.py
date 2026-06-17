@@ -4,7 +4,7 @@ import time
 from functools import wraps
 from typing import Union
 
-KEYWORDS = {"forces": "REF_forces", "efield": "REF_efield"}
+KEYWORDS = {"forces": "REF_forces", "efield": "REF_efield", "dipole": "REF_dipole"}
 
 
 # ---------------------------------------#
@@ -77,7 +77,7 @@ def cli(prepare_parser=None, description=None):
                 print("@ Description: ", end="")
                 print(description)
 
-            print("@ Running:", end="")
+            print("@ Running: ", end="")
             print(f"{' '.join(sys.argv)}")
 
             # --- run main ---

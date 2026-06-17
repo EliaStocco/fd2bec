@@ -1,0 +1,1 @@
+This folder contains script useful to compute the Born Effective Charges as derivatives of the forces w.r.t. the applied electric field.
