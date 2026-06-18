@@ -23,4 +23,3 @@ srun /u/elsto/programs/FHIaims-polarization-scalapack/build//aims.260527.scalapa
 srun /u/elsto/programs/FHIaims-polarization-scalapack/build//aims.260527.scalapack.mpi.x &> aims.out
 
 srun /u/elsto/programs/FHIaims-polarization-scalapack/build//aims.260527.scalapack.mpi.x &> aims.out
-

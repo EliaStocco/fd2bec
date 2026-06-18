@@ -1,8 +1,8 @@
-                                  
-================================= 
-Global information about the job: 
-================================= 
-  
+
+=================================
+Global information about the job:
+=================================
+
 Job owner: elsto(84651)
 Job name:  BaTiO3-BEC
 Node list: vipc[2038,2041,2138,2142]
@@ -10,14 +10,14 @@ Job start: Wed Jun 10 18:35:31 CEST 2026
 Job end:   Wed Jun 10 18:59:37 CEST 2026
 Work dir:  /viper/ptmp/elsto/works/ScaLAPACK-BEC/BaTiO3/./
 Command:   /viper/ptmp1/elsto/works/ScaLAPACK-BEC/BaTiO3/main.sh
-  
-  
-  
+
+
+
 ==========================================================================================
-Information on jobsteps (Note: MaxRSS/AveRSS is the maximum/average over all 
-tasks of the per-task memory high-water marks; cf. "man sacct"): 
+Information on jobsteps (Note: MaxRSS/AveRSS is the maximum/average over all
+tasks of the per-task memory high-water marks; cf. "man sacct"):
 ==========================================================================================
-  
+
 JobID            JobName NNodes NTasks  NCPUS       MaxRSS       AveRSS    Elapsed ExitCode
 ------------- ---------- ------ ------ ------ ------------ ------------ ---------- --------
 9697474       BaTiO3-BEC      4          1024                             00:24:06      0:0
@@ -52,7 +52,7 @@ JobID            JobName NNodes NTasks  NCPUS       MaxRSS       AveRSS    Elaps
 9697474.28    aims.26052      4    512   1024      244.92M      232.48M   00:00:45      0:0
 9697474.29    aims.26052      4    512   1024      245.84M      231.55M   00:00:46      0:0
 9697474.30    aims.26052      4    512   1024      246.78M      230.54M   00:00:46      0:0
-  
+
 Maximum memory per node: 33.466745 GB (defined as MaxRSS*Ntasks/NNodes)
 CPU utilization: 79.2 %
-  
+

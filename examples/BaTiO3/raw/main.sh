@@ -20,8 +20,8 @@ exec >> slurm/my_output.txt 2>&1   # Optional: redirect all output
 
 # Load modules
 module purge
-module load intel/2024.0 
-module load impi/2021.11 
+module load intel/2024.0
+module load impi/2021.11
 module load mkl/2024.0
 export LD_LIBRARY_PATH="${MKL_HOME}/lib/intel64:${LD_LIBRARY_PATH}"
 export LD_LIBRARY_PATH="${INTEL_HOME}/compiler/2022.2.1/linux/compiler/lib/intel64_lin:${LD_LIBRARY_PATH}"
@@ -80,4 +80,3 @@ for n in {0..1000}; do
         run_aims
     fi
 done
-

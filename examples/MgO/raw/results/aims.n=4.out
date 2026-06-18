@@ -591,14 +591,14 @@
   Task      511 on host vipc2576 reporting.
 
   Obtaining array dimensions for all initial allocations:
-  
+
   -----------------------------------------------------------------------
   Parsing control.in (first pass over file, find array dimensions only).
   The contents of control.in will be repeated verbatim below
   unless switched off by setting 'verbatim_writeout .false.' .
   in the first line of control.in .
   -----------------------------------------------------------------------
-  
+
   xc                           pbesol
   relativistic                 atomic_zora scalar
   k_grid                       4 4 4
@@ -606,7 +606,7 @@
   output polarization          1 40  4  4
   output polarization          2  4 40  4
   output polarization          3  4  4 40
-  
+
   ################################################################################
   #
   #  FHI-aims code project
@@ -794,35 +794,35 @@
   ################################################################################
   #
   # for_aux hydro 5 g 6.0
-  
+
   -----------------------------------------------------------------------
   Completed first pass over input file control.in .
   -----------------------------------------------------------------------
-  
-  
+
+
   -----------------------------------------------------------------------
   Parsing geometry.in (first pass over file, find array dimensions only).
   The contents of geometry.in will be repeated verbatim below
   unless switched off by setting 'verbatim_writeout .false.' .
   in the first line of geometry.in .
   -----------------------------------------------------------------------
-  
+
   #===============================================================================
   # Created using the Atomic Simulation Environment (ASE)
-  
+
   # Fri Jun 12 17:16:03 2026
-  
+
   #=======================================================
   lattice_vector 0.0000000000000000 2.1104321524991820 2.1104321524991820
   lattice_vector 2.1104321524991820 0.0000000000000000 2.1104321524991820
   lattice_vector 2.1104321524991820 2.1104321524991820 0.0000000000000000
   atom 0.0000000000000000 0.0000000000000000 0.0000000000000000 Mg
   atom 2.1104321499999998 2.1114321500000002 2.1104321499999998 O
-  
+
   -----------------------------------------------------------------------
   Completed first pass over input file geometry.in .
   -----------------------------------------------------------------------
-  
+
 
   Basic array size parameters:
   | Number of species                 :        2
@@ -865,7 +865,7 @@
   Polarization directive number:    3
   | Calculating polarization along reciprocal lattice vector 3 using   40 k-points parallel to this direction.
   | Full Brillouin zone sampling is thus performed on a     4 x     4 x    40 grid
- 
+
   Reading configuration options for species Mg                  .
   | Found nuclear charge :  12.0000
   | Found atomic mass :    24.3050000000000      amu
@@ -899,7 +899,7 @@
   Species Mg                  : Using default innermost maximum threshold i_radial=  2 for radial functions.
   Species Mg                  : Default cutoff onset for free atom density etc. : 0.50000000E+01 AA.
   Species Mg                  : Basic radial grid will be enhanced according to radial_multiplier =   2, to contain    81 grid points.
- 
+
   Reading configuration options for species O                   .
   | Found nuclear charge :   8.0000
   | Found atomic mass :    15.9994000000000      amu
@@ -932,9 +932,9 @@
   Species O                   : Using default innermost maximum threshold i_radial=  2 for radial functions.
   Species O                   : Default cutoff onset for free atom density etc. : 0.40000000E+01 AA.
   Species O                   : Basic radial grid will be enhanced according to radial_multiplier =   2, to contain    73 grid points.
- 
+
   Finished reading input file 'control.in'.
- 
+
 ------------------------------------------------------------
 
 
@@ -982,13 +982,13 @@
        atom_frac         0.50023692        0.49976308        0.50023692  O
 
   Slab Identifier: This seems to be a bulk system.
- 
-  Finished reading input file 'geometry.in'.
- 
 
- 
+  Finished reading input file 'geometry.in'.
+
+
+
   Consistency checks for stacksize environment parameter are next.
- 
+
   | Maximum stacksize for task 0: unlimited
   | Maximum stacksize for task 1: unlimited
   | Maximum stacksize for task 2: unlimited
@@ -2013,9 +2013,9 @@
   | Current stacksize for task 509: unlimited
   | Current stacksize for task 510: unlimited
   | Current stacksize for task 511: unlimited
- 
+
   Consistency checks for the contents of control.in are next.
- 
+
   MPI_IN_PLACE appears to work with this MPI implementation.
   | Keeping use_mpi_in_place .true. (see manual).
   Target number of points in a grid batch is not set. Defaulting to  100
@@ -2089,16 +2089,16 @@
   Testing whether we classify this calculation as large-scale ...
   The calculation contains less than 100 atoms. This is most likely not a large-scale calculation.
   Not setting 'use_local_index'.
- 
+
   Consistency checks for the contents of geometry.in are next.
- 
+
 
   Range separation radius for Ewald summation (hartree_convergence_parameter):      2.90111125 bohr.
   Number of empty states per atom not set in control.in - providing a guess from actual geometry.
   | Total number of empty states used during s.c.f. cycle:        6
   If you use a very high smearing, use empty_states (per atom!) in control.in to increase this value.
 
-  Structure-dependent array size parameters: 
+  Structure-dependent array size parameters:
   | Maximum number of distinct radial functions  :       22
   | Maximum number of basis functions            :       70
   | Number of Kohn-Sham states (occupied + empty):       16
@@ -2129,7 +2129,7 @@
   | Built for  : AMD EPYC 9554 64-Core Processor
   | Running on : AMD EPYC 9554 64-Core Processor
   | Runtime CPU compatibility verified.
-  
+
   After prepare_system [GB]:    492.78
 
 ------------------------------------------------------------
@@ -2166,7 +2166,7 @@
 
   Adding cutoff potential to free-atom effective potential.
   Creating fixed part of basis set: Ionic, confined, hydrogenic.
- 
+
   Mg                   ion:
   Runtime choices for ionic solver:
   | ionic solver xc        : PBEsol
@@ -2182,23 +2182,23 @@
     n    l      energy [Ha]    energy [eV]    outer radius [A]
     3    2        -0.256688        -6.9848       6.433556
 
- 
+
   Mg                   hydrogenic:
- 
-  List of hydrogenic basis orbitals: 
-    n    l      effective z      eigenvalue [eV]  inner max. [A]     outer max. [A]     outer radius [A]   
+
+  List of hydrogenic basis orbitals:
+    n    l      effective z      eigenvalue [eV]  inner max. [A]     outer max. [A]     outer radius [A]
     2    1         1.500000        -7.6477           1.412879           1.412879           6.433556
     3    0         2.400000        -8.6076           0.162319           2.871052           6.433556
     4    3         4.300000       -15.7168           1.965416           1.965416           6.433556
     2    1         3.400000       -39.3203           0.622853           0.622853           4.143032
     4    0        11.200000      -106.6686           0.034786           1.161869           3.993839
     3    2         6.200000       -58.1113           0.766731           0.766731           4.092692
- 
- 
+
+
   O                    hydrogenic:
- 
-  List of hydrogenic basis orbitals: 
-    n    l      effective z      eigenvalue [eV]  inner max. [A]     outer max. [A]     outer radius [A]   
+
+  List of hydrogenic basis orbitals:
+    n    l      effective z      eigenvalue [eV]  inner max. [A]     outer max. [A]     outer radius [A]
     2    1         1.800000       -11.0118           1.178562           1.178562           5.432602
     3    2         7.600000       -87.3182           0.624125           0.624125           3.541477
     3    0         6.400000       -61.9209           0.061167           1.081902           4.306578
@@ -2207,7 +2207,7 @@
     3    2         5.600000       -47.4081           0.847233           0.847233           4.413171
     5    4        17.600000      -168.5799           0.749740           0.749740           3.372465
     1    0         0.750000        -7.6499           0.705284           0.705284           5.366593
- 
+
   Creating atomic-like basis functions for current effective potential.
 
   Species Mg                  :
@@ -2251,11 +2251,11 @@
   | Species O :    hydro orbital   3 d accepted.
   | Species O :    hydro orbital   4 f accepted.
   | Species O :    hydro orbital   5 g accepted.
- 
+
   Basis size parameters after reduction:
   | Total number of radial functions:       22
   | Total number of basis functions :       70
- 
+
   Per-task memory consumption for arrays in subroutine allocate_ext:
   |           7.516064MB.
   Testing on-site integration grid accuracy.
@@ -5711,22 +5711,22 @@
   | Total energy corrected        :         -0.748977374240926E+04 eV  <-- do not rely on this value for anything but (periodic) metals
   | Electronic free energy        :         -0.748977374240926E+04 eV
 
-  ------------------------------------ 
-  Start decomposition of the XC Energy 
-  ------------------------------------ 
-  X and C from original XC functional choice 
+  ------------------------------------
+  Start decomposition of the XC Energy
+  ------------------------------------
+  X and C from original XC functional choice
   Hartree-Fock Energy :          0.000000000 Ha              0.000000000 eV
   X Energy            :        -23.577688242 Ha           -641.581540369 eV
   C Energy            :         -0.854127398 Ha            -23.241989032 eV
   XC Energy w/o HF    :        -24.431815640 Ha           -664.823529402 eV
   Total XC Energy     :        -24.431815640 Ha           -664.823529402 eV
-  ------------------------------------ 
-  LDA X and C from self-consistent density 
+  ------------------------------------
+  LDA X and C from self-consistent density
   X Energy LDA        :        -22.370634796 Ha           -608.735944930 eV
   C Energy LDA        :         -1.479718798 Ha            -40.265197175 eV
-  ------------------------------------ 
-  End decomposition of the XC Energy 
-  ------------------------------------ 
+  ------------------------------------
+  End decomposition of the XC Energy
+  ------------------------------------
 
 ------------------------------------------------------------
 

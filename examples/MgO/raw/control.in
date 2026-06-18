@@ -1,8 +1,8 @@
 xc                           pbesol
 relativistic                 atomic_zora scalar
 k_grid                       4 4 4
-sc_accuracy_rho              1e-8   
-output polarization          1 40  4  4 
+sc_accuracy_rho              1e-8
+output polarization          1 40  4  4
 output polarization          2  4 40  4
 output polarization          3  4  4 40
 
@@ -19,10 +19,10 @@ output polarization          3  4  4 40
 #               further individual radial functions from tier2 may be
 #		a good idea anyway.
 #
-#  2016/03/28 : After further discussions, added full tier 2 to default basis 
+#  2016/03/28 : After further discussions, added full tier 2 to default basis
 #               set (this is "tight" after all). Note that, particularly for
 #               hybrid functionals, it may be possible to get excellent accuracy
-#               using just tier 1 + the f function from tier 2, at much reduced 
+#               using just tier 1 + the f function from tier 2, at much reduced
 #               cost.
 #
 ################################################################################
@@ -63,7 +63,7 @@ output polarization          3  4  4 40
     ion_occ      2  p   6.
 ################################################################################
 #
-#  Suggested additional basis functions. For production calculations, 
+#  Suggested additional basis functions. For production calculations,
 #  uncomment them one after another (the most important basis functions are
 #  listed first).
 #
@@ -148,7 +148,7 @@ output polarization          3  4  4 40
     ion_occ      2  p   3.
 ################################################################################
 #
-#  Suggested additional basis functions. For production calculations, 
+#  Suggested additional basis functions. For production calculations,
 #  uncomment them one after another (the most important basis functions are
 #  listed first).
 #

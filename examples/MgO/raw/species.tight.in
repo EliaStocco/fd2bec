@@ -11,10 +11,10 @@
 #               further individual radial functions from tier2 may be
 #		a good idea anyway.
 #
-#  2016/03/28 : After further discussions, added full tier 2 to default basis 
+#  2016/03/28 : After further discussions, added full tier 2 to default basis
 #               set (this is "tight" after all). Note that, particularly for
 #               hybrid functionals, it may be possible to get excellent accuracy
-#               using just tier 1 + the f function from tier 2, at much reduced 
+#               using just tier 1 + the f function from tier 2, at much reduced
 #               cost.
 #
 ################################################################################
@@ -55,7 +55,7 @@
     ion_occ      2  p   6.
 ################################################################################
 #
-#  Suggested additional basis functions. For production calculations, 
+#  Suggested additional basis functions. For production calculations,
 #  uncomment them one after another (the most important basis functions are
 #  listed first).
 #
@@ -140,7 +140,7 @@
     ion_occ      2  p   3.
 ################################################################################
 #
-#  Suggested additional basis functions. For production calculations, 
+#  Suggested additional basis functions. For production calculations,
 #  uncomment them one after another (the most important basis functions are
 #  listed first).
 #

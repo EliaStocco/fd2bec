@@ -591,14 +591,14 @@
   Task      511 on host vipc2142 reporting.
 
   Obtaining array dimensions for all initial allocations:
-  
+
   -----------------------------------------------------------------------
   Parsing control.in (first pass over file, find array dimensions only).
   The contents of control.in will be repeated verbatim below
   unless switched off by setting 'verbatim_writeout .false.' .
   in the first line of control.in .
   -----------------------------------------------------------------------
-  
+
   xc                           pbesol
   relativistic                 atomic_zora scalar
   k_grid                       4 4 4
@@ -606,7 +606,7 @@
   output polarization          1 40  4  4
   output polarization          2  4 40  4
   output polarization          3  4  4 40
-  
+
   ################################################################################
   #
   #  FHI-aims code project
@@ -865,24 +865,24 @@
   #     hydro 5 f 7.2  # -0.16 meV
   #     hydro 3 d 2.1  # -0.11 meV
   #     hydro 5 g 7.4  # -0.09 meV
-  
+
   -----------------------------------------------------------------------
   Completed first pass over input file control.in .
   -----------------------------------------------------------------------
-  
-  
+
+
   -----------------------------------------------------------------------
   Parsing geometry.in (first pass over file, find array dimensions only).
   The contents of geometry.in will be repeated verbatim below
   unless switched off by setting 'verbatim_writeout .false.' .
   in the first line of geometry.in .
   -----------------------------------------------------------------------
-  
+
   #===============================================================================
   # Created using the Atomic Simulation Environment (ASE)
-  
+
   # Tue Jun  9 14:25:21 2026
-  
+
   #=======================================================
   lattice_vector 3.9775557239945183 0.0000000000000000 0.0000000000000000
   lattice_vector 0.0000000000000000 3.9775557239945183 0.0000000000000000
@@ -892,11 +892,11 @@
   atom 0.0000000000000000 0.0000000000000000 1.9887778599999999 O
   atom 0.0000000000000000 1.9887778599999999 0.0000000000000000 O
   atom 1.9887778599999999 0.0000000000000000 0.0000000000000000 O
-  
+
   -----------------------------------------------------------------------
   Completed first pass over input file geometry.in .
   -----------------------------------------------------------------------
-  
+
 
   Basic array size parameters:
   | Number of species                 :        3
@@ -939,7 +939,7 @@
   Polarization directive number:    3
   | Calculating polarization along reciprocal lattice vector 3 using   40 k-points parallel to this direction.
   | Full Brillouin zone sampling is thus performed on a     4 x     4 x    40 grid
- 
+
   Reading configuration options for species Ba                  .
   | Found nuclear charge :  56.0000
   | Found atomic mass :    137.327000000000      amu
@@ -974,7 +974,7 @@
   Species Ba                  : Using default innermost maximum threshold i_radial=  2 for radial functions.
   Species Ba                  : Default cutoff onset for free atom density etc. : 0.60000000E+01 AA.
   Species Ba                  : Basic radial grid will be enhanced according to radial_multiplier =   2, to contain   131 grid points.
- 
+
   Reading configuration options for species O                   .
   | Found nuclear charge :   8.0000
   | Found atomic mass :    15.9994000000000      amu
@@ -1008,7 +1008,7 @@
   Species O                   : Using default innermost maximum threshold i_radial=  2 for radial functions.
   Species O                   : Default cutoff onset for free atom density etc. : 0.40000000E+01 AA.
   Species O                   : Basic radial grid will be enhanced according to radial_multiplier =   2, to contain    73 grid points.
- 
+
   Reading configuration options for species Ti                  .
   | Found nuclear charge :  22.0000
   | Found atomic mass :    47.8670000000000      amu
@@ -1041,9 +1041,9 @@
   Species Ti                  : Using default innermost maximum threshold i_radial=  2 for radial functions.
   Species Ti                  : Default cutoff onset for free atom density etc. : 0.40000000E+01 AA.
   Species Ti                  : Basic radial grid will be enhanced according to radial_multiplier =   2, to contain    97 grid points.
- 
+
   Finished reading input file 'control.in'.
- 
+
 ------------------------------------------------------------
 
 
@@ -1097,13 +1097,13 @@
        atom_frac         0.50000000        0.00000000        0.00000000  O
 
   Slab Identifier: This seems to be a bulk system.
- 
-  Finished reading input file 'geometry.in'.
- 
 
- 
+  Finished reading input file 'geometry.in'.
+
+
+
   Consistency checks for stacksize environment parameter are next.
- 
+
   | Maximum stacksize for task 0: unlimited
   | Maximum stacksize for task 1: unlimited
   | Maximum stacksize for task 2: unlimited
@@ -2128,9 +2128,9 @@
   | Current stacksize for task 509: unlimited
   | Current stacksize for task 510: unlimited
   | Current stacksize for task 511: unlimited
- 
+
   Consistency checks for the contents of control.in are next.
- 
+
   MPI_IN_PLACE appears to work with this MPI implementation.
   | Keeping use_mpi_in_place .true. (see manual).
   Target number of points in a grid batch is not set. Defaulting to  100
@@ -2204,16 +2204,16 @@
   Testing whether we classify this calculation as large-scale ...
   The calculation contains less than 100 atoms. This is most likely not a large-scale calculation.
   Not setting 'use_local_index'.
- 
+
   Consistency checks for the contents of geometry.in are next.
- 
+
 
   Range separation radius for Ewald summation (hartree_convergence_parameter):      3.26273261 bohr.
   Number of empty states per atom not set in control.in - providing a guess from actual geometry.
   | Total number of empty states used during s.c.f. cycle:       20
   If you use a very high smearing, use empty_states (per atom!) in control.in to increase this value.
 
-  Structure-dependent array size parameters: 
+  Structure-dependent array size parameters:
   | Maximum number of distinct radial functions  :       41
   | Maximum number of basis functions            :      217
   | Number of Kohn-Sham states (occupied + empty):       71
@@ -2244,7 +2244,7 @@
   | Built for  : AMD EPYC 9554 64-Core Processor
   | Running on : AMD EPYC 9554 64-Core Processor
   | Runtime CPU compatibility verified.
-  
+
   After prepare_system [GB]:    495.31
 
 ------------------------------------------------------------
@@ -2302,7 +2302,7 @@
 
   Adding cutoff potential to free-atom effective potential.
   Creating fixed part of basis set: Ionic, confined, hydrogenic.
- 
+
   Ba                   ion:
   Runtime choices for ionic solver:
   | ionic solver xc        : PBEsol
@@ -2328,21 +2328,21 @@
     5    2        -0.260318        -7.0836       7.007670
     4    3        -0.144591        -3.9345       7.007670
 
- 
+
   Ba                   hydrogenic:
- 
-  List of hydrogenic basis orbitals: 
-    n    l      effective z      eigenvalue [eV]  inner max. [A]     outer max. [A]     outer radius [A]   
+
+  List of hydrogenic basis orbitals:
+    n    l      effective z      eigenvalue [eV]  inner max. [A]     outer max. [A]     outer radius [A]
     3    1         2.700000       -11.0183           0.585865           2.360755           7.358861
     4    0         3.300000        -9.1387           0.118110           3.896996           7.449375
     4    3         5.800000       -28.6057           1.465516           1.465516           5.905331
     5    4         7.400000       -29.8017           1.782126           1.782126           6.354768
- 
- 
+
+
   O                    hydrogenic:
- 
-  List of hydrogenic basis orbitals: 
-    n    l      effective z      eigenvalue [eV]  inner max. [A]     outer max. [A]     outer radius [A]   
+
+  List of hydrogenic basis orbitals:
+    n    l      effective z      eigenvalue [eV]  inner max. [A]     outer max. [A]     outer radius [A]
     2    1         1.800000       -11.0118           1.178562           1.178562           5.432602
     3    2         7.600000       -87.3182           0.624125           0.624125           3.541477
     3    0         6.400000       -61.9209           0.061167           1.081902           4.306578
@@ -2351,8 +2351,8 @@
     3    2         5.600000       -47.4081           0.847233           0.847233           4.413171
     5    4        17.600000      -168.5799           0.749740           0.749740           3.372465
     1    0         0.750000        -7.6499           0.705284           0.705284           5.366593
- 
- 
+
+
   Ti                   ion:
   Runtime choices for ionic solver:
   | ionic solver xc        : PBEsol
@@ -2373,15 +2373,15 @@
     4    1        -0.518115       -14.0986       5.449321
     4    0        -0.696238       -18.9456       5.383109
 
- 
+
   Ti                   hydrogenic:
- 
-  List of hydrogenic basis orbitals: 
-    n    l      effective z      eigenvalue [eV]  inner max. [A]     outer max. [A]     outer radius [A]   
+
+  List of hydrogenic basis orbitals:
+    n    l      effective z      eigenvalue [eV]  inner max. [A]     outer max. [A]     outer radius [A]
     4    3         8.000000       -54.4226           1.059019           1.059019           4.648601
     3    2         2.700000       -10.9576           1.748166           1.748166           5.449321
     5    4        11.600000       -73.2312           1.139618           1.139618           4.536321
- 
+
   Creating atomic-like basis functions for current effective potential.
 
   Species Ba                  :
@@ -2465,11 +2465,11 @@
   | Species Ti :    hydro orbital   3 d accepted.
   | Species Ti :    hydro orbital   4 f accepted.
   | Species Ti :    hydro orbital   5 g accepted.
- 
+
   Basis size parameters after reduction:
   | Total number of radial functions:       41
   | Total number of basis functions :      217
- 
+
   Per-task memory consumption for arrays in subroutine allocate_ext:
   |          15.331996MB.
   Testing on-site integration grid accuracy.
@@ -7116,22 +7116,22 @@
   | Total energy corrected        :         -0.254466760548414E+06 eV  <-- do not rely on this value for anything but (periodic) metals
   | Electronic free energy        :         -0.254466760548414E+06 eV
 
-  ------------------------------------ 
-  Start decomposition of the XC Energy 
-  ------------------------------------ 
-  X and C from original XC functional choice 
+  ------------------------------------
+  Start decomposition of the XC Energy
+  ------------------------------------
+  X and C from original XC functional choice
   Hartree-Fock Energy :          0.000000000 Ha              0.000000000 eV
   X Energy            :       -256.621705802 Ha          -6983.031907628 eV
   C Energy            :         -5.543654522 Ha           -150.850514735 eV
   XC Energy w/o HF    :       -262.165360324 Ha          -7133.882422363 eV
   Total XC Energy     :       -262.165360324 Ha          -7133.882422363 eV
-  ------------------------------------ 
-  LDA X and C from self-consistent density 
+  ------------------------------------
+  LDA X and C from self-consistent density
   X Energy LDA        :       -248.608474186 Ha          -6764.980781043 eV
   C Energy LDA        :         -8.925219867 Ha           -242.867589539 eV
-  ------------------------------------ 
-  End decomposition of the XC Energy 
-  ------------------------------------ 
+  ------------------------------------
+  End decomposition of the XC Energy
+  ------------------------------------
 
 ------------------------------------------------------------
 

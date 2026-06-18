@@ -1,8 +1,8 @@
-                                  
-================================= 
-Global information about the job: 
-================================= 
-  
+
+=================================
+Global information about the job:
+=================================
+
 Job owner: elsto(84651)
 Job name:  MgO-BEC
 Node list: vipc[2562,2565,2575-2576]
@@ -10,14 +10,14 @@ Job start: Fri Jun 12 18:41:26 CEST 2026
 Job end:   Fri Jun 12 18:45:44 CEST 2026
 Work dir:  /viper/ptmp/elsto/works/ScaLAPACK-BEC/MgO/./
 Command:   /viper/ptmp1/elsto/works/ScaLAPACK-BEC/MgO/main.sh
-  
-  
-  
+
+
+
 ==========================================================================================
-Information on jobsteps (Note: MaxRSS/AveRSS is the maximum/average over all 
-tasks of the per-task memory high-water marks; cf. "man sacct"): 
+Information on jobsteps (Note: MaxRSS/AveRSS is the maximum/average over all
+tasks of the per-task memory high-water marks; cf. "man sacct"):
 ==========================================================================================
-  
+
 JobID            JobName NNodes NTasks  NCPUS       MaxRSS       AveRSS    Elapsed ExitCode
 ------------- ---------- ------ ------ ------ ------------ ------------ ---------- --------
 9806075          MgO-BEC      4          1024                             00:04:18      0:0
@@ -34,7 +34,7 @@ JobID            JobName NNodes NTasks  NCPUS       MaxRSS       AveRSS    Elaps
 9806075.10    aims.26052      4    512   1024      189.94M      177.44M   00:00:20      0:0
 9806075.11    aims.26052      4    512   1024      191.07M      177.48M   00:00:20      0:0
 9806075.12    aims.26052      4    512   1024      187.48M      176.83M   00:00:21      0:0
-  
+
 Maximum memory per node: 25.776357 GB (defined as MaxRSS*Ntasks/NNodes)
 CPU utilization: 34.9 %
-  
+

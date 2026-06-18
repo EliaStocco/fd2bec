@@ -1,6 +1,6 @@
 
 @-------------------------------------------
-@ Description: 
+@ Description:
 Build dataset to compute Born Effective Charges as derivative of polarization/dipole w.r.t. nuclear displacements.
 The script reads either polarization or dipole from DFT output files.
 
@@ -37,7 +37,7 @@ aims_polarization, aims_dipole
 	 - reading file 'raw/results/aims.n=11.out'
 	 - reading file 'raw/results/aims.n=12.out'
 	n. read files: 13
-	
+
 	List of all read files:
 	 -   0) raw/results/aims.n=0.out
 	 -   1) raw/results/aims.n=1.out
@@ -52,7 +52,7 @@ aims_polarization, aims_dipole
 	 -  10) raw/results/aims.n=10.out
 	 -  11) raw/results/aims.n=11.out
 	 -  12) raw/results/aims.n=12.out
-	
+
 	List of read 'polarization':
 	 -   0) [ 1.698893e-03,  3.396857e-06,  3.396857e-06]
 	 -   1) [ 3.396857e-06,  1.698893e-03,  3.396857e-06]
@@ -67,10 +67,10 @@ aims_polarization, aims_dipole
 	 -  10) [ 3.396857e-06,  1.698893e-03,  3.396857e-06]
 	 -  11) [ 3.396857e-06,  3.396857e-06,  1.698893e-03]
 	 -  12) [ 4.249804e-09,  4.249799e-09,  4.249793e-09]
-	
+
 	Using the following conversion factor to e/ang^2: 0.06241517271464743
 	Converting polarization to dipole using volume 18.799408214552262 Å^3
-	
+
 	Wrapping dipoles on the same branch:
 	 -   0) [ 1.993427e-03,  3.985764e-06,  3.985764e-06] --> [ 1.993427e-03,  3.985764e-06,  3.985764e-06] | jump of [  0,   0,   0]
 	 -   1) [ 3.985764e-06,  1.993427e-03,  3.985764e-06] --> [ 3.985764e-06,  1.993427e-03,  3.985764e-06] | jump of [  0,   0,   0]
@@ -85,7 +85,7 @@ aims_polarization, aims_dipole
 	 -  10) [ 3.985764e-06,  1.993427e-03,  3.985764e-06] --> [ 3.985764e-06,  1.993427e-03,  3.985764e-06] | jump of [  0,   0,   0]
 	 -  11) [ 3.985764e-06,  3.985764e-06,  1.993427e-03] --> [ 3.985764e-06,  3.985764e-06,  1.993427e-03] | jump of [  0,   0,   0]
 	 -  12) [ 4.986585e-09,  4.986579e-09,  4.986572e-09] --> [ 4.986585e-09,  4.986579e-09,  4.986572e-09] | jump of [  0,   0,   0]
-	
+
 	Final dipoles:
 	 -   0) [ 1.993427e-03,  3.985764e-06,  3.985764e-06]
 	 -   1) [ 3.985764e-06,  1.993427e-03,  3.985764e-06]
@@ -100,7 +100,7 @@ aims_polarization, aims_dipole
 	 -  10) [ 3.985764e-06,  1.993427e-03,  3.985764e-06]
 	 -  11) [ 3.985764e-06,  3.985764e-06,  1.993427e-03]
 	 -  12) [ 4.986585e-09,  4.986579e-09,  4.986572e-09]
-	
+
 	Saving dipoles [e*ang] to atomic structures using the keyword 'REF_dipole'
 	Constructing cartesian displacements and saving them using keyword 'displacements'
 	info keys: {'polarization', 'free_energy', 'REF_dipole', 'energy'}
@@ -113,7 +113,7 @@ aims_polarization, aims_dipole
 
 
 @-------------------------------------------
-@ Description: 
+@ Description:
 Compute the Born Effective Charges as derivative of polarization/dipole w.r.t. nuclear displacements.
 @ Running: /home/stoccoel/.pyenv/versions/fd2bec/bin/dPdR2bec -i dataset.extxyz
 @ Let's start!
@@ -127,22 +127,22 @@ Compute the Born Effective Charges as derivative of polarization/dipole w.r.t. n
 	displacements.shape:  (13, 2, 3)
 	Reconstructing reference structure ... done
 	Preparing Born Charges and symmetrization ... done
-	
+
 	Matrix shapes:
 	 - b.shape: (39,)
 	 - A.shape: (39, 18)
 	 - S.shape: (18, 4)
-	
+
 	Matrix shapes with symmetrization:
 	 - b.shape: (39,)
 	 - A.shape: (39, 4)
-	
+
 	Matrix for total dipoles:
 	 - b.shape: (39,)
 	 - A.shape: (39, 7)
 	Preparing linear system ... done
 	Solving linear systems  ... done
-	
+
 	----------------------------------------
 	Linear Fit Summary
 	----------------------------------------
@@ -150,9 +150,9 @@ Compute the Born Effective Charges as derivative of polarization/dipole w.r.t. n
 	Relative Error : 2.824e-03
 	Quality        : GOOD
 	----------------------------------------
-	
+
 	Extracting Born Charges  ... done
-	
+
 	Atom   0, species Mg
 	Position: [  0.001000   0.000000   0.000000]
 	||Z*|| =    1.99342
@@ -160,7 +160,7 @@ Compute the Born Effective Charges as derivative of polarization/dipole w.r.t. n
 	       1.99342    0.00000   -0.00000
 	       0.00000    1.99342   -0.00000
 	      -0.00000   -0.00000    1.99342
-	
+
 	Atom   1, species O
 	Position: [  2.110432   2.110432   2.110432]
 	||Z*|| =    1.99342
@@ -168,7 +168,7 @@ Compute the Born Effective Charges as derivative of polarization/dipole w.r.t. n
 	      -1.99342   -0.00000    0.00000
 	      -0.00000   -1.99342    0.00000
 	       0.00000    0.00000   -1.99342
-	
+
 	Checking Acoustic Sum Rule:
 	||sum_I Z*_I|| =    0.00000 | this value should be almost zero
 	Writing Born Charges to bec-no-asr.txt ... done
@@ -178,4 +178,3 @@ Compute the Born Effective Charges as derivative of polarization/dipole w.r.t. n
 @ Job done :)
 @ Finished in 0.01s
 -------------------------------------------@
-
