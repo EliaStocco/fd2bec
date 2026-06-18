@@ -106,14 +106,19 @@ class LinearSystem:
 
     def summary(self):
         if self.x is None:
-            print("Linear system not solved.")
-            return
+            raise RuntimeError("Linear system not solved.")
 
-        err = self.residual_norm[0]
+        r = self.residual_vector[:, 0]
+        err = np.linalg.norm(r)
         rel = self.relative_residual[0]
-
         quality = self._quality(rel)
 
+        # --- detect bad points ---
+        threshold = 0.1 * err
+        bad_idx = np.where(np.abs(r) > threshold)[0]
+        good_mask = np.abs(r) <= threshold
+
+        # --- print summary ---
         print()
         print("-" * 40)
         print("Linear Fit Summary")
@@ -121,8 +126,24 @@ class LinearSystem:
         print(f"Error          : {err:.3e}")
         print(f"Relative Error : {rel:.3e}")
         print(f"Quality        : {quality}")
+        print(f"Bad points     : {len(bad_idx)} / {len(r)}")
         print("-" * 40)
+
+        if quality == "BAD":
+            print("\nLarge residuals:")
+            print("-" * 40)
+            for i in bad_idx:
+                print(f"{i:4d} : {r[i]: .5e}  ***")
+            print("-" * 40)
+
         print()
+
+        # --- RETURN STRUCTURED INFO ---
+        return {
+            "quality": quality,
+            "bad_idx": bad_idx,
+            "good_mask": good_mask,
+        }
 
 
 @dataclass
