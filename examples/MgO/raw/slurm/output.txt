@@ -1,0 +1,40 @@
+                                  
+================================= 
+Global information about the job: 
+================================= 
+  
+Job owner: elsto(84651)
+Job name:  MgO-BEC
+Node list: vipc[2562,2565,2575-2576]
+Job start: Fri Jun 12 18:41:26 CEST 2026
+Job end:   Fri Jun 12 18:45:44 CEST 2026
+Work dir:  /viper/ptmp/elsto/works/ScaLAPACK-BEC/MgO/./
+Command:   /viper/ptmp1/elsto/works/ScaLAPACK-BEC/MgO/main.sh
+  
+  
+  
+==========================================================================================
+Information on jobsteps (Note: MaxRSS/AveRSS is the maximum/average over all 
+tasks of the per-task memory high-water marks; cf. "man sacct"): 
+==========================================================================================
+  
+JobID            JobName NNodes NTasks  NCPUS       MaxRSS       AveRSS    Elapsed ExitCode
+------------- ---------- ------ ------ ------ ------------ ------------ ---------- --------
+9806075          MgO-BEC      4          1024                             00:04:18      0:0
+9806075.0     aims.26052      4    512   1024      191.70M      177.04M   00:00:20      0:0
+9806075.1     aims.26052      4    512   1024      191.43M      176.80M   00:00:19      0:0
+9806075.2     aims.26052      4    512   1024      191.65M      177.08M   00:00:19      0:0
+9806075.3     aims.26052      4    512   1024      187.38M      177.57M   00:00:19      0:0
+9806075.4     aims.26052      4    512   1024      189.17M      177.58M   00:00:19      0:0
+9806075.5     aims.26052      4    512   1024      192.05M      177.74M   00:00:18      0:0
+9806075.6     aims.26052      4    512   1024      190.02M      176.75M   00:00:19      0:0
+9806075.7     aims.26052      4    512   1024      189.16M      176.76M   00:00:21      0:0
+9806075.8     aims.26052      4    512   1024      190.21M      176.73M   00:00:20      0:0
+9806075.9     aims.26052      4    512   1024      190.27M      177.57M   00:00:20      0:0
+9806075.10    aims.26052      4    512   1024      189.94M      177.44M   00:00:20      0:0
+9806075.11    aims.26052      4    512   1024      191.07M      177.48M   00:00:20      0:0
+9806075.12    aims.26052      4    512   1024      187.48M      176.83M   00:00:21      0:0
+  
+Maximum memory per node: 25.776357 GB (defined as MaxRSS*Ntasks/NNodes)
+CPU utilization: 34.9 %
+  
