@@ -1,11 +1,16 @@
 import argparse
+from pathlib import Path
 from typing import List
 
 import numpy as np
 from ase import Atoms
+from ase.io.formats import ioformats
 
 from fd2bec.cli import cli
 from fd2bec.io import read, write
+
+writable_formats = sorted(name for name, fmt in ioformats.items() if fmt.can_write)
+
 
 description = "Apply the displacements to an atomic structure."
 
@@ -31,12 +36,23 @@ def prepare_args(descr):
         help="path to cartesian displacements (e.g. displacement.txt)",
     )
     parser.add_argument(
+        "-f",
+        "--format",
+        **argv,
+        type=str,
+        required=False,
+        help="ASE output format (default: %(default)s)",
+        default="aims",
+        choices=writable_formats,
+    )
+    parser.add_argument(
         "-o",
         "--output",
         **argv,
         type=str,
-        required=True,
-        help="path to output displaced structure (e.g. supercell-displaced.extxyz)",
+        required=False,
+        help="folder that will contain all geometries (default: %(default)s)",
+        default="geometries",
     )
     return parser
 
@@ -76,8 +92,27 @@ def main(args):
 
     displaced_structures = displacements2atoms(atoms, displacements)
 
-    print(f"Writing displaced structures to {args.output} ... ", end="")
-    write(args.output, displaced_structures)
+    output_dir = Path(args.output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    print(
+        f"Writing {len(displaced_structures)} displaced structures "
+        f"to {output_dir} in {args.format} format ...",
+        end="",
+    )
+
+    for i, atoms in enumerate(displaced_structures):
+        if args.format == "aims":
+            filename = output_dir / f"geometry.n={i}.in"
+        else:
+            filename = output_dir / f"structure.n={i}.{args.format}"
+
+        write(
+            str(filename),
+            atoms,
+            format=args.format,
+        )
+
     print("done")
 
 

@@ -6,6 +6,10 @@ from fd2bec import BEC_NORM_THRESHOLD
 from fd2bec.atomic import AtomicStructure
 
 
+def matrix_norm(matrix: np.ndarray):
+    return np.linalg.norm(matrix, "fro") / np.sqrt(matrix.shape[0])
+
+
 def print_born_charges(reference: AtomicStructure, bec: np.ndarray):
     """
     Pretty-print Born effective charges and optionally warn about large norms.
@@ -18,7 +22,7 @@ def print_born_charges(reference: AtomicStructure, bec: np.ndarray):
         pos = reference.positions[n]
 
         zstar = bec[n]
-        norm = np.linalg.norm(zstar)
+        norm = matrix_norm(bec[n])
 
         # --- atom header ---
         print(f"Atom {n:3d}, species {symbol}")

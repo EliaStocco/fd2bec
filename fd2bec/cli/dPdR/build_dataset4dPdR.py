@@ -11,6 +11,7 @@ import numpy as np
 from ase import Atoms
 
 from fd2bec.cli import KEYWORDS, cli, extract_n
+from fd2bec.geometry import cart2frac, frac2cart
 from fd2bec.io import read, write
 
 # ============================================================
@@ -26,7 +27,7 @@ FORMAT_REGISTRY = {
             r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+"
             r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
         ),
-        "factor": 6.241509e-3,
+        "factor": 0.06241517271464743,
         # FHI-aims can be pretty verbose when computing the polarization.
         # Here we can provide some pattern to discard.
         "drop_patterns": ["Berry phase for band", "TT:", "- k ="],
@@ -196,6 +197,10 @@ def prepare_args(descr):
 @cli(prepare_args, description)
 def main(args):
 
+    # ==============================
+    # Read files
+    # ==============================
+
     fmt = load_format(args.format)
     regex = re.compile(fmt["regex"])
     factor = fmt["factor"]
@@ -243,40 +248,99 @@ def main(args):
             print(e)
 
     print("n. read files:", len(structures))
-    print("List of all read files:")
+    print("\nList of all read files:")
     for i, f in enumerate(filenames):
-        print(f"- {i}) {f}")
+        print(f" - {i:3d}) {f}")
 
-    pbc = [a.get_pbc() for a in structures]
-    if not all(all(p) for p in pbc):
+    # ==============================
+    # periodic boundary conditions
+    # ==============================
+    pbc_list = [tuple(a.get_pbc()) for a in structures]
+
+    # --- enforce PBC consistency ---
+    if len(set(pbc_list)) != 1:
+        raise ValueError(f"Inconsistent PBCs across structures: {pbc_list}")
+
+    pbc = pbc_list[0]
+    is_periodic = all(pbc)
+
+    # ==============================
+    # polarization
+    # ==============================
+    # --- dtype logic check ---
+    if dtype == "polarization" and not is_periodic:
         raise ValueError(
-            "Not all structures are fully periodic (PBC must be True in all directions)."
+            "dtype='polarization' requires periodic structures (PBC = True, True, True)."
         )
 
-    volumes = [a.get_volume() for a in structures]
-    v0 = volumes[0]
-    if not all(np.isclose(v, v0) for v in volumes):
-        raise ValueError("Structures do not have the same volume.")
-
-    print(f"List of read '{dtype}':")
-    vectors = np.asarray(vectors)
-    for n, v in enumerate(vectors):
-        print(f" - {n}) ", v.tolist())
-    print()
-
+    # --- volume handling ---
     if dtype == "polarization":
-        print("Using the following conversion factor to e/ang^2: ", factor)
-        vectors *= factor
-        print(f"Converting polarization to dipole using volume {v0} ang^3")
-        dipoles = vectors * v0
-    else:
-        print("Using the following conversion factor to e*ang: ", factor)
-        dipoles = vectors * factor
+        volumes = np.array([a.get_volume() for a in structures])
+        v0 = volumes[0]
+
+        if not np.allclose(volumes, v0):
+            raise ValueError("Structures do not have the same volume.")
+
+        cells = np.array([a.cell.array for a in structures])
+        cell0 = cells[0]
+        if not np.allclose(cells, cell0):
+            raise ValueError("Structures do not have the same cell.")
+
+    vectors = np.asarray(vectors)
+
+    print(f"\nList of read '{dtype}':")
+    for n, v in enumerate(vectors):
+        formatted = [f"{x: 12.6e}" for x in v.tolist()]
+        print(f" - {n:3d}) [{', '.join(formatted)}]")
     print()
 
-    print("Final dipoles :")
+    # ==============================
+    # conversion
+    # ==============================
+    if dtype == "polarization":
+        print("Using the following conversion factor to e/ang^2:", factor)
+        vectors = vectors * factor
+        print(f"Converting polarization to dipole using volume {v0} Å^3")
+        dipoles = np.asarray(vectors * v0)
+    else:
+        print("Using the following conversion factor to e·Å:", factor)
+        dipoles = np.asarray(vectors * factor)
+
+    print()
+
+    # ==============================
+    # wrap
+    # ==============================
+    if dtype == "polarization":
+        print("Wrapping dipoles on the same branch:")
+        old_dipoles = dipoles.copy()
+        cell = structures[0].get_cell()
+        quanta = cart2frac(cell=cell, v=old_dipoles)
+        new_quanta = np.unwrap(quanta, axis=0, period=1)
+        dipoles = frac2cart(cell=cell, v=new_quanta)
+        all_jumps = new_quanta - quanta
+
+        # ==============================
+        # final
+        # ==============================
+        N = len(dipoles)
+        for n in range(N):
+            old = [f"{x: 12.6e}" for x in old_dipoles[n].tolist()]
+            new = [f"{x: 12.6e}" for x in dipoles[n].tolist()]
+            jump = [f"{int(x): 3d}" for x in all_jumps[n].tolist()]
+
+            print(
+                f" - {n:3d}) [{', '.join(old)}] --> [{', '.join(new)}] | jump of [{', '.join(jump)}]"
+            )
+        print()
+
+    # ==============================
+    # final
+    # ==============================
+    print("Final dipoles:")
     for n, v in enumerate(dipoles):
-        print(f" - {n}) ", v.tolist())
+        formatted = [f"{x: 12.6e}" for x in v.tolist()]
+        print(f" - {n:3d}) [{', '.join(formatted)}]")
     print()
 
     key = KEYWORDS["dipole"]

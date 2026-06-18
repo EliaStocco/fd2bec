@@ -7,6 +7,7 @@ from fd2bec import float_format
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import cli
 from fd2bec.io import read
+from fd2bec.tensor import Tensor
 
 description = "Generate all symmetry inequivalent cartesian displacements."
 
@@ -21,34 +22,46 @@ def prepare_args(descr):
         **argv,
         type=str,
         required=True,
-        help="path to input structure (e.g. supercell.extxyz)",
+        help="path to input structure",
     )
     parser.add_argument(
         "-a",
         "--amplitude",
         **argv,
         type=float,
-        required=True,
-        help="amplitude of the displacement",
+        required=False,
+        help="amplitude of the displacement (default: %(default)s)",
+        default=1e-3,
+    )
+    parser.add_argument(
+        "-w",
+        "--what",
+        **argv,
+        type=str,
+        required=False,
+        help="target quantity (default: %(default)s)",
+        default="bec",
+        choices=["bec"],
     )
     parser.add_argument(
         "-o",
         "--output",
         **argv,
         type=str,
-        required=True,
-        help="path to txt output file with cartesian displacements (e.g. displacement.txt)",
+        required=False,
+        help="path to txt output file with cartesian displacements (default: %(default)s)",
+        default="displacements.txt",
     )
     return parser
 
 
 def atomic_structure2unique_displacements(
-    unit_cell: AtomicStructure, amplitude: float, use_delta_dipole: bool = False
+    unit_cell: AtomicStructure, tensor: Tensor
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Generate all symmetry inequivalent cartesian displacements
     for the given unit cell and amplitude."""
 
-    _, theta, theta_real = unit_cell.get_symmetrizer(rank=2, atomic=True, affine=False)
+    _, theta, theta_real = unit_cell.get_symmetrizer(tensor=tensor)
 
     theta_real = theta_real.reshape((-1, len(unit_cell), 3, 3))
 
@@ -57,12 +70,10 @@ def atomic_structure2unique_displacements(
         displacements[n] = np.sum(t != 0, axis=2).flatten()
 
     displacements: np.ndarray = displacements / np.linalg.norm(displacements, axis=1)[:, None]
-    displacements = amplitude * displacements.reshape((len(theta), len(unit_cell), 3))
 
-    displacements = unit_cell.to_cartesian(displacements, rank=1).reshape((len(theta), -1))
-
-    if not use_delta_dipole:
-        displacements = np.concatenate([np.zeros((1, 3 * len(unit_cell))), displacements], axis=0)
+    displacements = np.concatenate(
+        [np.zeros((1, 3 * len(unit_cell))), displacements, -displacements.copy()], axis=0
+    )
 
     u = np.unique(displacements, axis=0)
 
@@ -77,8 +88,18 @@ def main(args):
     print("done")
 
     unit_cell = AtomicStructure.from_ase(atoms)
+    Na = len(unit_cell)
 
-    u, d = atomic_structure2unique_displacements(unit_cell, args.amplitude)
+    if args.what == "bec":
+        print("Constructing Born Effective Charges ... ", end="")
+        from fd2bec.tensor import BornCharges
+
+        data = np.zeros((Na, 3, 3))
+        x = BornCharges(data=data)
+        print("done")
+
+    u, d = atomic_structure2unique_displacements(unit_cell, tensor=x)
+    u *= args.amplitude
 
     print(
         f"Found {u.shape[0]} symmetry inequivalent displacements out "

@@ -1,14 +1,15 @@
 import argparse
 from pathlib import Path
 from typing import List
+from warnings import warn
 
 import numpy as np
 from ase import Atoms
 
-from fd2bec import ATOL, SYMPREC, float_format
+from fd2bec import ATOL, float_format
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import KEYWORDS, cli
-from fd2bec.cli.tools import print_born_charges
+from fd2bec.cli import KEYWORDS, cli, str2bool
+from fd2bec.cli.tools import matrix_norm, print_born_charges
 from fd2bec.io import read
 from fd2bec.linear_system import LinearSystem
 from fd2bec.tensor import BornCharges
@@ -29,22 +30,12 @@ def prepare_args(descr):
         help="path to extxyz file with all structures produced by 'build_dataset4dPdR.py' (e.g. structures.extxyz)",
     )
     parser.add_argument(
-        "-sp",
-        "--symprec",
-        **argv,
-        type=float,
+        "-r",
+        "--retry",
+        type=str2bool,
         required=False,
-        help="symmetry precision for spglib (default: %(default)s)",
-        default=SYMPREC,
-    )
-    parser.add_argument(
-        "-s",
-        "--symmetrize",
-        type=str,
-        required=False,
-        help="symmetrize forces, bec, both, or none (default: %(default)s)",
-        default="none",
-        choices=["bec", "none"],
+        help="retry linear fit without bad data (default: %(default)s)",
+        default=True,
     )
     parser.add_argument(
         "-o",
@@ -134,7 +125,23 @@ def main(args):
     ls.solve()
     print("done")
 
-    ls.summary()
+    info = ls.summary()
+
+    if info["quality"] == "BAD" and args.retry:
+        print("Removing bad data and retrying to solve the linear system")
+        mask = info["good_mask"]
+        A = A[mask, :]
+        b = b[mask]
+
+        print("Preparing linear system ... ", end="")
+        ls = LinearSystem(A=A, b=b)
+        print("done")
+
+        print("Solving linear systems  ... ", end="")
+        ls.solve()
+        print("done")
+
+        ls.summary()
 
     print("Extracting Born Charges  ... ", end="")
     bec = S @ ls.x[:n_unknown]
@@ -146,6 +153,13 @@ def main(args):
     folder = Path(args.output)
     folder.mkdir(parents=True, exist_ok=True)
 
+    print("Checking Acoustic Sum Rule:")
+    asr = np.asarray(bec.mean(axis=0))
+    norm = matrix_norm(asr)
+    print(f"||sum_I Z*_I|| = {norm:10.5f} | this value should be almost zero")
+    if norm > ATOL:
+        warn(f"Acoustic Sum Rule is not satisfied: {norm:.5e} > {ATOL:.1e}")
+
     file = folder / "bec-no-asr.txt"
     print(f"Writing Born Charges to {file} ... ", end="")
     np.savetxt(file, bec.reshape((Na, 9)), fmt=float_format)
@@ -153,7 +167,6 @@ def main(args):
 
     file = folder / "asr.txt"
     print(f"Writing sum of all Born Charges to {file} ... ", end="")
-    asr = bec.mean(axis=0)
     np.savetxt(file, asr, fmt=float_format)
     print("done")
 

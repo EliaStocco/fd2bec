@@ -86,7 +86,7 @@ def cli(prepare_parser=None, description=None):
             print()
             print("@-------------------------------------------")
             if description:
-                print("@ Description: ", end="")
+                print("@ Description: ")
                 print(description)
 
             print("@ Running: ", end="")
