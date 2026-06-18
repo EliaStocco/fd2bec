@@ -14,6 +14,23 @@ pip install -e .               # only editable mode is fully tested so far
 
 For developers we really recommend using `python>=3.11`.
 
+# Computing Born Effective Charges with FHI-aims
+Let's suppose that you want to compute the Born Effective Charges for a periodic structure stored in `start.extxyz`. 
+Let's also suppose that you already have a `control.in` and a submission script `submit.sh`.
+To compute the Born Effective Charges using FHI-aims please follow these instructions:
+```bash
+# Let's start!
+prepare_aims -i start.extxyz
+# Read the output message of 'prepare_aims'
+# and modify 'submit.sh' and 'control.in' accordingly
+sbatch submit.sh # let's wait ...
+post_process_aims -i start.extxyz
+# The Born Effective Charges will be in 'bec.txt'.
+# Nicely done!
+```
+
+Please do not save your structure in `geometry.in` because this file will be overwritten!
+
 # Testing
 We would recommend running tests using
 ```bash
