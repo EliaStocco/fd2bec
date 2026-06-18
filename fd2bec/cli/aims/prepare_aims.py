@@ -26,14 +26,6 @@ def suggest_kgrid(input_file: str, k_density: float = 5.0):
     return tuple(kgrid)
 
 
-def run_script(script_name: str, input_file: str):
-    """
-    Example wrapper for external scripts.
-    """
-    cmd = [script_name, input_file]
-    subprocess.run(cmd, check=True)
-
-
 def prepare_args(descr):
 
     parser = argparse.ArgumentParser(description=descr)
@@ -89,6 +81,13 @@ def main(args):
     print(f"output polarization 1 {10 * kx} {ky} {kz}")
     print(f"output polarization 2 {kx} {10 * ky} {kz}")
     print(f"output polarization 3 {kx} {ky} {10 * kz}")
+
+    print("\nPlease add the following lines in your submission script:")
+    print("export AIMS=/path/to/your/aims/executable")
+    print("source sourceme.sh")
+
+    print("\nYou need to provide a control.in in this folder")
+    print("and remember to add 'output polarization' as suggested above.")
 
 
 if __name__ == "__main__":

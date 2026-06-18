@@ -48,4 +48,3 @@ for n in {0..NNN}; do
         run_aims
     fi
 done
-
