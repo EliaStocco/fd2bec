@@ -393,7 +393,7 @@ class AtomicStructure:
                 a = self.frac_pos_dict[s]
                 b = other.frac_pos_dict[s]
 
-            local_map, ok, dists = find_mapping(a, b, atol=atol * len(a), pbc=self.pbc)
+            local_map, ok, dists = find_mapping(a, b, atol=atol, pbc=self.pbc)
             if not ok:
                 raise ValueError(
                     f"Mapping failed for species {s}."
@@ -410,6 +410,53 @@ class AtomicStructure:
         #     pass
 
         return mapping
+
+    def get_atoms_mapping(self, other: "AtomicStructure", atol=ATOL) -> np.ndarray:
+        """Return the correspondence from ``other`` atom indices to this structure.
+
+        ``mapping[i]`` is the index of the atom in ``self`` that corresponds to
+        atom ``i`` in ``other``.  Atoms are matched only to atoms of the same
+        chemical species.  For periodic structures, positions are compared in
+        fractional coordinates using the minimum-image convention; for
+        molecules, Cartesian coordinates are used.
+
+        Parameters
+        ----------
+        other
+            Structure whose atom indices should be mapped onto this structure.
+        atol
+            Maximum allowed positional difference.  Its unit is fractional
+            coordinates for periodic structures and Angstrom for molecules.
+
+        Raises
+        ------
+        ValueError
+            If the structures cannot be matched one-to-one within ``atol``.
+        """
+        if len(self) != len(other):
+            raise ValueError(
+                "Structures have different numbers of atoms: "
+                f"{len(self)} and {len(other)}."
+            )
+        if self.pbc != other.pbc:
+            raise ValueError("Cannot match periodic and non-periodic structures.")
+        if sorted(self.symbols) != sorted(other.symbols):
+            raise ValueError("Structures have different chemical compositions.")
+        return self._get_atoms_mapping(other, atol=atol)
+
+    def reordered_like(self, reference: "AtomicStructure", atol=ATOL) -> "AtomicStructure":
+        """Return this structure with atom order matched to ``reference``.
+
+        The returned structure contains this structure's symbols and positions,
+        but its atom at index ``i`` corresponds to atom ``i`` in ``reference``.
+        """
+        # mapping[candidate_index] = reference_index; invert it to select the
+        # candidate atom that belongs at every reference index.
+        order = np.argsort(reference.get_atoms_mapping(self, atol=atol))
+        return self.clone(
+            symbols=[self.symbols[index] for index in order],
+            positions=self.positions[order].copy(),
+        )
 
     def __get_all_atoms_mapping(self) -> np.ndarray:
         R, T = self.get_symmetry_operations(basis="cartesian")
