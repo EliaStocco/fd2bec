@@ -9,7 +9,6 @@ from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import cli
 from fd2bec.io import read, write
 
-
 description = "Reorder a structure so its atom order matches a reference structure."
 DEFAULT_ATOL = 1e-2
 

@@ -435,8 +435,7 @@ class AtomicStructure:
         """
         if len(self) != len(other):
             raise ValueError(
-                "Structures have different numbers of atoms: "
-                f"{len(self)} and {len(other)}."
+                f"Structures have different numbers of atoms: {len(self)} and {len(other)}."
             )
         if self.pbc != other.pbc:
             raise ValueError("Cannot match periodic and non-periodic structures.")
