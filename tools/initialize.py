@@ -2,6 +2,7 @@ from collections import defaultdict
 from pathlib import Path
 
 CLI_ROOT = Path("fd2bec/cli")
+COMMAND_NAMES = {Path("fd2bec_help.py"): "fd2bec-help"}
 
 
 def main():
@@ -18,7 +19,7 @@ def main():
         folder = rel.parts[0] if len(rel.parts) > 1 else "root"
 
         module = ".".join(py.with_suffix("").parts)
-        name = py.stem
+        name = COMMAND_NAMES.get(rel, py.stem)
 
         groups[folder].append(f'{name} = "{module}:main"')
 

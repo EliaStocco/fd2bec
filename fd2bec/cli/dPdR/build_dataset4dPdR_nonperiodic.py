@@ -19,7 +19,6 @@ from fd2bec.cli.dPdR.build_dataset4dPdR import (
 )
 from fd2bec.io import read, write
 
-
 description = (
     "Build a dataset of total dipoles and Cartesian displacements for "
     "non-periodic structures.\n"
@@ -35,12 +34,8 @@ def prepare_args(descr):
         description=descr, formatter_class=argparse.RawTextHelpFormatter
     )
     argv = {"metavar": "\b"}
-    parser.add_argument(
-        "-i", "--input", **argv, required=True, help="output-file list or folder"
-    )
-    parser.add_argument(
-        "-r", "--reference", **argv, required=True, help="reference structure"
-    )
+    parser.add_argument("-i", "--input", **argv, required=True, help="output-file list or folder")
+    parser.add_argument("-r", "--reference", **argv, required=True, help="reference structure")
     parser.add_argument(
         "-f",
         "--format",
@@ -132,9 +127,7 @@ def main(args):
     reference_positions = reference.get_positions()
     for atoms, dipole in zip(structures, dipoles):
         atoms.info[KEYWORDS["dipole"]] = dipole
-        atoms.arrays[KEYWORDS["displacements"]] = (
-            atoms.get_positions() - reference_positions
-        )
+        atoms.arrays[KEYWORDS["displacements"]] = atoms.get_positions() - reference_positions
 
     print(f"Saving non-periodic dataset to file '{args.output}'")
     write(args.output, structures)

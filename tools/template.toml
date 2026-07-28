@@ -52,8 +52,8 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.package-data]
 fd2bec = ["structures/*.extxyz", "*.mplstyle"]
 
-[tool.setuptools]
-packages = ["fd2bec"]  # only include fd2bec
+[tool.setuptools.packages.find]
+include = ["fd2bec*"]
 
 [tool.ruff]
 line-length = 100

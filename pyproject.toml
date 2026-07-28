@@ -52,8 +52,8 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.package-data]
 fd2bec = ["structures/*.extxyz", "*.mplstyle"]
 
-[tool.setuptools]
-packages = ["fd2bec"]  # only include fd2bec
+[tool.setuptools.packages.find]
+include = ["fd2bec*"]
 
 [tool.ruff]
 line-length = 100
@@ -104,6 +104,7 @@ sort_structure = "fd2bec.cli.general.sort_structure:main"
 generate_supercell = "fd2bec.cli.periodic.generate_supercell:main"
 
 # --- root ---
+fd2bec-help = "fd2bec.cli.fd2bec_help:main"
 tools = "fd2bec.cli.tools:main"
 
 [tool.pylint.main]
@@ -664,4 +665,5 @@ ignored-argument-names = "_.*|^ignored_|^unused_"
 # List of qualified module names which can have objects that can redefine
 # builtins.
 redefining-builtins-modules = ["six.moves", "past.builtins", "future.builtins", "builtins", "io"]
+
 
