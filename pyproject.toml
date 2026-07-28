@@ -81,6 +81,7 @@ dFdE2bec = "fd2bec.cli.dFdE.dFdE2bec:main"
 
 # --- dPdR ---
 build_dataset4dPdR = "fd2bec.cli.dPdR.build_dataset4dPdR:main"
+build_dataset4dPdR_nonperiodic = "fd2bec.cli.dPdR.build_dataset4dPdR_nonperiodic:main"
 dPdR2bec = "fd2bec.cli.dPdR.dPdR2bec:main"
 
 # --- displacements ---
@@ -663,5 +664,4 @@ ignored-argument-names = "_.*|^ignored_|^unused_"
 # List of qualified module names which can have objects that can redefine
 # builtins.
 redefining-builtins-modules = ["six.moves", "past.builtins", "future.builtins", "builtins", "io"]
-
 
