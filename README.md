@@ -14,6 +14,24 @@ pip install -e .               # only editable mode is fully tested so far
 
 For developers we really recommend using `python>=3.11`.
 
+# Finding command-line scripts
+
+After installation, `fd2bec-help` lists the package's command-line tools by
+workflow. Use `-f` to select a workflow and `-d` to show descriptions:
+
+```console
+$ fd2bec-help -f aims -d
+
+    Looking for scripts in '.../fd2bec/cli'
+
+    aims:
+     - post_process_aims.py: Post process calculations from FHI-aims.
+     - prepare_aims.py     : Prepare calculations for FHI-aims.
+```
+
+Run a listed script without the `.py` suffix, for example `prepare_aims --help`.
+Use `fd2bec-help --help` to see all available filters.
+
 # Computing Born Effective Charges with FHI-aims
 Let's suppose that you want to compute the Born Effective Charges for a periodic structure stored in `start.extxyz`. 
 Let's also suppose that you already have a `control.in` and a submission script `submit.sh`.
