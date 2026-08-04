@@ -32,6 +32,10 @@ dev = [
     "pytest",
     "pytest-cov",
 ]
+mace-polar = [
+    "mace-torch>=0.3.16",
+    "graph-longrange @ git+https://github.com/WillBaldwin0/graph_electrostatics.git@v0.4.0",
+]
 
 # dev-mp = [
 #     "pylint",
@@ -99,6 +103,9 @@ prepare_linear_system = "fd2bec.cli.general.prepare_linear_system:main"
 solution2bec_txt = "fd2bec.cli.general.solution2bec_txt:main"
 solve_linear_system = "fd2bec.cli.general.solve_linear_system:main"
 sort_structure = "fd2bec.cli.general.sort_structure:main"
+
+# --- ml ---
+mace_polar_dPdR = "fd2bec.cli.ml.mace_polar_dPdR:main"
 
 # --- periodic ---
 generate_supercell = "fd2bec.cli.periodic.generate_supercell:main"

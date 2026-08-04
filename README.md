@@ -49,6 +49,23 @@ post_process_aims -i start.extxyz
 
 Please do not save your structure in `geometry.in` because this file will be overwritten!
 
+# Computing effective charges with MACE-POLAR
+
+For an isolated structure, `mace_polar_dPdR` predicts total dipoles for all
+positive and negative Cartesian displacements and writes a dataset that can be
+used by the existing `dPdR2bec` command:
+
+```bash
+pip install -e ".[mace-polar]"
+mace_polar_dPdR -i molecule.xyz -m polar-1-m -o dataset.extxyz
+dPdR2bec -i dataset.extxyz -o results
+```
+
+The Born effective charges are written to `results/bec.txt`. MACE-POLAR's total
+dipole is only meaningful for isolated structures, so this workflow rejects
+periodic inputs. See `fd2bec/cli/ml/README.md` for model, charge, spin, and
+licensing details.
+
 # Testing
 We would recommend running tests using
 ```bash
