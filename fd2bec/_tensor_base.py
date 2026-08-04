@@ -1,8 +1,10 @@
 from dataclasses import dataclass, field, replace
 from typing import List, Tuple
 from warnings import warn
-from fd2bec import Basis
+
 import numpy as np
+
+from fd2bec import Basis
 
 
 @dataclass
@@ -19,10 +21,12 @@ class Tensor:
         - fractional (lattice coordinates)
     """
 
-    axes: List[bool] # ToDo: it would be better to change the name of this attribute
+    axes: List[bool]  # ToDo: it would be better to change the name of this attribute
     data: np.ndarray = field(default=None)
     cell: np.ndarray = field(default=None)
-    is_atomic: bool = field(default=None) # ToDo: a tensor might have more than one axis which is 'atomic'(e.g. force constant matrix)
+    is_atomic: bool = field(
+        default=None
+    )  # ToDo: a tensor might have more than one axis which is 'atomic'(e.g. force constant matrix)
     is_affine: bool = field(default=False)
     # shape: Tuple[int] = field(init=False)
     basis: Basis = field(default="cartesian")
@@ -31,26 +35,26 @@ class Tensor:
         if self.data is not None:
             tot_rank = sum(self.rank)
             shapes = np.asarray(self.data.shape[-tot_rank:])
-            if not np.allclose(shapes,3):
+            if not np.allclose(shapes, 3):
                 raise ValueError("Wrong shape.")
         if self.is_affine and self.rank != (1, 0):
             raise ValueError("Affine tensors can only be of rank-(1,0) (positions).")
-    
+
     @property
     def shape(self):
         return self.data.shape
-    
+
     @classmethod
-    def template(cls,natoms:int=None) -> "Tensor":
+    def template(cls, natoms: int = None) -> "Tensor":
         empty = cls()
         tot_rank = sum(empty.rank)
-        data = np.full((3,)*tot_rank,np.nan)
+        data = np.full((3,) * tot_rank, np.nan)
         if empty.is_atomic:
-            data = np.asarray([ data.copy() for _ in range(natoms) ])
+            data = np.asarray([data.copy() for _ in range(natoms)])
         elif natoms is not None:
             warn(f"You provided 'natoms' = {natoms} for a tensor which is not atomic.")
         return cls(data=data)
-    
+
     @property
     def rank(self) -> Tuple[int, int]:
         return axes_to_pq(self.axes)

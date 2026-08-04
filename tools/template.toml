@@ -33,17 +33,17 @@ dev = [
     "pytest-cov",
 ]
 
-dev-mp = [
-    "pylint",
-    "pre-commit",
-    "ruff",
-    "isort",
-    "black==24.8.0",
-    "pytest",
-    "pytest-cov",
-    "mp-api",
-    "python_requires>=3.11; python_version < '3.11'"
-]
+# dev-mp = [
+#     "pylint",
+#     "pre-commit",
+#     "ruff",
+#     "isort",
+#     "black==24.8.0",
+#     "pytest",
+#     "pytest-cov",
+#     "mp-api",
+#     "python_requires>=3.11; python_version < '3.11'"
+# ]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
@@ -52,15 +52,16 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.package-data]
 fd2bec = ["structures/*.extxyz", "*.mplstyle"]
 
-[tool.setuptools]
-packages = ["fd2bec"]  # only include fd2bec
+[tool.setuptools.packages.find]
+include = ["fd2bec*"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]  # errors, flakes, imports
+select = ["E", "F", "I"]
+ignore = ["E741","E501"]  # only this one
 
 [tool.black]
 line-length = 100

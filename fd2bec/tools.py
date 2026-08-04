@@ -62,3 +62,12 @@ def atoms2bec(atoms: Atoms, keyword: str) -> np.ndarray:
     bec[:, :, 1] = ref_becy
     bec[:, :, 2] = ref_becz
     return bec  # .reshape((len(atoms), 3, 3))
+
+
+def symmetrize_bec(structure: Atoms, bec: np.ndarray) -> np.ndarray:
+    from fd2bec.atomic import AtomicStructure
+    from fd2bec.tensor import BornCharges
+
+    tensor = BornCharges(data=bec)
+    atomic_structure = AtomicStructure.from_ase(structure)
+    return atomic_structure.symmetrize(tensor=tensor).data

@@ -1,0 +1,180 @@
+
+@-------------------------------------------
+@ Description:
+Build dataset to compute Born Effective Charges as derivative of polarization/dipole w.r.t. nuclear displacements.
+The script reads either polarization or dipole from DFT output files.
+
+Input parsing is controlled via '--format'. This can be:
+  (1) a predefined format key
+  (2) a JSON file defining a custom format
+
+Each format defines:
+  - type: polarization or dipole
+  - regex: extraction pattern
+  - factor: unit conversion factor
+  - drop_patterns: optional lines to ignore
+
+Available formats:
+aims_polarization, aims_dipole
+
+@ Running: /home/stoccoel/.pyenv/versions/fd2bec/bin/build_dataset4dPdR -i raw/results -r raw/start.extxyz -f aims_polarization -o dataset.extxyz
+@ Let's start!
+
+	Reading input structures from 'raw/start.extxyz'
+	n. atoms:  2
+	Reading input structures from 'raw/results'
+	 - reading file 'raw/results/aims.n=0.out'
+	 - reading file 'raw/results/aims.n=1.out'
+	 - reading file 'raw/results/aims.n=2.out'
+	 - reading file 'raw/results/aims.n=3.out'
+	 - reading file 'raw/results/aims.n=4.out'
+	 - reading file 'raw/results/aims.n=5.out'
+	 - reading file 'raw/results/aims.n=6.out'
+	 - reading file 'raw/results/aims.n=7.out'
+	 - reading file 'raw/results/aims.n=8.out'
+	 - reading file 'raw/results/aims.n=9.out'
+	 - reading file 'raw/results/aims.n=10.out'
+	 - reading file 'raw/results/aims.n=11.out'
+	 - reading file 'raw/results/aims.n=12.out'
+	n. read files: 13
+
+	List of all read files:
+	 -   0) raw/results/aims.n=0.out
+	 -   1) raw/results/aims.n=1.out
+	 -   2) raw/results/aims.n=2.out
+	 -   3) raw/results/aims.n=3.out
+	 -   4) raw/results/aims.n=4.out
+	 -   5) raw/results/aims.n=5.out
+	 -   6) raw/results/aims.n=6.out
+	 -   7) raw/results/aims.n=7.out
+	 -   8) raw/results/aims.n=8.out
+	 -   9) raw/results/aims.n=9.out
+	 -  10) raw/results/aims.n=10.out
+	 -  11) raw/results/aims.n=11.out
+	 -  12) raw/results/aims.n=12.out
+
+	List of read 'polarization':
+	 -   0) [ 1.698893e-03,  3.396857e-06,  3.396857e-06]
+	 -   1) [ 3.396857e-06,  1.698893e-03,  3.396857e-06]
+	 -   2) [ 3.396857e-06,  3.396857e-06,  1.698893e-03]
+	 -   3) [-1.698885e-03, -3.388358e-06, -3.388358e-06]
+	 -   4) [-3.388358e-06, -1.698885e-03, -3.388358e-06]
+	 -   5) [-3.388358e-06, -3.388358e-06, -1.698885e-03]
+	 -   6) [-1.698885e-03, -3.388358e-06, -3.388358e-06]
+	 -   7) [-3.388358e-06, -1.698885e-03, -3.388358e-06]
+	 -   8) [-3.388358e-06, -3.388358e-06, -1.698885e-03]
+	 -   9) [ 1.698893e-03,  3.396857e-06,  3.396857e-06]
+	 -  10) [ 3.396857e-06,  1.698893e-03,  3.396857e-06]
+	 -  11) [ 3.396857e-06,  3.396857e-06,  1.698893e-03]
+	 -  12) [ 4.249804e-09,  4.249799e-09,  4.249793e-09]
+
+	Using the following conversion factor to e/ang^2: 0.06241517271464743
+	Converting polarization to dipole using volume 18.799408214552262 Å^3
+
+	Wrapping dipoles on the same branch:
+	 -   0) [ 1.993427e-03,  3.985764e-06,  3.985764e-06] --> [ 1.993427e-03,  3.985764e-06,  3.985764e-06] | jump of [  0,   0,   0]
+	 -   1) [ 3.985764e-06,  1.993427e-03,  3.985764e-06] --> [ 3.985764e-06,  1.993427e-03,  3.985764e-06] | jump of [  0,   0,   0]
+	 -   2) [ 3.985764e-06,  3.985764e-06,  1.993427e-03] --> [ 3.985764e-06,  3.985764e-06,  1.993427e-03] | jump of [  0,   0,   0]
+	 -   3) [-1.993418e-03, -3.975792e-06, -3.975792e-06] --> [-1.993418e-03, -3.975792e-06, -3.975792e-06] | jump of [  0,   0,   0]
+	 -   4) [-3.975792e-06, -1.993418e-03, -3.975792e-06] --> [-3.975792e-06, -1.993418e-03, -3.975792e-06] | jump of [  0,   0,   0]
+	 -   5) [-3.975792e-06, -3.975792e-06, -1.993418e-03] --> [-3.975792e-06, -3.975792e-06, -1.993418e-03] | jump of [  0,   0,   0]
+	 -   6) [-1.993418e-03, -3.975792e-06, -3.975792e-06] --> [-1.993418e-03, -3.975792e-06, -3.975792e-06] | jump of [  0,   0,   0]
+	 -   7) [-3.975792e-06, -1.993418e-03, -3.975792e-06] --> [-3.975792e-06, -1.993418e-03, -3.975792e-06] | jump of [  0,   0,   0]
+	 -   8) [-3.975792e-06, -3.975792e-06, -1.993418e-03] --> [-3.975792e-06, -3.975792e-06, -1.993418e-03] | jump of [  0,   0,   0]
+	 -   9) [ 1.993427e-03,  3.985764e-06,  3.985764e-06] --> [ 1.993427e-03,  3.985764e-06,  3.985764e-06] | jump of [  0,   0,   0]
+	 -  10) [ 3.985764e-06,  1.993427e-03,  3.985764e-06] --> [ 3.985764e-06,  1.993427e-03,  3.985764e-06] | jump of [  0,   0,   0]
+	 -  11) [ 3.985764e-06,  3.985764e-06,  1.993427e-03] --> [ 3.985764e-06,  3.985764e-06,  1.993427e-03] | jump of [  0,   0,   0]
+	 -  12) [ 4.986585e-09,  4.986579e-09,  4.986572e-09] --> [ 4.986585e-09,  4.986579e-09,  4.986572e-09] | jump of [  0,   0,   0]
+
+	Final dipoles:
+	 -   0) [ 1.993427e-03,  3.985764e-06,  3.985764e-06]
+	 -   1) [ 3.985764e-06,  1.993427e-03,  3.985764e-06]
+	 -   2) [ 3.985764e-06,  3.985764e-06,  1.993427e-03]
+	 -   3) [-1.993418e-03, -3.975792e-06, -3.975792e-06]
+	 -   4) [-3.975792e-06, -1.993418e-03, -3.975792e-06]
+	 -   5) [-3.975792e-06, -3.975792e-06, -1.993418e-03]
+	 -   6) [-1.993418e-03, -3.975792e-06, -3.975792e-06]
+	 -   7) [-3.975792e-06, -1.993418e-03, -3.975792e-06]
+	 -   8) [-3.975792e-06, -3.975792e-06, -1.993418e-03]
+	 -   9) [ 1.993427e-03,  3.985764e-06,  3.985764e-06]
+	 -  10) [ 3.985764e-06,  1.993427e-03,  3.985764e-06]
+	 -  11) [ 3.985764e-06,  3.985764e-06,  1.993427e-03]
+	 -  12) [ 4.986585e-09,  4.986579e-09,  4.986572e-09]
+
+	Saving dipoles [e*ang] to atomic structures using the keyword 'REF_dipole'
+	Constructing cartesian displacements and saving them using keyword 'displacements'
+	info keys: {'polarization', 'free_energy', 'REF_dipole', 'energy'}
+	arrays keys: {'numbers', 'positions', 'displacements'}
+	Saving dataset to file 'dataset.extxyz'
+
+@ Job done :)
+@ Finished in 5.41s
+-------------------------------------------@
+
+
+@-------------------------------------------
+@ Description:
+Compute the Born Effective Charges as derivative of polarization/dipole w.r.t. nuclear displacements.
+@ Running: /home/stoccoel/.pyenv/versions/fd2bec/bin/dPdR2bec -i dataset.extxyz
+@ Let's start!
+
+	Reading input structures from 'dataset.extxyz' ... done
+	n. structures:  13
+	n. atoms:  2
+	Extracting dipole from 'REF_dipole' ... done
+	dipole.shape:  (13, 3)
+	Extracting displacements from 'displacements' ... done
+	displacements.shape:  (13, 2, 3)
+	Reconstructing reference structure ... done
+	Preparing Born Charges and symmetrization ... done
+
+	Matrix shapes:
+	 - b.shape: (39,)
+	 - A.shape: (39, 18)
+	 - S.shape: (18, 4)
+
+	Matrix shapes with symmetrization:
+	 - b.shape: (39,)
+	 - A.shape: (39, 4)
+
+	Matrix for total dipoles:
+	 - b.shape: (39,)
+	 - A.shape: (39, 7)
+	Preparing linear system ... done
+	Solving linear systems  ... done
+
+	----------------------------------------
+	Linear Fit Summary
+	----------------------------------------
+	Error          : 1.950e-05
+	Relative Error : 2.824e-03
+	Quality        : GOOD
+	----------------------------------------
+
+	Extracting Born Charges  ... done
+
+	Atom   0, species Mg
+	Position: [  0.001000   0.000000   0.000000]
+	||Z*|| =    1.99342
+	Born effective charge tensor (Z*):
+	       1.99342    0.00000   -0.00000
+	       0.00000    1.99342   -0.00000
+	      -0.00000   -0.00000    1.99342
+
+	Atom   1, species O
+	Position: [  2.110432   2.110432   2.110432]
+	||Z*|| =    1.99342
+	Born effective charge tensor (Z*):
+	      -1.99342   -0.00000    0.00000
+	      -0.00000   -1.99342    0.00000
+	       0.00000    0.00000   -1.99342
+
+	Checking Acoustic Sum Rule:
+	||sum_I Z*_I|| =    0.00000 | this value should be almost zero
+	Writing Born Charges to bec-no-asr.txt ... done
+	Writing sum of all Born Charges to asr.txt ... done
+	Writing sum of Born Charges with ASR applied to bec.txt ... done
+
+@ Job done :)
+@ Finished in 0.01s
+-------------------------------------------@

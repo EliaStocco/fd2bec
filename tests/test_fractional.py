@@ -16,7 +16,7 @@ instructions: Dict[str, Tuple[str, type]] = {
     "positions": ("array", Vector),
     "MACE_BEC": ("array", BornCharges),
     "MACE_forces": ("array", Forces),
-    "MACE_dipole": ("info", Dipole),
+    "REF_dipole": ("info", Dipole),
     "MACE_stress": ("info", Stress),
 }
 

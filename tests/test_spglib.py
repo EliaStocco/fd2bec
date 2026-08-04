@@ -83,7 +83,7 @@ def test_structures_spacegroup_positions(structure):
         atol=ATOL
     )
 
-    
+
 
 
 if __name__ == "__main__":

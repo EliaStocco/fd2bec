@@ -14,7 +14,7 @@ instructions: Dict[str, Tuple[str, type]] = {
     "positions": ("array", Position),
     "MACE_BEC": ("array", BornCharges),
     "MACE_forces": ("array", Forces),
-    "MACE_dipole": ("info", Dipole),
+    "REF_dipole": ("info", Dipole),
     "MACE_stress": ("info", Stress),
 }
 
@@ -85,7 +85,7 @@ def test_symmetrizer_periodic(sg_case,basis):
 
 
 
-          
+
 
 
 if __name__ == "__main__":

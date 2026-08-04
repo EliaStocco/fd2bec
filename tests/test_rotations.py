@@ -143,7 +143,7 @@ def test_rotations_tensors(n, method):
     # ------------------------------------------------------------
     # Build tensors
     # ------------------------------------------------------------
-    dipole = Dipole(data=atoms.info["MACE_dipole"], cell=atoms.cell)
+    dipole = Dipole(data=atoms.info["REF_dipole"], cell=atoms.cell)
     forces = Forces(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
     stress = Stress(data=atoms.info["MACE_stress"], cell=atoms.cell)
     bec = BornCharges(data=reconstruct_bec(atoms), cell=atoms.cell)
@@ -194,7 +194,7 @@ def test_rotation_operator(n, method):
     # ------------------------------------------------------------
     # Build tensors
     # ------------------------------------------------------------
-    dipole = Dipole(data=atoms.info["MACE_dipole"], cell=atoms.cell)
+    dipole = Dipole(data=atoms.info["REF_dipole"], cell=atoms.cell)
     forces = Forces(data=atoms.arrays["MACE_forces"], cell=atoms.cell)
     stress = Stress(data=atoms.info["MACE_stress"], cell=atoms.cell)
     bec = BornCharges(data=reconstruct_bec(atoms), cell=atoms.cell)

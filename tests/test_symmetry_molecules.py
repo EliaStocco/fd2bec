@@ -19,7 +19,7 @@ def test_translations(filepath:Path):
     assert filepath.exists()
     atoms = read(filepath)
     atomic_structure = AtomicStructure.from_ase(atoms)
-    
+
     pmg_mol = Molecule(
         atoms.get_chemical_symbols(),
         atoms.get_positions()
@@ -28,7 +28,7 @@ def test_translations(filepath:Path):
     pga = PointGroupAnalyzer(pmg_mol,tolerance=SYMPREC,eigen_tolerance=SYMPREC,matrix_tolerance=SYMPREC)
 
     assert pga.sch_symbol is not None
-    
+
     S = pga.get_symmetry_operations()
     R = np.asarray([s.rotation_matrix for s in S])
     T = np.asarray([s.translation_vector for s in S])
@@ -40,7 +40,7 @@ def test_translations(filepath:Path):
             atomic_structure.is_equal_to(new_structure)
             raise ValueError("Point group operation does not preserve the structure.")
         pass
-    
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
