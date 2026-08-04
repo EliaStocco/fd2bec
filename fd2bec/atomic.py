@@ -478,12 +478,16 @@ class AtomicStructure:
         where x_flat stacks all components of the input representation. This construction
         combines rotation, translation, and permutation induced by symmetry.
 
+        Atomic tensors include the permutation induced by each symmetry
+        operation. Affine tensors additionally include a translation and are
+        anchored at the supplied tensor value. A fully-NaN affine template is
+        anchored at zero so it can still be used to count symmetry modes.
+
         Parameters
         ----------
-        affine : bool, optional
-            If False, translation components are ignored (purely linear action).
-        **kwargs :
-            Passed to the spglib interface.
+        tensor : Tensor
+            Tensor whose rank, basis, atomicity, and affine character determine
+            the representation.
 
         Returns
         -------
@@ -494,12 +498,29 @@ class AtomicStructure:
             Shape (Nops, dim) translation vectors in flattened form.
 
         """
-        # if rank != 1 and affine:
         affine = tensor.is_affine
         atomic = tensor.is_atomic
         rank = sum(tensor.rank)
 
         x_flat = tensor.flatten(full=True)
+
+        natoms = len(self)
+        tensor_dim = 3**rank
+        expected_dim = natoms * tensor_dim if atomic else tensor_dim
+        if x_flat.shape != (expected_dim,):
+            kind = "atomic" if atomic else "global"
+            raise ValueError(
+                f"Expected one {kind} rank-{rank} tensor with flattened "
+                f"shape ({expected_dim},), got {x_flat.shape}."
+            )
+
+        if affine:
+            if np.all(np.isnan(x_flat)):
+                affine_point = np.zeros_like(x_flat)
+            elif np.all(np.isfinite(x_flat)):
+                affine_point = x_flat
+            else:
+                raise ValueError("Affine tensor data must be either finite or fully NaN.")
 
         R, T = self.get_symmetry_operations(basis=tensor.basis)
         if atomic:
@@ -507,52 +528,51 @@ class AtomicStructure:
         else:
             mappings = [None] * len(R)
 
-        Natoms = len(self)
-        Nops = len(R)
-        ii = np.arange(Natoms)
+        nops = len(R)
+        if R.shape != (nops, 3, 3):
+            raise ValueError(f"Expected rotations with shape ({nops}, 3, 3), got {R.shape}.")
+        if T.shape != (nops, 3):
+            raise ValueError(f"Expected translations with shape ({nops}, 3), got {T.shape}.")
+        if atomic and len(mappings) != nops:
+            raise ValueError("Number of atomic mappings does not match symmetry operations.")
 
-        if atomic:
-            dim = Natoms * (3**rank)
-        else:
-            dim = 3**rank
-        R_flat = np.zeros((Nops, dim, dim))
-        T_flat = np.zeros((Nops, dim))
+        atom_indices = np.arange(natoms)
+        R_flat = np.zeros((nops, expected_dim, expected_dim))
+        T_flat = np.zeros((nops, expected_dim))
 
-        P = None
         for n, (r, t, m) in enumerate(zip(R, T, mappings)):
-            if not affine:
-                t[...] = 0.0
-
             if atomic:
                 # Permutation matrix (maps reordered atoms)
-                P = np.zeros((Natoms, Natoms))
-                P[ii, m] = 1
-            # else:
-            #     P = np.ones(1)
+                permutation = np.zeros((natoms, natoms))
+                permutation[atom_indices, m] = 1
 
-            # # Flattened rotation (row-vector convention → use r.T)
-            # R_cart = r.T
-            # for _ in range(rank - 1):
-            #     R_cart = np.kron(R_cart, r.T)
-            R_cart = tensor.rotation_operator(r.T)
+            R_tensor = tensor.rotation_operator(r.T)
 
             if atomic:
-                R_cart = np.kron(P, R_cart)
+                R_tensor = np.kron(permutation, R_tensor)
 
             if affine:
-                # Flattened translation (must be permuted)
-                t_flat = np.tile(t, Natoms)
-                t_flat = (P @ t_flat.reshape(Natoms, 3)).reshape(-1)
+                if atomic:
+                    # Repeat the translation for every atom, then apply the
+                    # same permutation as for the linear part.
+                    t_flat = np.tile(t, natoms)
+                    t_flat = (permutation @ t_flat.reshape(natoms, 3)).reshape(-1)
+                else:
+                    # A global affine vector has one translation only and no
+                    # atomic indices to tile or permute.
+                    t_flat = np.asarray(t).copy()
             else:
-                t_flat = np.zeros(dim)
+                t_flat = np.zeros(expected_dim)
 
-            R_flat[n] = R_cart
+            R_flat[n] = R_tensor
             T_flat[n] = t_flat
 
         if affine:
-            x_new = R_flat @ x_flat + T_flat
-            diff = x_new - x_flat
-            T_flat -= diff
+            # Correct lattice-image translations so every affine operation
+            # fixes the supplied tensor value exactly. The same expression is
+            # valid for atomic positions and for a global affine dipole.
+            transformed = R_flat @ affine_point + T_flat
+            T_flat += affine_point - transformed
 
         return R_flat, T_flat
 

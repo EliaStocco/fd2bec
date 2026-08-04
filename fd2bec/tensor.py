@@ -35,7 +35,10 @@ class Position(AtomicVector):
 
 
 class Dipole(GlobalVector):
-    pass
+    def __init__(self, **kwargs):
+        kwargs = SpecialDict(kwargs)
+        kwargs["is_affine"] = True
+        super().__init__(**kwargs)
 
 
 class Displacement(AtomicVector):
