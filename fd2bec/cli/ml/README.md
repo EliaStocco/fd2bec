@@ -30,3 +30,8 @@ defaulting to a neutral singlet; they can be overridden with `--charge` and
 The command deliberately rejects periodic inputs. MACE-POLAR's total dipole is
 not well-defined with periodic boundary conditions, so it cannot be used for a
 periodic dP/dR calculation.
+
+For symmetry testing of the piezoelectric workflow, `mace_polar_dPdS` evaluates
+the MACE-POLAR cell dipole for 13 strained periodic structures and divides it by
+the cell volume. This is explicitly a polarization proxy, not a Berry-phase
+polarization. See `fd2bec/cli/dPdS/README.md` for usage and limitations.

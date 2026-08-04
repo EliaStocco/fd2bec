@@ -10,7 +10,9 @@ KEYWORDS = {
     "forces": "REF_forces",
     "efield": "REF_efield",
     "dipole": "REF_dipole",
+    "polarization": "REF_polarization",
     "displacements": "displacements",
+    "strain": "strain",
 }
 
 

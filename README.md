@@ -66,6 +66,19 @@ dipole is only meaningful for isolated structures, so this workflow rejects
 periodic inputs. See `fd2bec/cli/ml/README.md` for model, charge, spin, and
 licensing details.
 
+# Computing piezoelectric tensors
+
+Generate one shared set of strained structures, evaluate their polarizations,
+and use it to fit both the proper and improper piezoelectric tensors:
+
+```bash
+generate_strained_structures -i reference.extxyz -o strained.extxyz
+dPdS2piezo -i polarized-strained.extxyz -r reference.extxyz -o piezoelectric
+```
+
+See `fd2bec/cli/dPdS/README.md` for the strain convention, polarization input,
+Berry-phase branch handling, and clamped-ion versus relaxed-ion workflows.
+
 # Testing
 We would recommend running tests using
 ```bash

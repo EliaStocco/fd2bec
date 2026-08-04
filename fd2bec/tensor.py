@@ -116,6 +116,24 @@ class Stress(Tensor):
         super().__init__(**kwargs)
 
 
+class PiezoelectricTensor(Tensor):
+    """Polarization response to symmetric strain, ``dP_i / dε_jk``."""
+
+    def __init__(self, **kwargs):
+        kwargs = SpecialDict(kwargs)
+        kwargs["axes"] = [False, True, True]
+        kwargs["is_atomic"] = False
+        super().__init__(**kwargs)
+
+
+class ImproperPiezoelectricTensor(PiezoelectricTensor):
+    """Raw derivative of Cartesian polarization with respect to strain."""
+
+
+class ProperPiezoelectricTensor(PiezoelectricTensor):
+    """Branch-independent current response to strain."""
+
+
 class BornCharges(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)

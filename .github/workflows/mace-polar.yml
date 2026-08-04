@@ -31,7 +31,7 @@ jobs:
           python -m pip install -e ".[dev,mace-polar]" "mace-torch==0.3.16"
 
       - name: Test the MACE-POLAR dataset adapter
-        run: pytest -q tests/test_mace_polar.py
+        run: pytest -q tests/test_mace_polar.py tests/test_piezoelectric.py
 
       - name: Cache MACE-POLAR-1-M checkpoint
         uses: actions/cache@v4
@@ -60,6 +60,29 @@ jobs:
             --dataset mace-polar-dataset.extxyz \
             --bec mace-polar-results/bec.txt
 
+      - name: Predict strained R-3c BiFeO3 polarization proxies
+        run: |
+          mace_polar_dPdS \
+            --input tests/data/BiFeO3-R-3c.geometry.in \
+            --model tests/mace_polar/MACE-POLAR-1-M.model \
+            --amplitude 0.005 \
+            --default-dtype float64 \
+            --output mace-polar-bifeo3-piezoelectric.extxyz
+
+      - name: Fit proper and improper BiFeO3 piezoelectric tensors
+        run: |
+          dPdS2piezo \
+            --input mace-polar-bifeo3-piezoelectric.extxyz \
+            --reference tests/data/BiFeO3-R-3c.geometry.in \
+            --output mace-polar-bifeo3-piezoelectric
+
+      - name: Check centrosymmetric BiFeO3 proper tensor is zero
+        run: |
+          python tests/mace_polar/check_piezoelectric.py \
+            --dataset mace-polar-bifeo3-piezoelectric.extxyz \
+            --proper mace-polar-bifeo3-piezoelectric/proper-piezoelectric.txt \
+            --tolerance 1e-4
+
       - name: Upload regression artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -68,4 +91,6 @@ jobs:
           path: |
             mace-polar-dataset.extxyz
             mace-polar-results/
+            mace-polar-bifeo3-piezoelectric.extxyz
+            mace-polar-bifeo3-piezoelectric/
           if-no-files-found: ignore
