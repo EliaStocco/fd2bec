@@ -5,7 +5,10 @@ from typing import List, Sequence, Tuple
 
 import numpy as np
 from ase import Atoms
+from scipy.linalg import qr
 
+from fd2bec import ATOL
+from fd2bec.atomic import AtomicStructure
 from fd2bec.linear_system import LinearSystem
 from fd2bec.tensor import ImproperPiezoelectricTensor, ProperPiezoelectricTensor
 
@@ -24,7 +27,7 @@ VOIGT_PAIRS: Tuple[Tuple[int, int], ...] = (
 E_PER_ANGSTROM2_TO_C_PER_M2 = 16.02176634
 
 
-def strain_to_voigt(strain: np.ndarray, atol: float = 1e-10) -> np.ndarray:
+def strain_to_voigt(strain: np.ndarray, atol: float = ATOL) -> np.ndarray:
     """Convert symmetric strain tensors to engineering-strain Voigt vectors."""
     strain = np.asarray(strain, dtype=float)
     if strain.shape[-2:] != (3, 3):
@@ -53,7 +56,7 @@ def voigt_to_strain(voigt: np.ndarray) -> np.ndarray:
     return strain
 
 
-def piezoelectric_to_voigt(tensor: np.ndarray, atol: float = 1e-10) -> np.ndarray:
+def piezoelectric_to_voigt(tensor: np.ndarray, atol: float = ATOL) -> np.ndarray:
     """Convert a piezoelectric tensor symmetric in its last indices to 3x6 form."""
     tensor = np.asarray(tensor, dtype=float)
     if tensor.shape[-3:] != (3, 3, 3):
@@ -399,7 +402,9 @@ def evaluate_piezoelectric_tensors(
     )
 
 
-def proper_piezoelectric_symmetry_basis(unit_cell, atol: float = 1e-10) -> np.ndarray:
+def proper_piezoelectric_symmetry_basis(
+    unit_cell: AtomicStructure, atol: float = ATOL
+) -> np.ndarray:
     """Return an orthonormal basis for symmetry-allowed proper piezo tensors.
 
     The final two covariant indices are symmetrized before extracting the
@@ -422,39 +427,13 @@ def proper_piezoelectric_symmetry_basis(unit_cell, atol: float = 1e-10) -> np.nd
     return left[:, singular_values > threshold]
 
 
-def piezoelectric_symbolic_matrix(symmetry_basis: np.ndarray, atol: float = 1e-8) -> np.ndarray:
+def piezoelectric_symbolic_matrix(symmetry_basis: np.ndarray, atol: float = ATOL) -> np.ndarray:
     """Represent a symmetry-allowed piezoelectric subspace as a symbolic 3x6 matrix."""
-    symmetry_basis = np.asarray(symmetry_basis, dtype=float)
-    if symmetry_basis.ndim != 2 or symmetry_basis.shape[0] != 27:
-        raise ValueError("The piezoelectric symmetry basis must have shape (27, M).")
-
-    number_of_modes = symmetry_basis.shape[1]
-    voigt_basis = (
-        np.column_stack(
-            [piezoelectric_to_voigt(mode.reshape(3, 3, 3)).reshape(-1) for mode in symmetry_basis.T]
-        )
-        if number_of_modes
-        else np.empty((18, 0))
+    canonical_modes, _ = canonical_piezoelectric_modes(symmetry_basis)
+    number_of_modes = len(canonical_modes)
+    coefficients = (
+        canonical_modes.reshape((number_of_modes, 18)).T if number_of_modes else np.empty((18, 0))
     )
-
-    independent_rows = []
-    rank = 0
-    for row in range(18):
-        candidate = independent_rows + [row]
-        candidate_rank = np.linalg.matrix_rank(voigt_basis[candidate], tol=atol)
-        if candidate_rank > rank:
-            independent_rows.append(row)
-            rank = candidate_rank
-        if rank == number_of_modes:
-            break
-    if rank != number_of_modes:
-        raise ValueError("Could not identify all independent piezoelectric components.")
-
-    if number_of_modes:
-        independent = voigt_basis[independent_rows]
-        coefficients = voigt_basis @ np.linalg.inv(independent)
-    else:
-        coefficients = np.empty((18, 0))
 
     def parameter_name(index):
         return chr(ord("a") + index) if index < 26 else f"a{index + 1}"
@@ -480,11 +459,38 @@ def piezoelectric_symbolic_matrix(symmetry_basis: np.ndarray, atol: float = 1e-8
     return np.asarray([expression(row) for row in coefficients], dtype=object).reshape((3, 6))
 
 
+def canonical_piezoelectric_modes(symmetry_basis: np.ndarray):
+    """Return reproducible 3x6 modes anchored to well-conditioned components."""
+    symmetry_basis = np.asarray(symmetry_basis, dtype=float)
+    if symmetry_basis.ndim != 2 or symmetry_basis.shape[0] != 27:
+        raise ValueError("The piezoelectric symmetry basis must have shape (27, M).")
+
+    number_of_modes = symmetry_basis.shape[1]
+    voigt_basis = (
+        np.column_stack(
+            [piezoelectric_to_voigt(mode.reshape(3, 3, 3)).reshape(-1) for mode in symmetry_basis.T]
+        )
+        if number_of_modes
+        else np.empty((18, 0))
+    )
+
+    if number_of_modes:
+        _, _, pivots = qr(voigt_basis.T, mode="economic", pivoting=True)
+        independent_rows = sorted(pivots[:number_of_modes])
+        independent = voigt_basis[independent_rows]
+        coefficients = voigt_basis @ np.linalg.inv(independent)
+    else:
+        independent_rows = []
+        coefficients = np.empty((18, 0))
+    return coefficients.T.reshape((number_of_modes, 3, 6)), independent_rows
+
+
 def evaluate_proper_piezoelectric_direct(
     polarizations: np.ndarray,
     strains: np.ndarray,
     symmetry_basis: np.ndarray,
     *,
+    rotations: np.ndarray = None,
     cell: np.ndarray = None,
     basis: str = "cartesian",
 ):
@@ -503,6 +509,11 @@ def evaluate_proper_piezoelectric_direct(
         raise ValueError("Strains must have shape (N, 3, 3).")
     if symmetry_basis.ndim != 2 or symmetry_basis.shape[0] != 27:
         raise ValueError("The proper-piezoelectric symmetry basis must have shape (27, M).")
+    if rotations is None:
+        rotations = np.zeros_like(strains)
+    rotations = np.asarray(rotations, dtype=float)
+    if rotations.shape != strains.shape:
+        raise ValueError("Rotations must have shape (N, 3, 3).")
 
     number = len(strains)
     tensor_design = np.zeros((3 * number, 27))
@@ -511,13 +522,13 @@ def evaluate_proper_piezoelectric_direct(
     corrections = np.asarray(
         [proper_piezoelectric_tensor(np.zeros((3, 3, 3)), vector) for vector in unit_vectors]
     )
-    for n, strain in enumerate(strains):
+    for n, (strain, rotation) in enumerate(zip(strains, rotations)):
         for component in range(3):
             row = 3 * n + component
             start = 9 * component
             tensor_design[row, start : start + 9] = strain.reshape(9)
-        polarization_design[3 * n : 3 * n + 3] = np.eye(3) - np.einsum(
-            "lijk,jk->il", corrections, strain
+        polarization_design[3 * n : 3 * n + 3] = (
+            np.eye(3) + rotation - np.einsum("lijk,jk->il", corrections, strain)
         )
 
     design = np.column_stack((tensor_design @ symmetry_basis, polarization_design))

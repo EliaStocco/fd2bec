@@ -13,6 +13,7 @@ from fd2bec.cli import KEYWORDS, cli
 from fd2bec.io import read
 from fd2bec.piezoelectric import (
     E_PER_ANGSTROM2_TO_C_PER_M2,
+    canonical_piezoelectric_modes,
     evaluate_dipole_lattice_derivative,
     evaluate_proper_piezoelectric_direct,
     piezoelectric_symbolic_matrix,
@@ -67,9 +68,7 @@ def prepare_args(descr):
     parser.add_argument(
         "--dipole-keyword",
         default=KEYWORDS["dipole"],
-        help=(
-            "info key for dipoles in e*Angstrom used in auto/dipole mode " "(default: %(default)s)"
-        ),
+        help=("info key for dipoles in e*Angstrom used in auto/dipole mode (default: %(default)s)"),
     )
     parser.add_argument(
         "--no-symmetry",
@@ -77,9 +76,24 @@ def prepare_args(descr):
         help="disable crystal-symmetry constraints in the direct proper-tensor fit",
     )
     parser.add_argument(
+        "--conventional-axes",
+        action="store_true",
+        help=(
+            "rotate reported and saved Cartesian tensors into spglib's "
+            "conventional crystallographic axes"
+        ),
+    )
+    parser.add_argument(
         "--no-unwrap",
         action="store_true",
-        help="disable polarization-quantum branch alignment",
+        help="disable default polarization/dipole branch alignment",
+    )
+    parser.add_argument(
+        "--unwrap-dipoles",
+        action="store_true",
+        help=(
+            "deprecated compatibility option; periodic dipoles are now branch-aligned by default"
+        ),
     )
     parser.add_argument(
         "--polarization-unit",
@@ -148,16 +162,45 @@ def attach_polarizations(
     return converted
 
 
+def print_reference_structure(reference):
+    """Print the reference cell, lattice parameters, and fractional positions."""
+    cell = np.asarray(reference.cell.array, dtype=float)
+    a, b, c, alpha, beta, gamma = reference.cell.cellpar()
+    scaled_positions = reference.get_scaled_positions(wrap=True)
+
+    print("Reference structure (input Cartesian frame):")
+    print("Cell vectors [Angstrom, rows]:")
+    print(np.array2string(cell, precision=8, suppress_small=True, max_line_width=160))
+    print(
+        "Lattice parameters: "
+        f"a={a:.8f} Angstrom, b={b:.8f} Angstrom, c={c:.8f} Angstrom; "
+        f"alpha={alpha:.6f} deg, beta={beta:.6f} deg, gamma={gamma:.6f} deg."
+    )
+    print("Fractional coordinates (wrapped to [0, 1)):")
+    print(" index  atom               x               y               z")
+    for index, (symbol, position) in enumerate(
+        zip(reference.get_chemical_symbols(), scaled_positions)
+    ):
+        print(
+            f" {index:5d}  {symbol:<4s}  "
+            f"{position[0]:14.9f}  {position[1]:14.9f}  {position[2]:14.9f}"
+        )
+
+
 @cli(prepare_args, description)
 def main(args):
     if args.agreement_tolerance < 0:
         raise ValueError("--agreement-tolerance must be non-negative.")
+    if args.no_unwrap and args.unwrap_dipoles:
+        raise ValueError("--no-unwrap and --unwrap-dipoles cannot be used together.")
     structures = read(args.input, format="extxyz", index=":")
     if not structures:
         raise ValueError("The input dataset contains no structures.")
     reference = read(args.reference, index=0) if args.reference else structures[0].copy()
+    print_reference_structure(reference)
 
     if args.polarizations:
+        input_vector_type = "polarization"
         polarizations = np.loadtxt(args.polarizations, ndmin=2)
         if polarizations.shape != (len(structures), 3):
             raise ValueError(
@@ -168,9 +211,24 @@ def main(args):
             atoms.info[args.keyword] = polarization
         converted_dipoles = 0
     else:
+        all_polarizations = all(args.keyword in atoms.info for atoms in structures)
+        all_dipoles = all(args.dipole_keyword in atoms.info for atoms in structures)
+        if args.quantity == "polarization":
+            input_vector_type = "polarization"
+        elif args.quantity == "dipole":
+            input_vector_type = "dipole"
+        elif all_polarizations:
+            input_vector_type = "polarization"
+        elif all_dipoles:
+            input_vector_type = "dipole"
+        else:
+            raise ValueError(
+                "Automatic input detection requires every frame to contain the same "
+                f"'{args.keyword}' polarization or '{args.dipole_keyword}' dipole field."
+            )
         converted_dipoles = attach_polarizations(
             structures,
-            quantity=args.quantity,
+            quantity=input_vector_type,
             polarization_keyword=args.keyword,
             dipole_keyword=args.dipole_keyword,
             polarization_unit=args.polarization_unit,
@@ -186,7 +244,8 @@ def main(args):
     cells = np.asarray([atoms.cell.array for atoms in structures])
     strains = strains_from_cells(reference.cell.array, cells)
     fitted_polarizations = np.asarray([atoms.info[args.keyword] for atoms in structures])
-    if not args.no_unwrap:
+    unwrap_enabled = not args.no_unwrap
+    if unwrap_enabled:
         from fd2bec.piezoelectric import unwrap_polarizations
 
         reference_index = int(np.argmin(np.linalg.norm(strains.reshape(len(strains), -1), axis=1)))
@@ -195,6 +254,12 @@ def main(args):
             cells,
             reference_index,
             quantum_scale=quantum_scale,
+        )
+        print("Aligned polarization branches using each snapshot's cell-dependent quantum.")
+    elif input_vector_type == "dipole":
+        print(
+            "Warning: dipole branch alignment was disabled with --no-unwrap; periodic "
+            "dipoles can be multivalued."
         )
 
     unit_cell = AtomicStructure.from_ase(reference)
@@ -207,7 +272,49 @@ def main(args):
         direct_basis = left[:, singular_values > 1e-10]
     else:
         direct_basis = proper_piezoelectric_symmetry_basis(unit_cell)
-    symbolic_pattern = piezoelectric_symbolic_matrix(direct_basis)
+    dataset = unit_cell._spglib_dataset  # pylint: disable=protected-access
+    space_group_symbol = dataset.international
+    if isinstance(space_group_symbol, bytes):
+        space_group_symbol = space_group_symbol.decode()
+    coordinate_rotation = (
+        np.asarray(dataset.std_rotation_matrix, dtype=float)
+        if args.conventional_axes
+        else np.eye(3)
+    )
+    reported_basis = (
+        np.column_stack(
+            [
+                np.einsum(
+                    "ai,bj,ck,ijk->abc",
+                    coordinate_rotation,
+                    coordinate_rotation,
+                    coordinate_rotation,
+                    mode.reshape((3, 3, 3)),
+                ).reshape(-1)
+                for mode in direct_basis.T
+            ]
+        )
+        if direct_basis.shape[1]
+        else direct_basis.copy()
+    )
+    symmetry_modes, independent_components = canonical_piezoelectric_modes(reported_basis)
+    symbolic_matrix = piezoelectric_symbolic_matrix(reported_basis)
+    coefficient_names = [
+        f"e{int(component) // 6 + 1}{int(component) % 6 + 1}"
+        for component in independent_components
+    ]
+    print(
+        f"Space group: {dataset.number} ({space_group_symbol}); "
+        f"point group {dataset.pointgroup}; "
+        f"{len(dataset.rotations)} symmetry operations; "
+        f"{direct_basis.shape[1]} allowed proper-piezoelectric parameters."
+    )
+    names = ", ".join(coefficient_names) if coefficient_names else "none"
+    print(f"Selected independent coefficient representatives: {names}.")
+    if args.conventional_axes:
+        print("Rotating reported and saved tensors into conventional crystallographic axes.")
+        print("Cartesian coordinate rotation (conventional <- input):")
+        print(np.array2string(coordinate_rotation, precision=8, suppress_small=True))
 
     fitted_dipoles = fitted_polarizations * np.abs(np.linalg.det(cells))[:, None]
     dipole_fit = evaluate_dipole_lattice_derivative(
@@ -223,10 +330,16 @@ def main(args):
     print(f" - rank: {dipole_fit.linear_system.rank}")
     dipole_fit.linear_system.summary()
 
+    inverse_reference_cell = np.linalg.inv(reference.cell.array)
+    displacement_gradients = np.asarray(
+        [(inverse_reference_cell @ cell).T - np.eye(3) for cell in cells]
+    )
+    rotations = 0.5 * (displacement_gradients - displacement_gradients.swapaxes(1, 2))
     direct_proper, direct_reference, direct_rank, direct_rms = evaluate_proper_piezoelectric_direct(
         fitted_polarizations,
         strains,
         direct_basis,
+        rotations=rotations,
         cell=reference.cell.array,
     )
     direct_voigt = piezoelectric_to_voigt(direct_proper.data)
@@ -248,14 +361,34 @@ def main(args):
             stacklevel=2,
         )
 
+    def rotate_rank3(tensor):
+        return np.einsum(
+            "ai,bj,ck,ijk->abc",
+            coordinate_rotation,
+            coordinate_rotation,
+            coordinate_rotation,
+            tensor,
+        )
+
+    reported_improper_voigt = piezoelectric_to_voigt(rotate_rank3(result.improper.data))
+    reported_proper_voigt = piezoelectric_to_voigt(rotate_rank3(result.proper.data))
+    reported_direct_voigt = piezoelectric_to_voigt(rotate_rank3(direct_proper.data))
+    coefficient_values = {
+        symbol: float(reported_direct_voigt.reshape(-1)[component])
+        for symbol, component in zip(coefficient_names, independent_components)
+    }
+    reported_dipole_strain = rotate_rank3(dipole_fit.dipole_strain_derivative)
+    reported_reference_polarization = coordinate_rotation @ result.reference_polarization
+    proper_lattice_basis = result.proper.to(basis="fractional").data
+
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
-    np.savetxt(output / "improper-piezoelectric.txt", result.improper_voigt, fmt=float_format)
-    np.savetxt(output / "proper-piezoelectric.txt", result.proper_voigt, fmt=float_format)
-    np.savetxt(output / "proper-piezoelectric-direct.txt", direct_voigt, fmt=float_format)
+    np.savetxt(output / "improper-piezoelectric.txt", reported_improper_voigt, fmt=float_format)
+    np.savetxt(output / "proper-piezoelectric.txt", reported_proper_voigt, fmt=float_format)
+    np.savetxt(output / "proper-piezoelectric-direct.txt", reported_direct_voigt, fmt=float_format)
     np.savetxt(
         output / "dipole-strain-derivative.txt",
-        piezoelectric_to_voigt(dipole_fit.dipole_strain_derivative),
+        piezoelectric_to_voigt(reported_dipole_strain),
         fmt=float_format,
     )
     np.savetxt(
@@ -265,7 +398,7 @@ def main(args):
     )
     np.savetxt(
         output / "reference-polarization.txt",
-        result.reference_polarization[None, :],
+        reported_reference_polarization[None, :],
         fmt=float_format,
     )
     with (output / "fit.json").open("w", encoding="utf-8") as handle:
@@ -278,13 +411,28 @@ def main(args):
                 "polarization_keyword": args.keyword,
                 "dipole_keyword": args.dipole_keyword,
                 "input_quantity": args.quantity,
+                "detected_input_quantity": input_vector_type,
+                "branch_unwrapping_enabled": unwrap_enabled,
                 "polarization_unit": args.polarization_unit,
                 "symmetry_enabled": not args.no_symmetry,
-                "symmetry_pattern": symbolic_pattern.tolist(),
+                "coordinate_frame": "conventional" if args.conventional_axes else "input",
+                "coordinate_rotation_conventional_from_input": coordinate_rotation.tolist(),
+                "space_group_number": int(dataset.number),
+                "space_group_symbol": str(space_group_symbol),
+                "point_group_symbol": str(dataset.pointgroup),
+                "independent_coefficient_names": coefficient_names,
+                "independent_coefficient_values": coefficient_values,
+                "symmetry_operations": int(len(dataset.rotations)),
+                "symmetry_pattern": symbolic_matrix.tolist(),
+                "symmetry_symbolic_matrix": symbolic_matrix.tolist(),
+                "symmetry_modes": symmetry_modes.tolist(),
+                "symmetry_mode_independent_components": [
+                    int(component) for component in independent_components
+                ],
                 "direct_proper_parameters": int(direct_basis.shape[1]),
                 "direct_proper_rank": direct_rank,
                 "direct_proper_residual_rms": direct_rms,
-                "direct_reference_polarization": direct_reference.tolist(),
+                "direct_reference_polarization": (coordinate_rotation @ direct_reference).tolist(),
                 "proper_tensors_agree": proper_agreement,
                 "proper_tensor_max_abs_difference": proper_difference,
                 "proper_tensor_agreement_tolerance": args.agreement_tolerance,
@@ -296,30 +444,59 @@ def main(args):
         )
 
     matrix_format = {"precision": 6, "suppress_small": True, "max_line_width": 200}
+    piezoelectric_unit = "C/m^2" if args.polarization_unit == "C/m^2" else "e/Angstrom^2"
+    lattice_basis_unit = "C*Angstrom/m^2" if args.polarization_unit == "C/m^2" else "e/Angstrom"
     print("Voigt order: xx, yy, zz, yz, xz, xy.")
     print("Engineering strain uses [exx, eyy, ezz, 2eyz, 2exz, 2exy].")
-    print("\nSymmetry-allowed proper piezoelectric pattern [3x6]:")
-    width = max(3, max(len(value) for value in symbolic_pattern.reshape(-1)))
-    for row in symbolic_pattern:
-        print("[" + " ".join(f"{value:>{width}}" for value in row) + "]")
-    print("\nd(dipole)/d(lattice vectors) [3x9]:")
+    print("\nSymmetry-allowed proper piezoelectric matrix [3x6]:")
+    frame_label = "conventional" if args.conventional_axes else "input"
+    print(f"(letters are independent parameters in the {frame_label} Cartesian axes)")
+    symbolic_width = max(1, max(len(value) for value in symbolic_matrix.flat))
+    for row in symbolic_matrix:
+        print("[ " + "  ".join(f"{value:>{symbolic_width}}" for value in row) + " ]")
+    print("\nSymmetry-allowed proper piezoelectric modes [3x6]:")
+    print(f"(canonical modes expressed in the {frame_label} Cartesian axes)")
+    if not len(symmetry_modes):
+        print("No symmetry-allowed modes: the proper piezoelectric tensor is zero.")
+    cartesian = "xyz"
+    voigt_labels = ("xx", "yy", "zz", "yz", "xz", "xy")
+    for index, (mode, component) in enumerate(zip(symmetry_modes, independent_components)):
+        label = chr(ord("a") + index) if index < 26 else f"a{index + 1}"
+        polarization_axis, voigt_column = divmod(component, 6)
+        anchor = f"e_{cartesian[polarization_axis]},{voigt_labels[voigt_column]}"
+        print(f"Mode {label} ({anchor} = 1):")
+        print(np.array2string(mode, **matrix_format))
+    print("\nd(dipole)/d(lattice vectors) [3x9, input axes]:")
     print(
         np.array2string(
             dipole_fit.dipole_lattice_derivative.reshape((3, 9)),
             **matrix_format,
         )
     )
-    print("\nImproper piezoelectric tensor [3x6]:")
-    print(np.array2string(result.improper_voigt, **matrix_format))
-    print("\nProper piezoelectric tensor from Vanderbilt correction [3x6]:")
-    print(np.array2string(result.proper_voigt, **matrix_format))
-    print("\nDirect ProperPiezoelectricTensor fit [3x6]:")
-    print(np.array2string(direct_voigt, **matrix_format))
+    print(f"\nImproper piezoelectric tensor [3x6, {piezoelectric_unit}]:")
+    print(np.array2string(reported_improper_voigt, **matrix_format))
+    print(f"\nProper piezoelectric tensor from Vanderbilt correction [3x6, {piezoelectric_unit}]:")
+    print(np.array2string(reported_proper_voigt, **matrix_format))
+    print(
+        "\nProper piezoelectric tensor in the reference lattice basis "
+        f"[3x3x3, {lattice_basis_unit}]:"
+    )
+    print("(full fractional-basis tensor; no Cartesian engineering-Voigt contraction)")
+    print(np.array2string(proper_lattice_basis, **matrix_format))
+    print(f"\nDirect ProperPiezoelectricTensor fit [3x6, {piezoelectric_unit}]:")
+    print(np.array2string(reported_direct_voigt, **matrix_format))
+    print(f"\nPiezoelectric coefficient [{piezoelectric_unit}]:")
+    if coefficient_values:
+        for symbol, value in coefficient_values.items():
+            print(f"{symbol}: {value:.6g}")
+    elif coefficient_values == {}:
+        print("none")
     agreement_label = "AGREE" if proper_agreement else "DO NOT AGREE"
     print()
     print(
         f"Proper-tensor check: {agreement_label}; maximum |difference| = "
-        f"{proper_difference:.6e} (absolute tolerance {args.agreement_tolerance:.6e})."
+        f"{proper_difference:.6e} {piezoelectric_unit} "
+        f"(absolute tolerance {args.agreement_tolerance:.6e} {piezoelectric_unit})."
     )
     print("Converse stress convention: delta_sigma_V = - proper_e.T @ electric_field.")
     print(
@@ -328,8 +505,7 @@ def main(args):
     )
     print(f"Fit rank: {result.rank}; RMS residual: {result.residual_rms:.6e}")
     print(
-        "Saved improper, Vanderbilt proper, and direct proper piezoelectric "
-        f"tensors to '{output}'."
+        f"Saved improper, Vanderbilt proper, and direct proper piezoelectric tensors to '{output}'."
     )
 
 

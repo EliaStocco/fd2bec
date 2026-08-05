@@ -7,6 +7,7 @@ from fd2bec.piezoelectric import (
     VOIGT_PAIRS,
     apply_strains,
     build_strained_structures,
+    canonical_piezoelectric_modes,
     evaluate_dipole_lattice_derivative,
     evaluate_piezoelectric_from_structures,
     evaluate_piezoelectric_tensors,
@@ -152,6 +153,20 @@ def test_symbolic_pattern_labels_unrestricted_components_in_voigt_order():
     assert pattern.shape == (3, 6)
     assert pattern[0].tolist() == ["a", "b", "c", "d", "e", "f"]
     assert len(set(pattern.reshape(-1))) == 18
+
+
+def test_canonical_modes_are_identity_on_their_anchor_components():
+    modes = []
+    for component in range(3):
+        for j, k in VOIGT_PAIRS:
+            mode = np.zeros((3, 3, 3))
+            mode[component, j, k] = 1.0
+            mode[component, k, j] = 1.0
+            modes.append(mode.reshape(-1))
+
+    canonical, selected = canonical_piezoelectric_modes(np.asarray(modes).T)
+
+    np.testing.assert_allclose(canonical.reshape((18, 18))[:, selected], np.eye(18))
 
 
 def test_proper_correction_removes_pure_geometric_response():

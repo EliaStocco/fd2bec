@@ -212,6 +212,50 @@ def atomic_structure2unique_displacements(
     return u, displacements
 
 
+def proper_piezoelectric_cell_displacements(unit_cell: AtomicStructure, tensor):
+    """Select lower-triangular cell directions spanning all allowed proper modes."""
+    symmetrizer, _, _ = unit_cell.get_symmetrizer(tensor=tensor)
+    modes = symmetrizer.reshape((3, 3, 3, -1))
+    modes = 0.5 * (modes + modes.swapaxes(1, 2))
+    modes = modes.reshape((27, -1))
+    if modes.shape[1]:
+        left, singular_values, _ = np.linalg.svd(modes, full_matrices=False)
+        threshold = 1e-10 * max(modes.shape) * singular_values[0]
+        modes = left[:, singular_values > threshold]
+
+    candidates = cell_components2displacements(np.eye(len(CELL_COMPONENTS)))
+    inverse_cell = np.linalg.inv(np.asarray(unit_cell.cell))
+    selected = []
+    response = np.empty((0, modes.shape[1]))
+    rank = 0
+    for candidate in candidates:
+        displacement = candidate.reshape((3, 3))
+        gradient = (inverse_cell @ displacement).T
+        strain = 0.5 * (gradient + gradient.T)
+        block = np.zeros((3, 27))
+        for component in range(3):
+            block[component, 9 * component : 9 * component + 9] = strain.reshape(9)
+        trial = np.vstack((response, block @ modes))
+        trial_rank = np.linalg.matrix_rank(trial, tol=1e-10)
+        if trial_rank > rank:
+            selected.append(candidate)
+            response = trial
+            rank = trial_rank
+        if rank == modes.shape[1]:
+            break
+    if rank != modes.shape[1]:
+        raise ValueError(
+            "The six lower-triangular cell components do not span all "
+            f"symmetry-allowed proper piezoelectric modes ({rank}/{modes.shape[1]})."
+        )
+
+    directions = np.asarray(selected).reshape((-1, 9))
+    zero = np.zeros((1, 9))
+    chosen = np.concatenate((zero, directions, -directions), axis=0)
+    all_candidates = np.concatenate((zero, candidates, -candidates), axis=0)
+    return chosen, all_candidates
+
+
 def displacements2structures(atoms: Atoms, displacements: np.ndarray, atomic: bool) -> list[Atoms]:
     """Apply flattened atomic or cell displacements to copies of ``atoms``."""
     displacements = np.asarray(displacements, dtype=float)
@@ -301,7 +345,7 @@ def print_symmetry_selection(
         print(f"  [{index}] {formatted}")
 
 
-@cli(prepare_args, description, deprecated=True)
+@cli(prepare_args, description)
 def main(args):
     """Generate and save the selected displaced structures."""
     if args.amplitude <= 0:
@@ -326,10 +370,10 @@ def main(args):
         tensor = BornCharges(data=np.zeros((number_of_atoms, 3, 3)))
         print("done")
     elif args.what == "piezo":
-        from fd2bec.tensor import ImproperPiezoelectricTensor
+        from fd2bec.tensor import ProperPiezoelectricTensor
 
-        print("Constructing improper piezoelectric tensor ... ", end="")
-        tensor = ImproperPiezoelectricTensor.template()
+        print("Constructing proper piezoelectric tensor ... ", end="")
+        tensor = ProperPiezoelectricTensor.template()
         print("done")
 
     number_of_components = int(np.prod(tensor2perturbation_shape(tensor)))
@@ -355,7 +399,10 @@ def main(args):
             f"basis displacements; {len(selected)} structures including the reference."
         )
     else:
-        selected, candidates = atomic_structure2unique_displacements(unit_cell, tensor=tensor)
+        if args.what == "piezo":
+            selected, candidates = proper_piezoelectric_cell_displacements(unit_cell, tensor)
+        else:
+            selected, candidates = atomic_structure2unique_displacements(unit_cell, tensor=tensor)
 
     selected = selected * args.amplitude
 

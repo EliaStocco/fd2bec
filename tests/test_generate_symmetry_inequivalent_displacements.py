@@ -2,10 +2,11 @@ import numpy as np
 from ase import Atoms
 
 from fd2bec.cli.displacements.generate_displacements import (
-    all_cell_displacements,
     all_cartesian_displacements,
+    all_cell_displacements,
     atomic_structure2unique_displacements,
     displacements2structures,
+    proper_piezoelectric_cell_displacements,
     random_cartesian_displacements,
 )
 from fd2bec.tensor import BornCharges, ImproperPiezoelectricTensor
@@ -85,6 +86,32 @@ def test_random_cell_displacements_are_lower_triangular():
     np.testing.assert_allclose(matrices, np.tril(matrices))
 
 
+def test_proper_piezoelectric_selection_spans_all_orthorhombic_modes():
+    from fd2bec.atomic import AtomicStructure
+    from fd2bec.tensor import ProperPiezoelectricTensor
+
+    reference = Atoms(
+        "BaTiO3",
+        cell=[3.9568908248, 4.0153380592, 4.0153380592],
+        positions=[
+            [1.97844541, 2.00766903, 2.00766903],
+            [0.0, -0.05290719, -0.05290719],
+            [0.0, 0.04970014, 2.09535769],
+            [0.0, 2.09535769, 0.04970014],
+            [1.97844541, 0.05962402, 0.05962402],
+        ],
+        pbc=True,
+    )
+    unit_cell = AtomicStructure.from_ase(reference)
+    tensor = ProperPiezoelectricTensor.template()
+
+    selected, candidates = proper_piezoelectric_cell_displacements(unit_cell, tensor)
+
+    assert unit_cell.space_group == 38
+    assert selected.shape == (9, 9)
+    assert candidates.shape == (13, 9)
+
+
 def test_atomic_displacements_are_saved_on_displaced_structures():
     atoms = Atoms(
         symbols=["Si", "O"],
@@ -120,6 +147,4 @@ def test_cell_displacements_preserve_fractional_positions():
     np.testing.assert_allclose(
         displaced.cell.array, atoms.cell.array + displacement.reshape((3, 3))
     )
-    np.testing.assert_allclose(
-        displaced.info["cell_displacement"], displacement.reshape((3, 3))
-    )
+    np.testing.assert_allclose(displaced.info["cell_displacement"], displacement.reshape((3, 3)))
