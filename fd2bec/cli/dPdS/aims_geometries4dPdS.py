@@ -24,8 +24,9 @@ def prepare_args(descr):
         "--amplitude",
         **argv,
         type=float,
-        default=5e-3,
-        help="engineering-strain amplitude (default: %(default)s)",
+        required=False,
+        help="amplitude of the cell displacement (default: %(default)s)",
+        default=1e-3,
     )
     parser.add_argument(
         "-o",
@@ -37,7 +38,7 @@ def prepare_args(descr):
     return parser
 
 
-@cli(prepare_args, description)
+@cli(prepare_args, description, deprecated=True)
 def main(args):
     reference = read(args.input, index=0)
     structures = build_strained_structures(reference, args.amplitude)

@@ -1,5 +1,7 @@
 # Finite Differences to Born Effective Charges (fd2bec)
-A python package to efficiently evaluate Born Effective Charges using Finite Differences.
+
+A Python package for finite-difference Born effective charges and proper and
+improper piezoelectric tensors.
 
 # How to install
 ```bash
@@ -32,22 +34,35 @@ $ fd2bec-help -f aims -d
 Run a listed script without the `.py` suffix, for example `prepare_aims --help`.
 Use `fd2bec-help --help` to see all available filters.
 
-# Computing Born Effective Charges with FHI-aims
-Let's suppose that you want to compute the Born Effective Charges for a periodic structure stored in `start.extxyz`. 
-Let's also suppose that you already have a `control.in` and a submission script `submit.sh`.
-To compute the Born Effective Charges using FHI-aims please follow these instructions:
+# FHI-aims workflows
+
+Starting from a periodic structure, generate either atomic displacements for
+Born charges or cell displacements for piezoelectric tensors:
+
 ```bash
-# Let's start!
-prepare_aims -i start.extxyz
-# Read the output message of 'prepare_aims'
-# and modify 'submit.sh' and 'control.in' accordingly
-sbatch submit.sh # let's wait ...
-post_process_aims -i start.extxyz
-# The Born Effective Charges will be in 'bec.txt'.
-# Nicely done!
+prepare_aims -i start.extxyz --what bec
+# or
+prepare_aims -i start.extxyz --what piezo
 ```
 
-Please do not save your structure in `geometry.in` because this file will be overwritten!
+Provide `control.in`, set `AIMS` in the submission script, and source the
+generated `sourceme.sh`. `post_process_aims` is a BEC-only convenience wrapper.
+For piezoelectric results use `build_dataset4dPdS_aims` followed by
+`dPdS2piezo`. See [`fd2bec/cli/aims/README.md`](fd2bec/cli/aims/README.md).
+
+# Quantum ESPRESSO workflows
+
+Provide one reference structure and an SCF template containing `! FD2BEC`:
+
+```bash
+prepare_qe -i start.extxyz -t template/scf.in --what bec
+# or
+prepare_qe -i start.extxyz -t template/scf.in --what piezo
+```
+
+The command generates the displaced structures, QE geometry cards, SCF/NSCF
+templates, and `sourceme.sh`. See
+[`fd2bec/cli/qe/README.md`](fd2bec/cli/qe/README.md).
 
 # Computing effective charges with MACE-POLAR
 
@@ -68,12 +83,13 @@ licensing details.
 
 # Computing piezoelectric tensors
 
-Generate one shared set of strained structures, evaluate their polarizations,
-and use it to fit both the proper and improper piezoelectric tensors:
+Generate cell-displaced structures, evaluate their polarizations, and use the
+same dataset to fit both tensors:
 
 ```bash
-generate_strained_structures -i reference.extxyz -o strained.extxyz
-dPdS2piezo -i polarized-strained.extxyz -r reference.extxyz -o piezoelectric
+generate_displacements -i reference.extxyz --what piezo \
+  -o displaced-cells.extxyz
+dPdS2piezo -i polarized-cells.extxyz -r reference.extxyz -o piezoelectric
 ```
 
 See `fd2bec/cli/dPdS/README.md` for the strain convention, polarization input,

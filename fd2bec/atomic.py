@@ -551,18 +551,12 @@ class AtomicStructure:
             if atomic:
                 R_tensor = np.kron(permutation, R_tensor)
 
-            if affine:
-                if atomic:
-                    # Repeat the translation for every atom, then apply the
-                    # same permutation as for the linear part.
-                    t_flat = np.tile(t, natoms)
-                    t_flat = (permutation @ t_flat.reshape(natoms, 3)).reshape(-1)
-                else:
-                    # A global affine vector has one translation only and no
-                    # atomic indices to tile or permute.
-                    t_flat = np.asarray(t).copy()
-            else:
-                t_flat = np.zeros(expected_dim)
+            if affine and atomic:
+                # Repeat the translation for every atom, then apply the
+                # same permutation as for the linear part.
+                t_flat = np.tile(t, natoms)
+                t_flat = (permutation @ t_flat.reshape(natoms, 3)).reshape(-1)
+            t_flat = np.zeros(expected_dim)
 
             R_flat[n] = R_tensor
             T_flat[n] = t_flat

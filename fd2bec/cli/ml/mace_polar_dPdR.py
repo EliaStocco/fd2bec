@@ -9,8 +9,10 @@ from ase import Atoms
 
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import KEYWORDS, cli
-from fd2bec.cli.displacements.apply_displacements import displacements2atoms
-from fd2bec.cli.displacements.generate_all_displacements import atomic_structure2all_displacements
+from fd2bec.cli.displacements.generate_displacements import (
+    atomic_structure2all_displacements,
+    displacements2structures,
+)
 from fd2bec.io import read, write
 
 description = (
@@ -36,8 +38,9 @@ def prepare_args(descr):
         "--amplitude",
         **argv,
         type=float,
-        default=1e-2,
-        help="Cartesian displacement amplitude in angstrom (default: %(default)s)",
+        required=False,
+        help="amplitude of the displacement (default: %(default)s)",
+        default=1e-3,
     )
     parser.add_argument(
         "-d", "--device", **argv, default="cpu", help="torch device (default: %(default)s)"
@@ -95,7 +98,7 @@ def build_displaced_structures(reference: Atoms, amplitude: float) -> List[Atoms
         raise ValueError("The displacement amplitude must be positive.")
     unit_cell = AtomicStructure.from_ase(reference)
     displacements = atomic_structure2all_displacements(unit_cell, amplitude)
-    return displacements2atoms(reference, displacements)
+    return displacements2structures(reference, displacements, atomic=True)
 
 
 def evaluate_dipoles(

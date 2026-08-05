@@ -1,6 +1,7 @@
 from typing import List, Tuple
 
 import numpy as np
+from scipy.optimize import linear_sum_assignment
 
 from fd2bec import ATOL
 
@@ -9,38 +10,23 @@ def wrap(x: np.ndarray):
     return (x + 0.5) % 1.0 - 0.5
 
 
-def find_mapping(
-    a: np.ndarray, b: np.ndarray, atol: float = ATOL, pbc: bool = False
-) -> Tuple[np.ndarray, bool, np.ndarray]:
-    """
-    Map positions in b to nearest positions in a using minimum image convention.
-
-    Returns:
-        mapping: indices in a for each atom in b
-        is_equal: all matches within tolerance
-    """
+def find_mapping(a, b, atol=ATOL, pbc=False):
     if a.shape != b.shape:
-        return np.array([]), False
+        return np.array([], dtype=int), False, np.array([])
 
-    # tree = cKDTree(a)
+    difference = a[:, None, :] - b[None, :, :]
+    if pbc:
+        difference = wrap(difference)
 
-    mapping = np.zeros(len(b), dtype=int)
-    dists = np.zeros(len(b))
-    # n_min = np.zeros(len(b), dtype=int)
-    for i, pos in enumerate(b):
-        dist_vec = wrap(a - pos) if pbc else a - pos
-        dist = np.linalg.norm(dist_vec, axis=1)
-        j = np.argmin(dist)
-        # n_min[i] = np.sum(dist >= dist[j] - 0.1)
-        mapping[i] = j
-        dists[i] = dist[j]
-    ok = np.all(dists <= atol)
-    if not np.all(np.sort(mapping) == np.arange(len(mapping))):
-        raise ValueError(f"Invalid mapping: {mapping.tolist()}")
-    # if not ok:
-    #     d = np.linalg.norm(a[:, None, :] - b[None, :, :], axis=-1)
-    #     pass
-    return mapping, ok, dists
+    cost = np.linalg.norm(difference, axis=-1)
+
+    rows, columns = linear_sum_assignment(cost)
+
+    mapping = np.empty(len(b), dtype=int)
+    mapping[columns] = rows
+    distances = cost[mapping, np.arange(len(b))]
+
+    return mapping, np.all(distances <= atol), distances
 
 
 def invert_indices(indices: np.ndarray, axis=None) -> np.ndarray:

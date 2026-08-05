@@ -8,10 +8,7 @@ from fd2bec.cli.ml.mace_polar_dPdR import (
     evaluate_dipoles,
 )
 from fd2bec.cli.ml.mace_polar_dPdS import evaluate_polarizations
-from fd2bec.piezoelectric import (
-    build_strained_structures,
-    evaluate_piezoelectric_from_structures,
-)
+from fd2bec.piezoelectric import build_strained_structures, evaluate_piezoelectric_from_structures
 
 
 class FakePolarCalculator:

@@ -34,8 +34,9 @@ def prepare_args(descr):
         "--amplitude",
         **argv,
         type=float,
-        default=5e-3,
-        help="engineering-strain amplitude (default: %(default)s)",
+        required=False,
+        help="amplitude of the cell displacement (default: %(default)s)",
+        default=1e-3,
     )
     parser.add_argument("-d", "--device", **argv, default="cpu", help="torch device")
     parser.add_argument(

@@ -72,7 +72,7 @@ def displacements2atoms(atoms: Atoms, displacements: np.ndarray) -> List[Atoms]:
     return displaced_structures
 
 
-@cli(prepare_args, description)
+@cli(prepare_args, description, deprecated=True)
 def main(args):
 
     print(f"Reading input structure from {args.input} ... ", end="")

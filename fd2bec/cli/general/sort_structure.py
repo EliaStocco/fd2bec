@@ -7,10 +7,20 @@ from ase import Atoms
 
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import cli
+from fd2bec.cli.general.rotate_cell import is_ase_standard_cell
 from fd2bec.io import read, write
 
 description = "Reorder a structure so its atom order matches a reference structure."
 DEFAULT_ATOL = 1e-2
+
+
+def require_ase_standard_cell(reference: Atoms) -> None:
+    """Raise an actionable error when a periodic reference cell is rotated."""
+    if not is_ase_standard_cell(reference):
+        raise ValueError(
+            "Reference cell is not in ASE's lower-triangular standard form. "
+            "Run `rotate_cell -i <reference> -o <rotated-reference>` first."
+        )
 
 
 def prepare_args(descr):
@@ -42,7 +52,7 @@ def prepare_args(descr):
         "--atol",
         **argv,
         type=float,
-        default=DEFAULT_ATOL,
+        default=10,
         help=(
             "maximum positional mismatch (default: %(default)g). This is in "
             "fractional coordinates for periodic structures and Angstrom for molecules."
@@ -55,12 +65,25 @@ def sort_atoms_like(reference: Atoms, candidate: Atoms, atol: float = DEFAULT_AT
     """Return ``candidate`` reordered to have the atom order of ``reference``.
 
     Slicing the original ASE object keeps its cell, PBC flags, info dictionary,
-    constraints, and atom arrays (for example forces, tags, or charges).
+    constraints, and atom arrays (for example forces, tags, or charges).  For
+    periodic structures, every reordered atom is also translated by lattice
+    vectors to the image nearest to its corresponding reference atom.
     """
+    require_ase_standard_cell(reference)
     reference_structure = AtomicStructure.from_ase(reference)
     candidate_structure = AtomicStructure.from_ase(candidate)
-    order = np.argsort(reference_structure.get_atoms_mapping(candidate_structure, atol=atol))
-    return candidate[order]
+    mapping = reference_structure.get_atoms_mapping(candidate_structure, atol=atol)
+    order = np.argsort(mapping)
+    ordered = candidate[order]
+
+    if reference_structure.pbc:
+        reference_frac_pos = reference.get_scaled_positions(wrap=False)
+        candidate_frac_pos = ordered.get_scaled_positions(wrap=False)
+        displacement = candidate_frac_pos - reference_frac_pos
+        nearest_displacement = displacement - np.floor(displacement + 0.5)
+        ordered.set_scaled_positions(reference_frac_pos + nearest_displacement)
+
+    return ordered
 
 
 @cli(prepare_args, description)
@@ -70,6 +93,8 @@ def main(args):
     reference = read(args.reference, index=0)
     print("done")
 
+    require_ase_standard_cell(reference)
+
     print(f"Reading structure to reorder from {args.input} ... ", end="")
     candidate = read(args.input, index=0)
     print("done")
@@ -77,6 +102,20 @@ def main(args):
     print("Matching and reordering atoms ... ", end="")
     ordered = sort_atoms_like(reference, candidate, atol=args.atol)
     print("done")
+
+    if np.all(reference.get_pbc()):
+        # Translate the whole structure so the first atom matches the reference.
+        reference_pos = reference.get_scaled_positions(wrap=False)
+        pos = ordered.get_scaled_positions(wrap=False)
+        pos -= pos[0] - reference_pos[0]
+
+        # Move each atom to the periodic image nearest to its reference atom.
+        diff = pos - reference_pos
+        diff = np.mod(diff + 0.5, 1.0) - 0.5
+        pos = reference_pos + diff
+        ordered.set_scaled_positions(pos)
+
+        assert np.all(np.abs(pos - reference_pos) <= 0.5), "error"
 
     print(f"Writing reordered structure to {args.output} ... ", end="")
     write(args.output, ordered)

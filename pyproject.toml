@@ -9,7 +9,7 @@ requires-python = ">=3.9"
 
 dependencies = [
     "numpy",
-    # "scipy",
+    "scipy", # needed for linear_sum_assignment in fd2bec/mathematics.py
     "pandas",
     "typing-extensions",  # For better compatibility with type hints
     "matplotlib",
@@ -79,7 +79,6 @@ post_process_aims = "fd2bec.cli.aims.post_process_aims:main"
 prepare_aims = "fd2bec.cli.aims.prepare_aims:main"
 
 # --- dFdE ---
-aims_geometries4dFdE = "fd2bec.cli.dFdE.aims_geometries4dFdE:main"
 build_dataset4dFdE = "fd2bec.cli.dFdE.build_dataset4dFdE:main"
 dFdE2bec = "fd2bec.cli.dFdE.dFdE2bec:main"
 
@@ -92,13 +91,12 @@ dPdR2bec = "fd2bec.cli.dPdR.dPdR2bec:main"
 aims_geometries4dPdS = "fd2bec.cli.dPdS.aims_geometries4dPdS:main"
 build_dataset4dPdS_aims = "fd2bec.cli.dPdS.build_dataset4dPdS_aims:main"
 dPdS2piezo = "fd2bec.cli.dPdS.dPdS2piezo:main"
-generate_strained_structures = "fd2bec.cli.dPdS.generate_strained_structures:main"
 
 # --- displacements ---
 apply_displacements = "fd2bec.cli.displacements.apply_displacements:main"
-generate_all_displacements = "fd2bec.cli.displacements.generate_all_displacements:main"
+extxyz2folder = "fd2bec.cli.displacements.extxyz2folder:main"
+generate_displacements = "fd2bec.cli.displacements.generate_displacements:main"
 generate_random_displacements = "fd2bec.cli.displacements.generate_random_displacements:main"
-generate_symmetry_inequivalent_displacements = "fd2bec.cli.displacements.generate_symmetry_inequivalent_displacements:main"
 
 # --- general ---
 bec2charges = "fd2bec.cli.general.bec2charges:main"
@@ -106,16 +104,21 @@ bec_extxyz2txt = "fd2bec.cli.general.bec_extxyz2txt:main"
 info_extxyz2txt = "fd2bec.cli.general.info_extxyz2txt:main"
 overview = "fd2bec.cli.general.overview:main"
 prepare_linear_system = "fd2bec.cli.general.prepare_linear_system:main"
+rotate_cell = "fd2bec.cli.general.rotate_cell:main"
 solution2bec_txt = "fd2bec.cli.general.solution2bec_txt:main"
 solve_linear_system = "fd2bec.cli.general.solve_linear_system:main"
 sort_structure = "fd2bec.cli.general.sort_structure:main"
 
 # --- ml ---
+add_oxidation_numbers = "fd2bec.cli.ml.add_oxidation_numbers:main"
 mace_polar_dPdR = "fd2bec.cli.ml.mace_polar_dPdR:main"
 mace_polar_dPdS = "fd2bec.cli.ml.mace_polar_dPdS:main"
 
 # --- periodic ---
 generate_supercell = "fd2bec.cli.periodic.generate_supercell:main"
+
+# --- qe ---
+prepare_qe = "fd2bec.cli.qe.prepare_qe:main"
 
 # --- root ---
 fd2bec-help = "fd2bec.cli.fd2bec_help:main"

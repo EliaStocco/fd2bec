@@ -9,7 +9,7 @@ requires-python = ">=3.9"
 
 dependencies = [
     "numpy",
-    # "scipy",
+    "scipy", # needed for linear_sum_assignment in fd2bec/mathematics.py
     "pandas",
     "typing-extensions",  # For better compatibility with type hints
     "matplotlib",

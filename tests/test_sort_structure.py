@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from ase import Atoms
 
 from fd2bec.atomic import AtomicStructure
@@ -42,3 +43,38 @@ def test_sort_atoms_like_reorders_ase_arrays_with_the_atoms():
     assert ordered.get_chemical_symbols() == reference.get_chemical_symbols()
     assert np.array_equal(ordered.arrays["label"], [10, 20, 30])
     assert ordered.info == {"source": "candidate"}
+
+
+def test_sort_atoms_like_uses_nearest_periodic_image_of_reference():
+    reference = Atoms(
+        symbols=["O", "Si"],
+        cell=np.eye(3) * 5.0,
+        scaled_positions=[[0.0, 0.0, 0.0], [0.2, 0.3, 0.4]],
+        pbc=True,
+    )
+    candidate = Atoms(
+        symbols=["Si", "O"],
+        cell=np.eye(3) * 5.0,
+        scaled_positions=[[0.2, 0.3, 0.4], [0.0, 0.0, 0.9]],
+        pbc=True,
+    )
+
+    ordered = sort_atoms_like(reference, candidate, atol=0.11)
+
+    np.testing.assert_allclose(
+        ordered.get_scaled_positions(wrap=False),
+        [[0.0, 0.0, -0.1], [0.2, 0.3, 0.4]],
+    )
+
+
+def test_sort_atoms_like_requires_an_ase_standard_reference_cell():
+    reference = Atoms(
+        symbols=["Si"],
+        cell=[[0.0, 3.0, 0.0], [4.0, 0.0, 0.0], [0.0, 0.0, 5.0]],
+        scaled_positions=[[0.0, 0.0, 0.0]],
+        pbc=True,
+    )
+    candidate = reference.copy()
+
+    with pytest.raises(ValueError, match="rotate_cell"):
+        sort_atoms_like(reference, candidate)

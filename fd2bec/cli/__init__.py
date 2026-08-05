@@ -2,6 +2,7 @@ import argparse
 import re
 import sys
 import time
+import warnings
 from functools import wraps
 from pathlib import Path
 from typing import Union
@@ -60,13 +61,14 @@ def slist(s):
     return size_type(s, str)  # string list
 
 
-def cli(prepare_parser=None, description=None):
+def cli(prepare_parser=None, description=None, deprecated=False):
     """
     Minimal decorator for CLI scripts.
 
     Features:
     - argparse integration
     - optional description
+    - optional deprecation warning
     - timing
     - optional error logging
     """
@@ -76,6 +78,15 @@ def cli(prepare_parser=None, description=None):
         @wraps(main_func)
         def wrapper():
             start = time.time()
+
+            if deprecated:
+                command = Path(sys.argv[0]).name
+                warnings.warn(
+                    f"The '{command}' command is deprecated and may be removed "
+                    "in a future release.",
+                    FutureWarning,
+                    stacklevel=2,
+                )
 
             # --- build parser ---
             if prepare_parser is not None:

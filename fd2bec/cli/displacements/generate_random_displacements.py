@@ -26,8 +26,9 @@ def prepare_args(descr):
         "--amplitude",
         **argv,
         type=float,
-        required=True,
-        help="amplitude of the displacement",
+        required=False,
+        help="amplitude of the displacement (default: %(default)s)",
+        default=1e-3,
     )
     parser.add_argument(
         "-n",
@@ -48,7 +49,7 @@ def prepare_args(descr):
     return parser
 
 
-@cli(prepare_args, description)
+@cli(prepare_args, description, deprecated=True)
 def main(args):
 
     print(f"Reading input structure from {args.input} ... ", end="")

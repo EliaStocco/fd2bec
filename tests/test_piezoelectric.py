@@ -4,12 +4,17 @@ from ase import Atoms
 
 from fd2bec.piezoelectric import (
     E_PER_ANGSTROM2_TO_C_PER_M2,
+    VOIGT_PAIRS,
     apply_strains,
     build_strained_structures,
+    evaluate_dipole_lattice_derivative,
     evaluate_piezoelectric_from_structures,
     evaluate_piezoelectric_tensors,
+    evaluate_proper_piezoelectric_direct,
     generate_strains,
+    piezoelectric_symbolic_matrix,
     piezoelectric_to_voigt,
+    proper_piezoelectric_symmetry_basis,
     proper_piezoelectric_tensor,
     strain_to_voigt,
     voigt_to_piezoelectric,
@@ -73,6 +78,80 @@ def test_one_strained_structure_set_produces_both_tensors():
     np.testing.assert_allclose(result.reference_polarization, reference_polarization, atol=1e-12)
     np.testing.assert_allclose(result.improper.data, improper, atol=1e-12)
     np.testing.assert_allclose(result.proper.data, proper, atol=1e-12)
+
+
+def test_direct_proper_fit_matches_vanderbilt_without_symmetry():
+    strains = generate_strains(amplitude=1e-3)
+    reference_polarization, _, proper, polarizations = synthetic_response(strains)
+    symmetric_modes = []
+    for component in range(3):
+        for j, k in VOIGT_PAIRS:
+            mode = np.zeros((3, 3, 3))
+            mode[component, j, k] = 1
+            mode[component, k, j] = 1
+            symmetric_modes.append(mode.reshape(-1))
+    symmetry_basis = np.asarray(symmetric_modes).T
+
+    direct, fitted_reference, rank, residual = evaluate_proper_piezoelectric_direct(
+        polarizations, strains, symmetry_basis
+    )
+
+    assert rank == 21
+    assert residual < 1e-14
+    np.testing.assert_allclose(fitted_reference, reference_polarization, atol=1e-12)
+    np.testing.assert_allclose(direct.data, proper, atol=1e-12)
+
+
+def test_dipole_lattice_linear_system_recovers_improper_and_rotations():
+    reference = periodic_reference()
+    structures = build_strained_structures(reference, amplitude=1e-3)
+    strains = np.asarray([atoms.info["strain"] for atoms in structures])
+    reference_polarization, improper, proper, polarizations = synthetic_response(strains)
+    cells = np.asarray([atoms.cell.array for atoms in structures])
+    dipoles = polarizations * np.abs(np.linalg.det(cells))[:, None]
+
+    fit = evaluate_dipole_lattice_derivative(dipoles, cells, reference.cell.array)
+
+    np.testing.assert_allclose(
+        fit.reference_dipole,
+        reference_polarization * reference.get_volume(),
+        atol=1e-5,
+    )
+    np.testing.assert_allclose(fit.result.improper.data, improper, atol=1e-7)
+    np.testing.assert_allclose(fit.result.proper.data, proper, atol=1e-7)
+
+    rotation = np.array([[0.0, -2e-4, 3e-4], [2e-4, 0.0, -1e-4], [-3e-4, 1e-4, 0.0]])
+    rotated_cell_change = reference.cell.array @ rotation.T
+    predicted = np.einsum("iab,ab->i", fit.dipole_lattice_derivative, rotated_cell_change)
+    np.testing.assert_allclose(predicted, rotation @ fit.reference_dipole, atol=1e-12)
+
+
+def test_proper_symmetry_basis_removes_forbidden_cubic_modes():
+    from ase.build import bulk
+
+    from fd2bec.atomic import AtomicStructure
+
+    centrosymmetric = AtomicStructure.from_ase(bulk("Si", "diamond", a=5.43))
+    basis = proper_piezoelectric_symmetry_basis(centrosymmetric)
+
+    assert basis.shape == (27, 0)
+    np.testing.assert_array_equal(piezoelectric_symbolic_matrix(basis), np.full((3, 6), "0"))
+
+
+def test_symbolic_pattern_labels_unrestricted_components_in_voigt_order():
+    modes = []
+    for component in range(3):
+        for j, k in VOIGT_PAIRS:
+            mode = np.zeros((3, 3, 3))
+            mode[component, j, k] = 1.0
+            mode[component, k, j] = 1.0
+            modes.append(mode.reshape(-1))
+
+    pattern = piezoelectric_symbolic_matrix(np.asarray(modes).T)
+
+    assert pattern.shape == (3, 6)
+    assert pattern[0].tolist() == ["a", "b", "c", "d", "e", "f"]
+    assert len(set(pattern.reshape(-1))) == 18
 
 
 def test_proper_correction_removes_pure_geometric_response():

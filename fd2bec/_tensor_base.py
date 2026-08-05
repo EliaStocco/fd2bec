@@ -37,8 +37,8 @@ class Tensor:
             shapes = np.asarray(self.data.shape[-tot_rank:])
             if not np.allclose(shapes, 3):
                 raise ValueError("Wrong shape.")
-        if self.is_affine and self.rank != (1, 0):
-            raise ValueError("Affine tensors can only be of rank-(1,0) (positions).")
+        # if self.is_affine and self.rank != (1, 0):
+        #     raise ValueError("Affine tensors can only be of rank-(1,0) (positions).")
 
     @property
     def shape(self):
