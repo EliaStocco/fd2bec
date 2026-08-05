@@ -1,0 +1,104 @@
+
+@-------------------------------------------
+@ Description: 
+Evaluate proper and improper piezoelectric tensors from the same set of polarized strained structures. Dipole inputs must be in e*Angstrom and are converted to polarization by dividing by the cell volume in Angstrom^3.
+@ Running: /home/stoccoel/.pyenv/versions/fd2bec/bin/dPdS2piezo -r start.extxyz -i dataset.extxyz --quantity dipole --dipole-keyword MACE_dipole --conventional-axes
+@ Let's start!
+
+	Reference structure (input Cartesian frame):
+	Cell vectors [Angstrom, rows]:
+	[[3.97755572 0.         0.        ]
+	 [0.         3.97755572 0.        ]
+	 [0.         0.         3.97755572]]
+	Lattice parameters: a=3.97755572 Angstrom, b=3.97755572 Angstrom, c=3.97755572 Angstrom; alpha=90.000000 deg, beta=90.000000 deg, gamma=90.000000 deg.
+	Fractional coordinates (wrapped to [0, 1)):
+	 index  atom               x               y               z
+	     0  Ba       0.499999999     0.499999999     0.499999999
+	     1  Ti       0.000000000     0.000000000     0.000000000
+	     2  O        0.000000000     0.000000000     0.499999999
+	     3  O        0.000000000     0.499999999     0.000000000
+	     4  O        0.499999999     0.000000000     0.000000000
+	Converted 'MACE_dipole' to 'REF_polarization' as dipole/cell volume for 1 structure(s).
+	Aligned polarization branches using each snapshot's cell-dependent quantum.
+	Space group: 221 (Pm-3m); point group m-3m; 48 symmetry operations; 0 allowed proper-piezoelectric parameters.
+	Selected independent coefficient representatives: none.
+	Rotating reported and saved tensors into conventional crystallographic axes.
+	Cartesian coordinate rotation (conventional <- input):
+	[[1. 0. 0.]
+	 [0. 1. 0.]
+	 [0. 0. 1.]]
+	
+	Dipole/lattice linear system:
+	 - b.shape: (3, 1)
+	 - A.shape: (3, 3)
+	 - rank: 3
+	
+	----------------------------------------
+	Linear Fit Summary
+	----------------------------------------
+	Error          : 0.000e+00
+	Relative Error : 0.000e+00
+	Quality        : GOOD
+	Bad points     : 0 / 3
+	----------------------------------------
+	
+	Voigt order: xx, yy, zz, yz, xz, xy.
+	Engineering strain uses [exx, eyy, ezz, 2eyz, 2exz, 2exy].
+	
+	Symmetry-allowed proper piezoelectric matrix [3x6]:
+	(letters are independent parameters in the conventional Cartesian axes)
+	[ 0  0  0  0  0  0 ]
+	[ 0  0  0  0  0  0 ]
+	[ 0  0  0  0  0  0 ]
+	
+	Symmetry-allowed proper piezoelectric modes [3x6]:
+	(canonical modes expressed in the conventional Cartesian axes)
+	No symmetry-allowed modes: the proper piezoelectric tensor is zero.
+	
+	d(dipole)/d(lattice vectors) [3x9, input axes]:
+	[[1. 0. 0. 1. 0. 0. 1. 0. 0.]
+	 [0. 1. 0. 0. 1. 0. 0. 1. 0.]
+	 [0. 0. 1. 0. 0. 1. 0. 0. 1.]]
+	
+	Improper piezoelectric tensor [3x6, e/Angstrom^2]:
+	[[ 0.       -0.063207 -0.063207  0.        0.031604  0.031604]
+	 [-0.063207  0.       -0.063207  0.031604  0.        0.031604]
+	 [-0.063207 -0.063207  0.        0.031604  0.031604  0.      ]]
+	
+	Proper piezoelectric tensor from Vanderbilt correction [3x6, e/Angstrom^2]:
+	[[0. 0. 0. 0. 0. 0.]
+	 [0. 0. 0. 0. 0. 0.]
+	 [0. 0. 0. 0. 0. 0.]]
+	
+	Proper piezoelectric tensor in the reference lattice basis [3x3x3, e/Angstrom]:
+	(full fractional-basis tensor; no Cartesian engineering-Voigt contraction)
+	[[[0. 0. 0.]
+	  [0. 0. 0.]
+	  [0. 0. 0.]]
+	
+	 [[0. 0. 0.]
+	  [0. 0. 0.]
+	  [0. 0. 0.]]
+	
+	 [[0. 0. 0.]
+	  [0. 0. 0.]
+	  [0. 0. 0.]]]
+	
+	Direct ProperPiezoelectricTensor fit [3x6, e/Angstrom^2]:
+	[[0. 0. 0. 0. 0. 0.]
+	 [0. 0. 0. 0. 0. 0.]
+	 [0. 0. 0. 0. 0. 0.]]
+	
+	Piezoelectric coefficient [e/Angstrom^2]:
+	none
+	
+	Proper-tensor check: AGREE; maximum |difference| = 0.000000e+00 e/Angstrom^2 (absolute tolerance 1.000000e-06 e/Angstrom^2).
+	Converse stress convention: delta_sigma_V = - proper_e.T @ electric_field.
+	Direct fit: 0 symmetry-allowed tensor parameters; rank 3; RMS residual 0.000000e+00.
+	Fit rank: 3; RMS residual: 0.000000e+00
+	Saved improper, Vanderbilt proper, and direct proper piezoelectric tensors to 'piezoelectric'.
+
+@ Job done :)
+@ Finished in 0.02s
+-------------------------------------------@
+

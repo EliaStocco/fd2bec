@@ -1,0 +1,209 @@
+{
+  "voigt_order": [
+    "xx",
+    "yy",
+    "zz",
+    "yz",
+    "xz",
+    "xy"
+  ],
+  "shear_convention": [
+    "exx",
+    "eyy",
+    "ezz",
+    "2eyz",
+    "2exz",
+    "2exy"
+  ],
+  "rank": 6,
+  "residual_rms": 6.721092151522495e-08,
+  "polarization_keyword": "REF_polarization",
+  "dipole_keyword": "MACE_dipole",
+  "input_quantity": "dipole",
+  "detected_input_quantity": "dipole",
+  "branch_unwrapping_enabled": true,
+  "polarization_unit": "e/angstrom^2",
+  "symmetry_enabled": true,
+  "coordinate_frame": "conventional",
+  "coordinate_rotation_conventional_from_input": [
+    [
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "space_group_number": 99,
+  "space_group_symbol": "P4mm",
+  "point_group_symbol": "4mm",
+  "independent_coefficient_names": [
+    "e15",
+    "e31",
+    "e33"
+  ],
+  "independent_coefficient_values": {
+    "e15": 0.009323441444847645,
+    "e31": 0.019489154956192294,
+    "e33": -0.03045916602642262
+  },
+  "symmetry_operations": 8,
+  "symmetry_pattern": [
+    [
+      "0",
+      "0",
+      "0",
+      "0",
+      "a",
+      "0"
+    ],
+    [
+      "0",
+      "0",
+      "0",
+      "a",
+      "0",
+      "0"
+    ],
+    [
+      "b",
+      "b",
+      "c",
+      "0",
+      "0",
+      "0"
+    ]
+  ],
+  "symmetry_symbolic_matrix": [
+    [
+      "0",
+      "0",
+      "0",
+      "0",
+      "a",
+      "0"
+    ],
+    [
+      "0",
+      "0",
+      "0",
+      "a",
+      "0",
+      "0"
+    ],
+    [
+      "b",
+      "b",
+      "c",
+      "0",
+      "0",
+      "0"
+    ]
+  ],
+  "symmetry_modes": [
+    [
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    [
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    [
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    ]
+  ],
+  "symmetry_mode_independent_components": [
+    4,
+    12,
+    14
+  ],
+  "direct_proper_parameters": 3,
+  "direct_proper_rank": 6,
+  "direct_proper_residual_rms": 1.8106008820159967e-09,
+  "direct_reference_polarization": [
+    0.0622806214663822,
+    0.06228062259935316,
+    0.08276380048240736
+  ],
+  "proper_tensors_agree": true,
+  "proper_tensor_max_abs_difference": 2.2484380676757176e-09,
+  "proper_tensor_agreement_tolerance": 1e-06,
+  "dipole_lattice_fit_rank": 6,
+  "dipole_lattice_fit_residual_rms": 6.721092151522495e-08
+}

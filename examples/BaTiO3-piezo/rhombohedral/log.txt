@@ -1,0 +1,122 @@
+
+@-------------------------------------------
+@ Description: 
+Evaluate proper and improper piezoelectric tensors from the same set of polarized strained structures. Dipole inputs must be in e*Angstrom and are converted to polarization by dividing by the cell volume in Angstrom^3.
+@ Running: /home/stoccoel/.pyenv/versions/fd2bec/bin/dPdS2piezo -r start.extxyz -i dataset.extxyz --quantity dipole --dipole-keyword MACE_dipole --conventional-axes
+@ Let's start!
+
+	Reference structure (input Cartesian frame):
+	Cell vectors [Angstrom, rows]:
+	[[3.99684147 0.         0.        ]
+	 [0.00911264 3.99683108 0.        ]
+	 [0.00911264 0.00909189 3.99682074]]
+	Lattice parameters: a=3.99684147 Angstrom, b=3.99684147 Angstrom, c=3.99684147 Angstrom; alpha=89.869368 deg, beta=89.869368 deg, gamma=89.869368 deg.
+	Fractional coordinates (wrapped to [0, 1)):
+	 index  atom               x               y               z
+	     0  Ba       0.499999999     0.499999999     0.500000001
+	     1  Ti       0.011426470     0.011426470     0.011426472
+	     2  O        0.988666002     0.988666000     0.482099315
+	     3  O        0.988666002     0.482099311     0.988666002
+	     4  O        0.482099316     0.988665998     0.988666002
+	Converted 'MACE_dipole' to 'REF_polarization' as dipole/cell volume for 5 structure(s).
+	Aligned polarization branches using each snapshot's cell-dependent quantum.
+	Space group: 160 (R3m); point group 3m; 6 symmetry operations; 4 allowed proper-piezoelectric parameters.
+	Selected independent coefficient representatives: e16, e24, e31, e33.
+	Rotating reported and saved tensors into conventional crystallographic axes.
+	Cartesian coordinate rotation (conventional <- input):
+	[[ 0.70630023 -0.70791241 -0.        ]
+	 [ 0.40778263  0.40685396 -0.81742473]
+	 [ 0.57866511  0.57734727  0.57603543]]
+	
+	Dipole/lattice linear system:
+	 - b.shape: (15, 1)
+	 - A.shape: (15, 7)
+	 - rank: 7
+	
+	----------------------------------------
+	Linear Fit Summary
+	----------------------------------------
+	Error          : 3.262e-07
+	Relative Error : 1.752e-08
+	Quality        : GOOD
+	Bad points     : 13 / 15
+	----------------------------------------
+	
+	Voigt order: xx, yy, zz, yz, xz, xy.
+	Engineering strain uses [exx, eyy, ezz, 2eyz, 2exz, 2exy].
+	
+	Symmetry-allowed proper piezoelectric matrix [3x6]:
+	(letters are independent parameters in the conventional Cartesian axes)
+	[  0   0   0   0   b   a ]
+	[  a  -a   0   b   0   0 ]
+	[  c   c   d   0   0   0 ]
+	
+	Symmetry-allowed proper piezoelectric modes [3x6]:
+	(canonical modes expressed in the conventional Cartesian axes)
+	Mode a (e_x,xy = 1):
+	[[-0.  0. -0.  0. -0.  1.]
+	 [ 1. -1. -0. -0. -0.  0.]
+	 [-0.  0.  0. -0. -0.  0.]]
+	Mode b (e_y,yz = 1):
+	[[-0. -0.  0. -0.  1. -0.]
+	 [ 0.  0. -0.  1. -0. -0.]
+	 [ 0. -0.  0. -0. -0. -0.]]
+	Mode c (e_z,xx = 1):
+	[[-0. -0.  0. -0. -0.  0.]
+	 [ 0. -0.  0.  0. -0.  0.]
+	 [ 1.  1.  0. -0. -0. -0.]]
+	Mode d (e_z,zz = 1):
+	[[-0. -0. -0.  0. -0.  0.]
+	 [ 0. -0.  0. -0.  0. -0.]
+	 [-0. -0.  1.  0. -0.  0.]]
+	
+	d(dipole)/d(lattice vectors) [3x9, input axes]:
+	[[ 0.920916  0.076858  0.076684  1.276978  0.214277 -0.01286   1.276978 -0.012373  0.214306]
+	 [ 0.215089  1.276314 -0.013035  0.076046  0.920252  0.076713 -0.012373  1.277034  0.213818]
+	 [ 0.2146   -0.013035  1.276373 -0.012546  0.21463   1.276373  0.076075  0.075901  0.919591]]
+	
+	Improper piezoelectric tensor [3x6, e/Angstrom^2]:
+	[[-0.        0.        0.        0.        0.050559 -0.017171]
+	 [-0.017171  0.017171  0.        0.050559  0.       -0.      ]
+	 [-0.130071 -0.130071  0.015589 -0.       -0.       -0.      ]]
+	
+	Proper piezoelectric tensor from Vanderbilt correction [3x6, e/Angstrom^2]:
+	[[-0.       -0.       -0.        0.       -0.014636 -0.017171]
+	 [-0.017171  0.017171  0.       -0.014636  0.        0.      ]
+	 [ 0.000318  0.000318  0.015589  0.       -0.       -0.      ]]
+	
+	Proper piezoelectric tensor in the reference lattice basis [3x3x3, e/Angstrom]:
+	(full fractional-basis tensor; no Cartesian engineering-Voigt contraction)
+	[[[-0.069942  0.019149  0.019149]
+	  [ 0.019149  0.053729 -0.002973]
+	  [ 0.019149 -0.002973  0.053729]]
+	
+	 [[ 0.053729  0.019149 -0.002973]
+	  [ 0.019149 -0.069942  0.019149]
+	  [-0.002973  0.019149  0.053729]]
+	
+	 [[ 0.053729 -0.002973  0.019149]
+	  [-0.002973  0.053729  0.019149]
+	  [ 0.019149  0.019149 -0.069942]]]
+	
+	Direct ProperPiezoelectricTensor fit [3x6, e/Angstrom^2]:
+	[[ 0.       -0.       -0.        0.       -0.014636 -0.017171]
+	 [-0.017171  0.017171  0.       -0.014636  0.        0.      ]
+	 [ 0.000318  0.000318  0.015589  0.        0.        0.      ]]
+	
+	Piezoelectric coefficient [e/Angstrom^2]:
+	e16: -0.017171
+	e24: -0.0146357
+	e31: 0.000317982
+	e33: 0.0155894
+	
+	Proper-tensor check: AGREE; maximum |difference| = 1.530620e-09 e/Angstrom^2 (absolute tolerance 1.000000e-06 e/Angstrom^2).
+	Converse stress convention: delta_sigma_V = - proper_e.T @ electric_field.
+	Direct fit: 4 symmetry-allowed tensor parameters; rank 7; RMS residual 1.358943e-09.
+	Fit rank: 7; RMS residual: 8.421910e-08
+	Saved improper, Vanderbilt proper, and direct proper piezoelectric tensors to 'piezoelectric'.
+
+@ Job done :)
+@ Finished in 0.02s
+-------------------------------------------@
+

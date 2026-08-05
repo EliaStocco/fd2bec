@@ -1,0 +1,118 @@
+{
+  "voigt_order": [
+    "xx",
+    "yy",
+    "zz",
+    "yz",
+    "xz",
+    "xy"
+  ],
+  "shear_convention": [
+    "exx",
+    "eyy",
+    "ezz",
+    "2eyz",
+    "2exz",
+    "2exy"
+  ],
+  "rank": 3,
+  "residual_rms": 0.0,
+  "polarization_keyword": "REF_polarization",
+  "dipole_keyword": "MACE_dipole",
+  "input_quantity": "dipole",
+  "detected_input_quantity": "dipole",
+  "branch_unwrapping_enabled": true,
+  "polarization_unit": "e/angstrom^2",
+  "symmetry_enabled": true,
+  "coordinate_frame": "conventional",
+  "coordinate_rotation_conventional_from_input": [
+    [
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "space_group_number": 221,
+  "space_group_symbol": "Pm-3m",
+  "point_group_symbol": "m-3m",
+  "independent_coefficient_names": [],
+  "independent_coefficient_values": {},
+  "symmetry_operations": 48,
+  "symmetry_pattern": [
+    [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ]
+  ],
+  "symmetry_symbolic_matrix": [
+    [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ]
+  ],
+  "symmetry_modes": [],
+  "symmetry_mode_independent_components": [],
+  "direct_proper_parameters": 0,
+  "direct_proper_rank": 3,
+  "direct_proper_residual_rms": 0.0,
+  "direct_reference_polarization": [
+    0.06320733140299437,
+    0.06320733140299437,
+    0.06320733140299437
+  ],
+  "proper_tensors_agree": true,
+  "proper_tensor_max_abs_difference": 0.0,
+  "proper_tensor_agreement_tolerance": 1e-06,
+  "dipole_lattice_fit_rank": 3,
+  "dipole_lattice_fit_residual_rms": 0.0
+}
