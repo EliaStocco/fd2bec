@@ -105,6 +105,7 @@ info_extxyz2txt = "fd2bec.cli.general.info_extxyz2txt:main"
 overview = "fd2bec.cli.general.overview:main"
 prepare_linear_system = "fd2bec.cli.general.prepare_linear_system:main"
 rotate_cell = "fd2bec.cli.general.rotate_cell:main"
+show_piezo = "fd2bec.cli.general.show_piezo:main"
 solution2bec_txt = "fd2bec.cli.general.solution2bec_txt:main"
 solve_linear_system = "fd2bec.cli.general.solve_linear_system:main"
 sort_structure = "fd2bec.cli.general.sort_structure:main"
@@ -118,6 +119,7 @@ mace_polar_dPdS = "fd2bec.cli.ml.mace_polar_dPdS:main"
 generate_supercell = "fd2bec.cli.periodic.generate_supercell:main"
 
 # --- qe ---
+build_dataset_qe = "fd2bec.cli.qe.build_dataset_qe:main"
 prepare_qe = "fd2bec.cli.qe.prepare_qe:main"
 
 # --- root ---

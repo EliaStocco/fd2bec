@@ -51,7 +51,7 @@ def prepare_args(descr):
         "-o",
         "--output",
         **argv,
-        default="aims-piezoelectric.extxyz",
+        default="dataset.extxyz",
         help="polarized extxyz output (default: %(default)s)",
     )
     return parser

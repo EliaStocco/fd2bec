@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-from ase.io import read
+from fd2bec.io import read
 
 
 def main():

@@ -79,6 +79,11 @@ in every numerical Cartesian tensor and named-coefficient heading:
 contains two lattice-vector factors and one inverse lattice-vector factor;
 because cells are represented in Angstrom, its printed unit is `e/Angstrom`
 or `C*Angstrom/m^2`, respectively.
+Numerical 3×6 tensors are printed as aligned tables with `P_x`, `P_y`, and
+`P_z` row labels and explicit Voigt-column headers. The lattice-basis tensor is
+printed as three labeled 3×3 slices. Values below the display tolerance are
+shown as `0.000000`, avoiding distracting negative zeros without changing the
+saved numerical data.
 
 The factor of two belongs to the off-diagonal **strain vector**, not to the
 stored piezoelectric columns. Thus

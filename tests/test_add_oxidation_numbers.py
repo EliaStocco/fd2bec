@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pytest
 from ase import Atoms
-from ase.io import read, write
+from fd2bec.io import read, write
 
 from fd2bec.cli.ml.add_oxidation_numbers import (
     add_oxidation_numbers,

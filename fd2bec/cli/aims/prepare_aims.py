@@ -5,10 +5,10 @@ from importlib import resources
 from pathlib import Path
 
 import numpy as np
-from ase.io import read
 from numpy.linalg import norm
 
 from fd2bec.cli import cli
+from fd2bec.io import read
 from fd2bec.io import read as fd2bec_read
 
 description = "Prepare calculations for FHI-aims."

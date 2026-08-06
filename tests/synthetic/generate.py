@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from ase.io import read, write
+from fd2bec.io import read, write
 
 INPUT_DIR = "sg_prototypes"
 OUTPUT_DIR = "sg_prototypes_rotated"

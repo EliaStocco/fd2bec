@@ -11,6 +11,7 @@ from fd2bec import float_format
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import KEYWORDS, cli
 from fd2bec.io import read
+from fd2bec.mathematics import rotate_rank3
 from fd2bec.piezoelectric import (
     E_PER_ANGSTROM2_TO_C_PER_M2,
     canonical_piezoelectric_modes,
@@ -21,6 +22,7 @@ from fd2bec.piezoelectric import (
     proper_piezoelectric_symmetry_basis,
     strains_from_cells,
 )
+from fd2bec.show import print_reference_structure
 
 description = (
     "Evaluate proper and improper piezoelectric tensors from the same set of "
@@ -44,7 +46,7 @@ def print_voigt_tensor(tensor, precision=6):
     if tensor.shape != (3, 6):
         raise ValueError(f"Expected a 3x6 tensor, got {tensor.shape}.")
     width = precision + 8
-    print(" " * 7 + "".join(f"{label:>{width}}" for label in VOIGT_LABELS))
+    print(" " * 6 + "".join(f"{label:>{width}}" for label in VOIGT_LABELS))
     for axis, row in zip(CARTESIAN_LABELS, tensor):
         values = "".join(f"{_display_number(value, precision):>{width}}" for value in row)
         print(f"P_{axis:<4s}{values}")
@@ -195,31 +197,6 @@ def attach_polarizations(
         if vector.shape != (3,) or not np.all(np.isfinite(vector)):
             raise ValueError(f"Structure {index} contains an invalid three-component vector.")
     return converted
-
-
-def print_reference_structure(reference):
-    """Print the reference cell, lattice parameters, and fractional positions."""
-    cell = np.asarray(reference.cell.array, dtype=float)
-    a, b, c, alpha, beta, gamma = reference.cell.cellpar()
-    scaled_positions = reference.get_scaled_positions(wrap=True)
-
-    print("Reference structure (input Cartesian frame):")
-    print("Cell vectors [Angstrom, rows]:")
-    print(np.array2string(cell, precision=8, suppress_small=True, max_line_width=160))
-    print(
-        "Lattice parameters: "
-        f"a={a:.8f} Angstrom, b={b:.8f} Angstrom, c={c:.8f} Angstrom; "
-        f"alpha={alpha:.6f} deg, beta={beta:.6f} deg, gamma={gamma:.6f} deg."
-    )
-    print("Fractional coordinates (wrapped to [0, 1)):")
-    print(" index  atom               x               y               z")
-    for index, (symbol, position) in enumerate(
-        zip(reference.get_chemical_symbols(), scaled_positions)
-    ):
-        print(
-            f" {index:5d}  {symbol:<4s}  "
-            f"{position[0]:14.9f}  {position[1]:14.9f}  {position[2]:14.9f}"
-        )
 
 
 @cli(prepare_args, description)
@@ -396,23 +373,20 @@ def main(args):
             stacklevel=2,
         )
 
-    def rotate_rank3(tensor):
-        return np.einsum(
-            "ai,bj,ck,ijk->abc",
-            coordinate_rotation,
-            coordinate_rotation,
-            coordinate_rotation,
-            tensor,
-        )
-
-    reported_improper_voigt = piezoelectric_to_voigt(rotate_rank3(result.improper.data))
-    reported_proper_voigt = piezoelectric_to_voigt(rotate_rank3(result.proper.data))
-    reported_direct_voigt = piezoelectric_to_voigt(rotate_rank3(direct_proper.data))
+    reported_improper_voigt = piezoelectric_to_voigt(
+        rotate_rank3(result.improper.data, coordinate_rotation)
+    )
+    reported_proper_voigt = piezoelectric_to_voigt(
+        rotate_rank3(result.proper.data, coordinate_rotation)
+    )
+    reported_direct_voigt = piezoelectric_to_voigt(
+        rotate_rank3(direct_proper.data, coordinate_rotation)
+    )
     coefficient_values = {
         symbol: float(reported_direct_voigt.reshape(-1)[component])
         for symbol, component in zip(coefficient_names, independent_components)
     }
-    reported_dipole_strain = rotate_rank3(dipole_fit.dipole_strain_derivative)
+    reported_dipole_strain = rotate_rank3(dipole_fit.dipole_strain_derivative, coordinate_rotation)
     reported_reference_polarization = coordinate_rotation @ result.reference_polarization
     proper_lattice_basis = result.proper.to(basis="fractional").data
 
@@ -478,7 +452,7 @@ def main(args):
             indent=2,
         )
 
-    matrix_format = {"precision": 6, "suppress_small": True, "max_line_width": 200}
+    # matrix_format = {"precision": 6, "suppress_small": True, "max_line_width": 200}
     piezoelectric_unit = "C/m^2" if args.polarization_unit == "C/m^2" else "e/Angstrom^2"
     lattice_basis_unit = "C*Angstrom/m^2" if args.polarization_unit == "C/m^2" else "e/Angstrom"
     print("Voigt order: xx, yy, zz, yz, xz, xy.")
@@ -489,24 +463,24 @@ def main(args):
     symbolic_width = max(1, max(len(value) for value in symbolic_matrix.flat))
     for row in symbolic_matrix:
         print("[ " + "  ".join(f"{value:>{symbolic_width}}" for value in row) + " ]")
-    print("\nSymmetry-allowed proper piezoelectric modes [3x6]:")
-    print(f"(canonical modes expressed in the {frame_label} Cartesian axes)")
-    if not len(symmetry_modes):
-        print("No symmetry-allowed modes: the proper piezoelectric tensor is zero.")
-    cartesian = "xyz"
-    for index, (mode, component) in enumerate(zip(symmetry_modes, independent_components)):
-        label = chr(ord("a") + index) if index < 26 else f"a{index + 1}"
-        polarization_axis, voigt_column = divmod(component, 6)
-        anchor = f"e_{cartesian[polarization_axis]},{VOIGT_LABELS[voigt_column]}"
-        print(f"Mode {label} ({anchor} = 1):")
-        print_voigt_tensor(mode)
-    print("\nd(dipole)/d(lattice vectors) [3x9, input axes]:")
-    print(
-        np.array2string(
-            dipole_fit.dipole_lattice_derivative.reshape((3, 9)),
-            **matrix_format,
-        )
-    )
+    # print("\nSymmetry-allowed proper piezoelectric modes [3x6]:")
+    # print(f"(canonical modes expressed in the {frame_label} Cartesian axes)")
+    # if not len(symmetry_modes):
+    #     print("No symmetry-allowed modes: the proper piezoelectric tensor is zero.")
+    # cartesian = "xyz"
+    # for index, (mode, component) in enumerate(zip(symmetry_modes, independent_components)):
+    #     label = chr(ord("a") + index) if index < 26 else f"a{index + 1}"
+    #     polarization_axis, voigt_column = divmod(component, 6)
+    #     anchor = f"e_{cartesian[polarization_axis]},{VOIGT_LABELS[voigt_column]}"
+    #     print(f"Mode {label} ({anchor} = 1):")
+    #     print_voigt_tensor(mode)
+    # print("\nd(dipole)/d(lattice vectors) [3x9, input axes]:")
+    # print(
+    #     np.array2string(
+    #         dipole_fit.dipole_lattice_derivative.reshape((3, 9)),
+    #         **matrix_format,
+    #     )
+    # )
     print(f"\nImproper piezoelectric tensor [3x6, {piezoelectric_unit}]:")
     print_voigt_tensor(reported_improper_voigt)
     print(f"\nProper piezoelectric tensor from Vanderbilt correction [3x6, {piezoelectric_unit}]:")

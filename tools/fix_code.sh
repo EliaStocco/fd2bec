@@ -23,7 +23,7 @@ echo "6) Fixing end-of-file issues..."
 pre-commit run end-of-file-fixer --all-files
 
 echo "7) Fixing trailing whitespace..."
-pre-commit run trailing-whitespace --all-files
+pre-commit run trailing-whitespace --files $(git ls-files '*.py')
 
 # echo "8) Running Pylint with specific checks disabled..."
 # pylint  fd2bec \

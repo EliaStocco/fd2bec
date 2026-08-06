@@ -181,3 +181,13 @@ def block_diag(matrices: List[np.ndarray]):
         c += cols
 
     return out
+
+
+def rotate_rank3(tensor, coordinate_rotation):
+    return np.einsum(
+        "ai,bj,ck,ijk->abc",
+        coordinate_rotation,
+        coordinate_rotation,
+        coordinate_rotation,
+        tensor,
+    )
