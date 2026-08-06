@@ -27,7 +27,7 @@ def prepare_args(descr):
         **argv,
         type=str,
         required=True,
-        help="name of the 'info' (e.g. dipole",
+        help="name of the 'info' (e.g. dipole)",
     )
     parser.add_argument(
         "-o",

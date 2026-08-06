@@ -28,6 +28,41 @@ description = (
     "are converted to polarization by dividing by the cell volume in Angstrom^3."
 )
 
+VOIGT_LABELS = ("xx", "yy", "zz", "yz", "xz", "xy")
+CARTESIAN_LABELS = ("x", "y", "z")
+
+
+def _display_number(value, precision=6, zero_tolerance=5e-10):
+    """Return a fixed-width-friendly number without negative numerical zero."""
+    value = 0.0 if abs(value) < zero_tolerance else value
+    return f"{value:.{precision}f}"
+
+
+def print_voigt_tensor(tensor, precision=6):
+    """Print a numerical 3x6 tensor with Cartesian and Voigt labels."""
+    tensor = np.asarray(tensor, dtype=float)
+    if tensor.shape != (3, 6):
+        raise ValueError(f"Expected a 3x6 tensor, got {tensor.shape}.")
+    width = precision + 8
+    print(" " * 7 + "".join(f"{label:>{width}}" for label in VOIGT_LABELS))
+    for axis, row in zip(CARTESIAN_LABELS, tensor):
+        values = "".join(f"{_display_number(value, precision):>{width}}" for value in row)
+        print(f"P_{axis:<4s}{values}")
+
+
+def print_lattice_tensor(tensor, precision=6):
+    """Print a rank-3 lattice-basis tensor as three labeled 3x3 slices."""
+    tensor = np.asarray(tensor, dtype=float)
+    if tensor.shape != (3, 3, 3):
+        raise ValueError(f"Expected a 3x3x3 tensor, got {tensor.shape}.")
+    width = precision + 8
+    for component, block in zip(CARTESIAN_LABELS, tensor):
+        print(f"P_{component} component:")
+        print(" " * 7 + "".join(f"{label:>{width}}" for label in CARTESIAN_LABELS))
+        for axis, row in zip(CARTESIAN_LABELS, block):
+            values = "".join(f"{_display_number(value, precision):>{width}}" for value in row)
+            print(f"  {axis:<5s}{values}")
+
 
 def prepare_args(descr):
     parser = argparse.ArgumentParser(description=descr)
@@ -459,13 +494,12 @@ def main(args):
     if not len(symmetry_modes):
         print("No symmetry-allowed modes: the proper piezoelectric tensor is zero.")
     cartesian = "xyz"
-    voigt_labels = ("xx", "yy", "zz", "yz", "xz", "xy")
     for index, (mode, component) in enumerate(zip(symmetry_modes, independent_components)):
         label = chr(ord("a") + index) if index < 26 else f"a{index + 1}"
         polarization_axis, voigt_column = divmod(component, 6)
-        anchor = f"e_{cartesian[polarization_axis]},{voigt_labels[voigt_column]}"
+        anchor = f"e_{cartesian[polarization_axis]},{VOIGT_LABELS[voigt_column]}"
         print(f"Mode {label} ({anchor} = 1):")
-        print(np.array2string(mode, **matrix_format))
+        print_voigt_tensor(mode)
     print("\nd(dipole)/d(lattice vectors) [3x9, input axes]:")
     print(
         np.array2string(
@@ -474,17 +508,17 @@ def main(args):
         )
     )
     print(f"\nImproper piezoelectric tensor [3x6, {piezoelectric_unit}]:")
-    print(np.array2string(reported_improper_voigt, **matrix_format))
+    print_voigt_tensor(reported_improper_voigt)
     print(f"\nProper piezoelectric tensor from Vanderbilt correction [3x6, {piezoelectric_unit}]:")
-    print(np.array2string(reported_proper_voigt, **matrix_format))
+    print_voigt_tensor(reported_proper_voigt)
     print(
         "\nProper piezoelectric tensor in the reference lattice basis "
         f"[3x3x3, {lattice_basis_unit}]:"
     )
     print("(full fractional-basis tensor; no Cartesian engineering-Voigt contraction)")
-    print(np.array2string(proper_lattice_basis, **matrix_format))
+    print_lattice_tensor(proper_lattice_basis)
     print(f"\nDirect ProperPiezoelectricTensor fit [3x6, {piezoelectric_unit}]:")
-    print(np.array2string(reported_direct_voigt, **matrix_format))
+    print_voigt_tensor(reported_direct_voigt)
     print(f"\nPiezoelectric coefficient [{piezoelectric_unit}]:")
     if coefficient_values:
         for symbol, value in coefficient_values.items():
