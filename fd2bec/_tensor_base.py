@@ -5,15 +5,15 @@ The mathematical metadata lives in ordinary dictionaries in
 (``data``, ``basis`` and ``cell``) separate from those definitions.
 """
 
-from copy import copy, deepcopy
 import json
-from typing import Any, List, Tuple
+from copy import copy, deepcopy
+from typing import List, Tuple
 
 import numpy as np
 
 from fd2bec import Basis
-from ._tensor_definition import validate_definition
 
+from ._tensor_definition import validate_definition
 
 SCHEMA_VERSION = 1
 
@@ -63,9 +63,7 @@ class Tensor:
                 f"dimensions for its explicit axes, got shape {self.data.shape}."
             )
         sizes = self.data.shape[-len(axes) :]
-        atomic_sizes = [
-            size for axis, size in zip(axes, sizes) if axis["type"] == "atomic"
-        ]
+        atomic_sizes = [size for axis, size in zip(axes, sizes) if axis["type"] == "atomic"]
         if atomic_sizes and len(set(atomic_sizes)) != 1:
             raise ValueError("All atomic dimensions must have the same natoms size.")
         for axis, size in zip(axes, sizes):
@@ -73,8 +71,7 @@ class Tensor:
             if size != expected:
                 kind = "natoms" if axis["type"] == "atomic" else "3"
                 raise ValueError(
-                    f"Axis {axis['name']!r} is {axis['type']} and requires size {kind}; "
-                    f"got {size}."
+                    f"Axis {axis['name']!r} is {axis['type']} and requires size {kind}; got {size}."
                 )
 
     @property
@@ -85,7 +82,9 @@ class Tensor:
     @property
     def variances(self) -> List[bool]:
         """Legacy compact view of Cartesian variances (False means contra)."""
-        return [axis["variance"] == "covariant" for axis in self.axes if axis["type"] == "cartesian"]
+        return [
+            axis["variance"] == "covariant" for axis in self.axes if axis["type"] == "cartesian"
+        ]
 
     @property
     def is_atomic(self) -> bool:

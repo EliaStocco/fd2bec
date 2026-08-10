@@ -81,7 +81,9 @@ def _symmetric_pairs(axes, shape):
             continue
         if left.get("role") != right.get("role"):
             continue
-        if not (left.get("name", "").startswith("strain") and right.get("name", "").startswith("strain")):
+        if not (
+            left.get("name", "").startswith("strain") and right.get("name", "").startswith("strain")
+        ):
             continue
         if shape[index] != 3 or shape[index + 1] != 3:
             continue
@@ -189,9 +191,7 @@ def _prefix_label(prefixes, axes):
         )
 
     varying = [
-        index
-        for index in range(len(axes))
-        if len({prefix[index] for prefix in prefixes}) > 1
+        index for index in range(len(axes)) if len({prefix[index] for prefix in prefixes}) > 1
     ]
     if len(varying) == 1 and axes[varying[0]].get("type") == "atomic":
         varying_index = varying[0]
@@ -206,9 +206,7 @@ def _prefix_label(prefixes, axes):
         return ", ".join([atomic, *fixed])
 
     indices = "; ".join(
-        "("
-        + ", ".join(_coordinate_label(axis, value) for axis, value in zip(axes, prefix))
-        + ")"
+        "(" + ", ".join(_coordinate_label(axis, value) for axis, value in zip(axes, prefix)) + ")"
         for prefix in prefixes
     )
     return f"indices={{{indices}}}"
@@ -297,15 +295,11 @@ def main(args):
 
     frame_label = "input"
     if args.conventional_axes:
-        coordinate_rotation = np.asarray(
-            unit_cell._spglib_dataset.std_rotation_matrix, dtype=float
-        )  # pylint: disable=protected-access
+        coordinate_rotation = np.asarray(unit_cell._spglib_dataset.std_rotation_matrix, dtype=float)  # pylint: disable=protected-access
         theta_real = (
             np.asarray(
                 [
-                    Tensor(definition=tensor.definition, data=mode)
-                    .rotate(coordinate_rotation)
-                    .data
+                    Tensor(definition=tensor.definition, data=mode).rotate(coordinate_rotation).data
                     for mode in theta_real
                 ]
             )

@@ -132,9 +132,7 @@ def tensor_has_atomic_input(tensor: Tensor) -> bool:
 def _signed_directions(directions: np.ndarray) -> np.ndarray:
     """Return reference, positive, and negative versions without duplicates."""
     directions = np.asarray(directions, dtype=float).reshape((-1, directions.shape[-1]))
-    signed = np.concatenate(
-        [np.zeros((1, directions.shape[1])), directions, -directions], axis=0
-    )
+    signed = np.concatenate([np.zeros((1, directions.shape[1])), directions, -directions], axis=0)
     _, first = np.unique(signed, axis=0, return_index=True)
     return signed[np.sort(first)]
 

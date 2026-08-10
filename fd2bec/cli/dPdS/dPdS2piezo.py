@@ -3,13 +3,13 @@
 import argparse
 import json
 import warnings
-from typing import List
 from pathlib import Path
+from typing import List
 
 import numpy as np
 from ase import Atoms
 
-from fd2bec import float_format, ATOL
+from fd2bec import ATOL, float_format
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import KEYWORDS, cli
 from fd2bec.io import read
@@ -32,6 +32,7 @@ description = (
 
 VOIGT_LABELS = ("xx", "yy", "zz", "yz", "xz", "xy")
 CARTESIAN_LABELS = ("x", "y", "z")
+
 
 def _display_number(value, precision=6, zero_tolerance=5e-10):
     """Return a fixed-width-friendly number without negative numerical zero."""
@@ -147,7 +148,7 @@ def dipoles_to_polarizations(structures, dipole_keyword=KEYWORDS["dipole"]):
     return np.asarray(polarizations)
 
 
-def fractional_coordinates_are_clamped(structures:List[Atoms], reference:Atoms, atol=ATOL):
+def fractional_coordinates_are_clamped(structures: List[Atoms], reference: Atoms, atol=ATOL):
     """Return whether all frames retain the reference fractional coordinates."""
     reference_positions = reference.get_scaled_positions(wrap=False)
     for index, atoms in enumerate(structures):
@@ -331,7 +332,7 @@ def main(args):
     }
     reported_dipole_strain = rotate_rank3(dipole_fit.dipole_strain_derivative, coordinate_rotation)
     reported_reference_polarization = coordinate_rotation @ result.reference_polarization
-    full_lattice_basis = result.proper.to(basis="fractional").data
+    # full_lattice_basis = result.proper.to(basis="fractional").data
 
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
@@ -400,7 +401,7 @@ def main(args):
         )
 
     piezoelectric_unit = "e/Angstrom^2"
-    lattice_basis_unit = "e/Angstrom"
+    # lattice_basis_unit = "e/Angstrom"
     print("Voigt order: xx, yy, zz, yz, xz, xy.")
     print("Engineering strain uses [exx, eyy, ezz, 2eyz, 2exz, 2exy].")
     print("\nSymmetry-allowed clamped piezoelectric matrix [3x6]:")

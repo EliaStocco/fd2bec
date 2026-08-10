@@ -10,7 +10,6 @@ from typing import Any, Dict, Iterable
 
 import numpy as np
 
-
 DUAL_VARIANCE = {
     "contravariant": "covariant",
     "covariant": "contravariant",
@@ -179,9 +178,7 @@ def multiply_by(
     )
 
 
-def divide_by(
-    definition: Dict[str, Any], scalar: Dict[str, Any], *, name: str
-) -> Dict[str, Any]:
+def divide_by(definition: Dict[str, Any], scalar: Dict[str, Any], *, name: str) -> Dict[str, Any]:
     """Build metadata for dividing a definition by a scalar quantity."""
     definition = validate_definition(definition)
     scalar = _require_scalar(scalar)
@@ -245,13 +242,9 @@ FORCES = derivative(ENERGY, POSITIONS, name="forces", factor=-1.0)
 STRESS_DERIVATIVE = derivative(ENERGY, STRAIN, name="energy_derivative_strain")
 STRESS = divide_by(STRESS_DERIVATIVE, VOLUME, name="stress")
 BORN_CHARGES = derivative(DIPOLE, POSITIONS, name="born_charges")
-PIEZOELECTRIC_DERIVATIVE = derivative(
-    DIPOLE, STRAIN, name="dipole_derivative_strain"
-)
+PIEZOELECTRIC_DERIVATIVE = derivative(DIPOLE, STRAIN, name="dipole_derivative_strain")
 IMPROPER_PIEZOELECTRIC = PIEZOELECTRIC_DERIVATIVE
-PIEZOELECTRIC = divide_by(
-    PIEZOELECTRIC_DERIVATIVE, VOLUME, name="piezoelectric"
-)
+PIEZOELECTRIC = divide_by(PIEZOELECTRIC_DERIVATIVE, VOLUME, name="piezoelectric")
 ELASTIC_STIFFNESS = derivative(STRESS, STRAIN, name="elastic")
 FORCE_CONSTANTS = derivative(FORCES, POSITIONS, name="force_constants")
 

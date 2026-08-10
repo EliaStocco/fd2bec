@@ -5,15 +5,15 @@ from typing import Dict, Type, Union
 import numpy as np
 from ase.cell import Cell
 
-from ._tensor_base import SpecialDict, Tensor
+from ._tensor_base import Tensor
 from ._tensor_definition import (
     BORN_CHARGES,
+    DEFINITIONS,
     DIPOLE,
     ELASTIC_STIFFNESS,
     ENERGY,
     FORCE_CONSTANTS,
     FORCES,
-    DEFINITIONS,
     IMPROPER_PIEZOELECTRIC,
     PIEZOELECTRIC,
     PIEZOELECTRIC_DERIVATIVE,
@@ -22,13 +22,13 @@ from ._tensor_definition import (
     STRESS,
     STRESS_DERIVATIVE,
     VOLUME,
+    build_registry,
     derivative,
+    deserialize_definition,
     divide_by,
     evaluate_scalar,
     multiply_by,
     serialize_definition,
-    deserialize_definition,
-    build_registry,
     validate_definition,
 )
 
@@ -94,7 +94,9 @@ class LatticeVectors(GlobalVector):
         elif isinstance(data, Cell):
             data = data.array
         elif data is not None and not isinstance(data, np.ndarray):
-            raise ValueError("Only LatticeVectors, numpy arrays and ase Cell objects are supported.")
+            raise ValueError(
+                "Only LatticeVectors, numpy arrays and ase Cell objects are supported."
+            )
         super().__init__(data=data, **kwargs)
 
 
@@ -175,19 +177,6 @@ MAPPING: Dict[str, Type[Tensor]] = {
     "hessian": ForceConstants,
 }
 
-
-def serialize_tensor(tensor: Tensor) -> dict:
-    """Serialize a runtime tensor instance, including its schema version."""
-    if not isinstance(tensor, Tensor):
-        raise TypeError("serialize_tensor expects a Tensor instance.")
-    return tensor.to_dict()
-
-
-def deserialize_tensor(payload) -> Tensor:
-    """Load a runtime tensor as a generic ``Tensor`` instance."""
-    return Tensor.from_json(payload) if isinstance(payload, str) else Tensor.from_dict(payload)
-
-
 __all__ = [
     "Tensor",
     "Vector",
@@ -235,6 +224,4 @@ __all__ = [
     "serialize_definition",
     "deserialize_definition",
     "build_registry",
-    "serialize_tensor",
-    "deserialize_tensor",
 ]
