@@ -8,7 +8,19 @@ generate_displacements -i reference.extxyz --what bec -o displaced.extxyz
 
 # Piezoelectric cell displacements
 generate_displacements -i reference.extxyz --what piezo -o displaced.extxyz
+
+# Elastic cell/strain displacements
+generate_displacements -i reference.extxyz --what elastic -o elastic-displaced.extxyz
+
+# Force-constant atomic displacements
+generate_displacements -i reference.extxyz --what force-constants -o force-displaced.extxyz
 ```
+
+`tensor_symmetries` accepts `--conventional-axes` to rotate the reported
+Cartesian component patterns into spglib's conventional crystallographic frame.
+It reports the symmetry-inequivalent components for every tensor; Voigt notation
+is added when the definition contains a symmetric strain pair.
+Repeated atomic blocks are grouped under one atom-index label.
 
 By default symmetry-inequivalent signed displacements are selected. Use
 `--no-symmetry` for every signed Cartesian basis displacement, or `--number N`

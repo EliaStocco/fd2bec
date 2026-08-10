@@ -20,6 +20,19 @@ CELL_COMPONENTS = (
     (2, 1),
     (2, 2),
 )
+TENSOR_TARGETS = {
+    "bec": "born_charges",
+    "piezo": "piezoelectric",
+    "forces": "forces",
+    "stress": "stress",
+    "elastic": "elastic",
+    "elastic-stiffness": "elastic",
+    "elastic_stiffness": "elastic",
+    "force-constant": "force_constants",
+    "force-constants": "force_constants",
+    "force_constants": "force_constants",
+    "hessian": "force_constants",
+}
 
 
 def prepare_args(descr):
@@ -51,7 +64,7 @@ def prepare_args(descr):
         required=False,
         help="target quantity (default: %(default)s)",
         default="bec",
-        choices=["bec", "piezo"],
+        choices=tuple(TENSOR_TARGETS),
     )
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument(
@@ -92,28 +105,62 @@ def prepare_args(descr):
     return parser
 
 
+def _target_tensor(name: str, natoms: int) -> Tensor:
+    """Construct a template from the registered tensor target definition."""
+    from fd2bec.tensor import DEFINITIONS
+
+    try:
+        definition = DEFINITIONS[TENSOR_TARGETS[name]]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported tensor target {name!r}.") from exc
+    shape = tuple(natoms if axis["type"] == "atomic" else 3 for axis in definition["axes"])
+    return Tensor(definition=definition, data=np.full(shape, np.nan))
+
+
 def tensor2perturbation_shape(tensor: Tensor) -> Tuple[int, ...]:
-    """Return the atomic/covariant shape controlled by a tensor derivative."""
+    """Return the explicit shape of the tensor's input dimensions."""
     if tensor.data is None:
         raise ValueError("A tensor template with explicit data is required.")
+    return tensor.input_shape
 
-    shape = (tensor.data.shape[0],) if tensor.is_atomic else ()
-    tensor_offset = 1 if tensor.is_atomic else 0
-    shape += tuple(
-        tensor.data.shape[tensor_offset + axis]
-        for axis, is_covariant in enumerate(tensor.axes)
-        if is_covariant
+
+def tensor_has_atomic_input(tensor: Tensor) -> bool:
+    """Whether the selected perturbation space contains an atomic dimension."""
+    return any(tensor.axes[index]["type"] == "atomic" for index in tensor.input_axes)
+
+
+def _signed_directions(directions: np.ndarray) -> np.ndarray:
+    """Return reference, positive, and negative versions without duplicates."""
+    directions = np.asarray(directions, dtype=float).reshape((-1, directions.shape[-1]))
+    signed = np.concatenate(
+        [np.zeros((1, directions.shape[1])), directions, -directions], axis=0
     )
-    return shape
+    _, first = np.unique(signed, axis=0, return_index=True)
+    return signed[np.sort(first)]
+
+
+def _rank_increasing_generators(candidates: np.ndarray, orbits: np.ndarray) -> np.ndarray:
+    """Keep candidates whose symmetry orbit adds a new independent direction."""
+    candidates = np.asarray(candidates, dtype=float)
+    covered = np.empty((0, orbits.shape[-1]))
+    selected = []
+    rank = 0
+    for candidate, orbit in zip(candidates, orbits):
+        orbit = np.asarray(orbit, dtype=float).reshape((-1, orbits.shape[-1]))
+        trial = np.vstack((covered, orbit))
+        trial_rank = np.linalg.matrix_rank(trial, tol=1e-10)
+        if trial_rank > rank:
+            selected.append(candidate)
+            covered = trial
+            rank = trial_rank
+    return np.asarray(selected, dtype=float).reshape((-1, candidates.shape[1]))
 
 
 def all_cartesian_displacements(number_of_components: int) -> np.ndarray:
     """Return the reference and positive/negative Cartesian basis directions."""
     if number_of_components <= 0:
         raise ValueError("The number of displacement components must be positive.")
-
-    directions = np.eye(number_of_components)
-    return np.concatenate([np.zeros((1, number_of_components)), directions, -directions], axis=0)
+    return _signed_directions(np.eye(number_of_components))
 
 
 def atomic_structure2all_displacements(unit_cell: AtomicStructure, amplitude: float) -> np.ndarray:
@@ -135,17 +182,9 @@ def cell_components2displacements(components: np.ndarray) -> np.ndarray:
     return displacements.reshape((len(components), 9))
 
 
-def project_cell_displacements(displacements: np.ndarray) -> np.ndarray:
-    """Project flattened cell displacements onto six lower-triangular components."""
-    matrices = np.asarray(displacements, dtype=float).reshape((-1, 3, 3))
-    matrices = np.tril(matrices)
-    return matrices.reshape((-1, 9))
-
-
 def all_cell_displacements() -> np.ndarray:
     """Return the reference and positive/negative basis for six cell components."""
-    directions = cell_components2displacements(np.eye(len(CELL_COMPONENTS)))
-    return np.concatenate([np.zeros((1, 9)), directions, -directions], axis=0)
+    return _signed_directions(cell_components2displacements(np.eye(len(CELL_COMPONENTS))))
 
 
 def random_cartesian_displacements(
@@ -164,97 +203,64 @@ def random_cartesian_displacements(
     return cell_components2displacements(components)
 
 
-# ToDo: need to clarify/understand what the codes does
-def atomic_structure2unique_displacements(
-    unit_cell: AtomicStructure, tensor: Tensor
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Generate normalized symmetry-inequivalent perturbation directions.
-
-    For atomic tensors, the directions are Cartesian atomic displacements.
-    For global tensors, they span the tensor's covariant input indices; for
-    example, an improper piezoelectric tensor produces flattened strain
-    directions with nine components.
-    """
-    _, theta, theta_real = unit_cell.get_symmetrizer(tensor=tensor)
-    tensor_axis_offset = 2 if tensor.is_atomic else 1
-    output_axes = tuple(
-        tensor_axis_offset + axis
-        for axis, is_covariant in enumerate(tensor.axes)
-        if not is_covariant
-    )
+def _physical_input_candidates(unit_cell: AtomicStructure, tensor: Tensor):
+    """Return physical perturbations and their coordinates in input space."""
     input_shape = tensor2perturbation_shape(tensor)
     number_of_components = int(np.prod(input_shape))
+    if tensor_has_atomic_input(tensor):
+        candidates = np.eye(number_of_components)
+        return candidates, candidates
+    if input_shape == (3, 3):
+        if not hasattr(unit_cell, "cell"):
+            candidates = np.eye(number_of_components)
+            return candidates, candidates
+        candidates = cell_components2displacements(np.eye(len(CELL_COMPONENTS)))
+        inverse_cell = np.linalg.inv(np.asarray(unit_cell.cell))
+        inputs = []
+        for candidate in candidates:
+            gradient = (inverse_cell @ candidate.reshape(3, 3)).T
+            inputs.append((0.5 * (gradient + gradient.T)).reshape(-1))
+        return candidates, np.asarray(inputs)
+    candidates = np.eye(number_of_components)
+    return candidates, candidates
 
+
+def symmetry_inequivalent_displacements(
+    unit_cell: AtomicStructure, tensor: Tensor
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Generate perturbations for any response tensor with explicit input roles.
+
+    Symmetry modes of the response are contracted with each physical input
+    candidate.  A candidate is retained when its orbit in the allowed-response
+    space increases the rank already covered.  This handles atomic responses,
+    strain responses, elastic tensors, and tensors with interleaved input axes
+    through the same path.
+    """
+    has_structure_representation = hasattr(unit_cell, "get_tensor_symmetry_operations")
+    candidates, input_candidates = _physical_input_candidates(unit_cell, tensor)
+    _, _, theta_real = unit_cell.get_symmetrizer(tensor=tensor)
     if len(theta_real) == 0:
         warn("The provided tensor has no symmetry-allowed components.")
-        directions = np.empty((0, number_of_components))
-    else:
-        modes = theta_real.reshape((-1, *tensor.data.shape))
-        active_components = np.abs(modes) > 1e-10
-        if output_axes:
-            directions = np.sum(active_components, axis=output_axes, dtype=float)
-        else:
-            directions = active_components.astype(float)
-        directions = directions.reshape((len(theta), -1))
-        if not tensor.is_atomic and input_shape == (3, 3):
-            directions = project_cell_displacements(directions)
-
-        norms = np.linalg.norm(directions, axis=1)
-        directions = directions[norms > 1e-10]
-        directions /= norms[norms > 1e-10, None]
-
-    displacements = np.concatenate(
-        [np.zeros((1, number_of_components)), directions, -directions], axis=0
-    )
-
-    _, first_indices = np.unique(displacements, axis=0, return_index=True)
-    u = displacements[np.sort(first_indices)]
-
-    return u, displacements
-
-
-def proper_piezoelectric_cell_displacements(unit_cell: AtomicStructure, tensor):
-    """Select lower-triangular cell directions spanning all allowed proper modes."""
-    symmetrizer, _, _ = unit_cell.get_symmetrizer(tensor=tensor)
-    modes = symmetrizer.reshape((3, 3, 3, -1))
-    modes = 0.5 * (modes + modes.swapaxes(1, 2))
-    modes = modes.reshape((27, -1))
-    if modes.shape[1]:
-        left, singular_values, _ = np.linalg.svd(modes, full_matrices=False)
-        threshold = 1e-10 * max(modes.shape) * singular_values[0]
-        modes = left[:, singular_values > threshold]
-
-    candidates = cell_components2displacements(np.eye(len(CELL_COMPONENTS)))
-    inverse_cell = np.linalg.inv(np.asarray(unit_cell.cell))
-    selected = []
-    response = np.empty((0, modes.shape[1]))
-    rank = 0
-    for candidate in candidates:
-        displacement = candidate.reshape((3, 3))
-        gradient = (inverse_cell @ displacement).T
-        strain = 0.5 * (gradient + gradient.T)
-        block = np.zeros((3, 27))
-        for component in range(3):
-            block[component, 9 * component : 9 * component + 9] = strain.reshape(9)
-        trial = np.vstack((response, block @ modes))
-        trial_rank = np.linalg.matrix_rank(trial, tol=1e-10)
-        if trial_rank > rank:
-            selected.append(candidate)
-            response = trial
-            rank = trial_rank
-        if rank == modes.shape[1]:
-            break
-    if rank != modes.shape[1]:
-        raise ValueError(
-            "The six lower-triangular cell components do not span all "
-            f"symmetry-allowed proper piezoelectric modes ({rank}/{modes.shape[1]})."
+        empty = np.empty((0, input_candidates.shape[1]))
+        return _signed_directions(empty), _signed_directions(
+            candidates if has_structure_representation else empty
         )
 
-    directions = np.asarray(selected).reshape((-1, 9))
-    zero = np.zeros((1, 9))
-    chosen = np.concatenate((zero, directions, -directions), axis=0)
-    all_candidates = np.concatenate((zero, candidates, -candidates), axis=0)
-    return chosen, all_candidates
+    modes = theta_real.reshape((-1, *tensor.data.shape))
+    input_axes = [index + 1 for index in tensor.input_axes]
+    modes = np.moveaxis(modes, input_axes, range(-len(input_axes), 0))
+    input_size = int(np.prod(tensor2perturbation_shape(tensor)))
+    response_size = modes.size // (len(modes) * input_size)
+    mode_matrix = modes.reshape((len(modes), response_size, input_size))
+    response_orbits = np.einsum("moi,ki->kmo", mode_matrix, input_candidates)
+    selected = _rank_increasing_generators(candidates, response_orbits)
+    all_candidates = candidates if has_structure_representation else selected
+    return _signed_directions(selected), _signed_directions(all_candidates)
+
+
+# Compatibility names for callers of the former specialized selectors.
+atomic_structure2unique_displacements = symmetry_inequivalent_displacements
+proper_piezoelectric_cell_displacements = symmetry_inequivalent_displacements
 
 
 def displacements2structures(atoms: Atoms, displacements: np.ndarray, atomic: bool) -> list[Atoms]:
@@ -364,33 +370,25 @@ def main(args):
     unit_cell = AtomicStructure.from_ase(atoms)
     number_of_atoms = len(unit_cell)
 
-    if args.what == "bec":
-        print("Constructing Born Effective Charges ... ", end="")
-        from fd2bec.tensor import BornCharges
-
-        tensor = BornCharges(data=np.zeros((number_of_atoms, 3, 3)))
-        print("done")
-    elif args.what == "piezo":
-        from fd2bec.tensor import ProperPiezoelectricTensor
-
-        print("Constructing proper piezoelectric tensor ... ", end="")
-        tensor = ProperPiezoelectricTensor.template()
-        print("done")
+    print(f"Constructing {args.what} tensor ... ", end="")
+    tensor = _target_tensor(args.what, number_of_atoms)
+    print("done")
 
     number_of_components = int(np.prod(tensor2perturbation_shape(tensor)))
+    atomic_input = tensor_has_atomic_input(tensor)
     if args.number is not None:
         selected = random_cartesian_displacements(
             number=args.number,
             number_of_components=number_of_components,
-            atomic=tensor.is_atomic,
+            atomic=atomic_input,
             seed=args.seed,
         )
         print(
             f"Generated {len(selected)} normally distributed random "
-            f"{'atomic' if tensor.is_atomic else 'lower-triangular cell'} displacements."
+            f"{'atomic' if atomic_input else 'lower-triangular cell'} displacements."
         )
     elif args.no_symmetry:
-        if tensor.is_atomic:
+        if atomic_input:
             selected = all_cartesian_displacements(number_of_components)
         else:
             selected = all_cell_displacements()
@@ -400,10 +398,7 @@ def main(args):
             f"basis displacements; {len(selected)} structures including the reference."
         )
     else:
-        if args.what == "piezo":
-            selected, candidates = proper_piezoelectric_cell_displacements(unit_cell, tensor)
-        else:
-            selected, candidates = atomic_structure2unique_displacements(unit_cell, tensor=tensor)
+        selected, candidates = symmetry_inequivalent_displacements(unit_cell, tensor)
 
     selected = selected * args.amplitude
 
@@ -412,9 +407,9 @@ def main(args):
             f"Found {len(selected) - 1} unique signed displacements from "
             f"{len(candidates)} symmetry-mode candidates."
         )
-        print_symmetry_selection(unit_cell, selected, atomic=tensor.is_atomic)
+        print_symmetry_selection(unit_cell, selected, atomic=atomic_input)
 
-    structures = displacements2structures(atoms, selected, atomic=tensor.is_atomic)
+    structures = displacements2structures(atoms, selected, atomic=atomic_input)
 
     if args.displacements_output is not None:
         print(f"Writing displacements to {args.displacements_output} ... ", end="")

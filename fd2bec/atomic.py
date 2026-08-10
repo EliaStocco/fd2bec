@@ -17,6 +17,10 @@ from fd2bec.tensor import Position, Rotation, Tensor, Translation
 from fd2bec.tools import numbers2symbols, symbols2numbers
 
 
+def _has_affine_axis(tensor: Tensor) -> bool:
+    return any(axis.get("affine", False) for axis in tensor.axes)
+
+
 @dataclass
 class AtomicStructure:
     """
@@ -498,20 +502,18 @@ class AtomicStructure:
             Shape (Nops, dim) translation vectors in flattened form.
 
         """
-        affine = tensor.is_affine
-        atomic = tensor.is_atomic
-        rank = sum(tensor.rank)
+        affine = _has_affine_axis(tensor)
+        axes = tensor.axes
+        has_atomic = any(axis["type"] == "atomic" for axis in axes)
 
         x_flat = tensor.flatten(full=True)
-
         natoms = len(self)
-        tensor_dim = 3**rank
-        expected_dim = natoms * tensor_dim if atomic else tensor_dim
+        expected_shape = tensor.core_shape(natoms=natoms)
+        expected_dim = int(np.prod(expected_shape, dtype=int)) if expected_shape else 1
         if x_flat.shape != (expected_dim,):
-            kind = "atomic" if atomic else "global"
             raise ValueError(
-                f"Expected one {kind} rank-{rank} tensor with flattened "
-                f"shape ({expected_dim},), got {x_flat.shape}."
+                f"Expected one tensor with explicit shape {expected_shape}, "
+                f"got flattened shape {x_flat.shape}."
             )
 
         if affine:
@@ -523,7 +525,7 @@ class AtomicStructure:
                 raise ValueError("Affine tensor data must be either finite or fully NaN.")
 
         R, T = self.get_symmetry_operations(basis=tensor.basis)
-        if atomic:
+        if has_atomic:
             mappings = self.__get_all_atoms_mapping()
         else:
             mappings = [None] * len(R)
@@ -533,7 +535,7 @@ class AtomicStructure:
             raise ValueError(f"Expected rotations with shape ({nops}, 3, 3), got {R.shape}.")
         if T.shape != (nops, 3):
             raise ValueError(f"Expected translations with shape ({nops}, 3), got {T.shape}.")
-        if atomic and len(mappings) != nops:
+        if has_atomic and len(mappings) != nops:
             raise ValueError("Number of atomic mappings does not match symmetry operations.")
 
         atom_indices = np.arange(natoms)
@@ -541,25 +543,31 @@ class AtomicStructure:
         T_flat = np.zeros((nops, expected_dim))
 
         for n, (r, t, m) in enumerate(zip(R, T, mappings)):
-            if atomic:
-                # Permutation matrix (maps reordered atoms)
+            matrices = []
+            if has_atomic:
                 permutation = np.zeros((natoms, natoms))
                 permutation[atom_indices, m] = 1
 
-            R_tensor = tensor.rotation_operator(r.T)
+            for axis in axes:
+                if axis["type"] == "atomic":
+                    matrices.append(permutation)
+                else:
+                    matrices.append(r.T)
 
-            if atomic:
-                R_tensor = np.kron(permutation, R_tensor)
+            R_flat[n] = tensor.full_operator(matrices)
 
-            if affine and atomic:
-                # Repeat the translation for every atom, then apply the
-                # same permutation as for the linear part.
-                t_flat = np.tile(t, natoms)
-                t_flat = (permutation @ t_flat.reshape(natoms, 3)).reshape(-1)
-            t_flat = np.zeros(expected_dim)
-
-            R_flat[n] = R_tensor
-            T_flat[n] = t_flat
+            if affine:
+                # An affine Cartesian axis receives the symmetry translation.
+                # Broadcasting over all other explicit dimensions preserves the
+                # ordinary position and global-vector cases and avoids the old
+                # accidental overwrite of the computed translation.
+                shift = np.zeros(expected_shape, dtype=float)
+                for axis_index, axis in enumerate(axes):
+                    if axis.get("affine", False) and axis["type"] == "cartesian":
+                        reshape = [1] * len(axes)
+                        reshape[axis_index] = 3
+                        shift += np.broadcast_to(np.asarray(t).reshape(reshape), expected_shape)
+                T_flat[n] = shift.reshape(-1)
 
         if affine:
             # Correct lattice-image translations so every affine operation
@@ -627,17 +635,24 @@ class AtomicStructure:
     def get_totally_symmetric_projection(self, tensor: Tensor):
         """Construct the projection operator onto the totally symmetric representation."""
         G, T = self.get_tensor_symmetry_operations(tensor=tensor)
-        if tensor.is_affine:
+        if _has_affine_axis(tensor):
             G = affine2homogeneous(G, T)
         P = np.mean(G, axis=0)
         return P
 
     def symmetrize(self, tensor: Tensor, debug=True) -> Tensor:
         P = self.get_totally_symmetric_projection(tensor=tensor)
-        out = P @ tensor.flatten(full=True)
-        assert np.allclose(out, P @ out, atol=ATOL), "error"
+        vector = tensor.flatten(full=True)
+        if _has_affine_axis(tensor):
+            vector = append_one(vector)
+        out = P @ vector
+        if _has_affine_axis(tensor):
+            out = out[:-1]
+            assert np.allclose(out, (P @ append_one(out))[:-1], atol=ATOL), "error"
+        else:
+            assert np.allclose(out, P @ out, atol=ATOL), "error"
         out = np.reshape(out, tensor.shape)
-        return type(tensor)(data=out)
+        return tensor.copy_with(data=out)
 
     def get_symmetrizer(
         self,
@@ -654,16 +669,8 @@ class AtomicStructure:
         # ------------------------
         # Vector construction
         # ------------------------
-        # shape = (3,) * sum(x.rank)
-        # if x.is_atomic:
-        #     shape = (len(self), *shape)
-        # if x is None:
-        #     x = np.zeros(shape)
-
-        # assert x.shape == shape, f"Wrong shape, expected {shape} but got {x.shape}."
-
         x = tensor.flatten(full=True)
-        if tensor.is_affine:
+        if _has_affine_axis(tensor):
             x = append_one(x)
 
         # ------------------------
@@ -691,15 +698,15 @@ class AtomicStructure:
         S = np.real(S)
 
         # Solve for theta
-        if not np.any(np.isnan(x.data)):
-            theta = np.linalg.lstsq(S, x.data, rcond=None)[0]  # if x is not None else None
+        if not np.any(np.isnan(x)):
+            theta = np.linalg.lstsq(S, x, rcond=None)[0]  # if x is not None else None
         else:
             theta = np.full(S.shape[1], np.nan)
 
         # ------------------------
         # Real-space interpretation of modes
         # ------------------------
-        if tensor.is_affine:
+        if _has_affine_axis(tensor):
             theta_real = S[:-1, :].T  # .reshape((len(theta), -1, 3))
         else:
             theta_real = S.T  # .reshape((len(theta), -1, 3))

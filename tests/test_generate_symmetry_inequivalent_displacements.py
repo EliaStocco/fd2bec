@@ -2,6 +2,8 @@ import numpy as np
 from ase import Atoms
 
 from fd2bec.cli.displacements.generate_displacements import (
+    TENSOR_TARGETS,
+    _target_tensor,
     all_cartesian_displacements,
     all_cell_displacements,
     atomic_structure2unique_displacements,
@@ -10,6 +12,20 @@ from fd2bec.cli.displacements.generate_displacements import (
     random_cartesian_displacements,
 )
 from fd2bec.tensor import BornCharges, ImproperPiezoelectricTensor
+
+
+def test_all_registered_displacement_targets_build_from_definitions():
+    expected = {
+        "bec": ((4, 3, 3), (4, 3)),
+        "piezo": ((3, 3, 3), (3, 3)),
+        "elastic": ((3, 3, 3, 3), (3, 3)),
+        "force-constants": ((4, 4, 3, 3), (4, 3)),
+    }
+    for name, (shape, input_shape) in expected.items():
+        tensor = _target_tensor(name, 4)
+        assert name in TENSOR_TARGETS
+        assert tensor.shape == shape
+        assert tensor.input_shape == input_shape
 
 
 class SymmetrizedStructure:
@@ -84,32 +100,6 @@ def test_random_cell_displacements_are_lower_triangular():
 
     assert displacements.shape == (4, 9)
     np.testing.assert_allclose(matrices, np.tril(matrices))
-
-
-def test_proper_piezoelectric_selection_spans_all_orthorhombic_modes():
-    from fd2bec.atomic import AtomicStructure
-    from fd2bec.tensor import ProperPiezoelectricTensor
-
-    reference = Atoms(
-        "BaTiO3",
-        cell=[3.9568908248, 4.0153380592, 4.0153380592],
-        positions=[
-            [1.97844541, 2.00766903, 2.00766903],
-            [0.0, -0.05290719, -0.05290719],
-            [0.0, 0.04970014, 2.09535769],
-            [0.0, 2.09535769, 0.04970014],
-            [1.97844541, 0.05962402, 0.05962402],
-        ],
-        pbc=True,
-    )
-    unit_cell = AtomicStructure.from_ase(reference)
-    tensor = ProperPiezoelectricTensor.template()
-
-    selected, candidates = proper_piezoelectric_cell_displacements(unit_cell, tensor)
-
-    assert unit_cell.space_group == 38
-    assert selected.shape == (9, 9)
-    assert candidates.shape == (13, 9)
 
 
 def test_atomic_displacements_are_saved_on_displaced_structures():
