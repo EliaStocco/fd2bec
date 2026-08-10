@@ -83,16 +83,16 @@ licensing details.
 
 # Computing piezoelectric tensors
 
-Generate cell-displaced structures, evaluate their polarizations, and use the
+Generate cell-displaced structures, evaluate their dipoles, and use the
 same dataset to fit both tensors:
 
 ```bash
 generate_displacements -i reference.extxyz --what piezo \
   -o displaced-cells.extxyz
-dPdS2piezo -i polarized-cells.extxyz -r reference.extxyz -o piezoelectric
+dPdS2piezo -i dipole-cells.extxyz -r reference.extxyz -o piezoelectric
 ```
 
-See `fd2bec/cli/dPdS/README.md` for the strain convention, polarization input,
+See `fd2bec/cli/dPdS/README.md` for the strain convention, dipole input,
 Berry-phase branch handling, and clamped-ion versus relaxed-ion workflows.
 
 # Testing

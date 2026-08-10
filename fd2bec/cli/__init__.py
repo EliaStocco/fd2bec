@@ -61,6 +61,16 @@ def slist(s):
     return size_type(s, str)  # string list
 
 
+def print_input_arguments(args: argparse.Namespace):
+    """Print every parsed CLI argument, including parser defaults."""
+    print("\t"+"-"*40)
+    print("\tInput arguments:")
+    for name, value in vars(args).items():
+        print(f"\t {name:>20s}: {value}")
+    print("\t"+"-"*40)
+    print()
+
+
 def cli(prepare_parser=None, description=None, deprecated=False):
     """
     Minimal decorator for CLI scripts.
@@ -107,6 +117,7 @@ def cli(prepare_parser=None, description=None, deprecated=False):
 
             # --- run main ---
             print("@ Let's start!\n")
+            print_input_arguments(args)
             with RedirectStdout():
                 result = main_func(args)
             print("\n@ Job done :)")

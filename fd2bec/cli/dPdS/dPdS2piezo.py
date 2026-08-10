@@ -3,11 +3,13 @@
 import argparse
 import json
 import warnings
+from typing import List
 from pathlib import Path
 
 import numpy as np
+from ase import Atoms
 
-from fd2bec import float_format
+from fd2bec import float_format, ATOL
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import KEYWORDS, cli
 from fd2bec.io import read
@@ -30,8 +32,6 @@ description = (
 
 VOIGT_LABELS = ("xx", "yy", "zz", "yz", "xz", "xy")
 CARTESIAN_LABELS = ("x", "y", "z")
-FRACTIONAL_COORDINATE_ATOL = 1e-8
-
 
 def _display_number(value, precision=6, zero_tolerance=5e-10):
     """Return a fixed-width-friendly number without negative numerical zero."""
@@ -147,7 +147,7 @@ def dipoles_to_polarizations(structures, dipole_keyword=KEYWORDS["dipole"]):
     return np.asarray(polarizations)
 
 
-def fractional_coordinates_are_clamped(structures, reference, atol=FRACTIONAL_COORDINATE_ATOL):
+def fractional_coordinates_are_clamped(structures:List[Atoms], reference:Atoms, atol=ATOL):
     """Return whether all frames retain the reference fractional coordinates."""
     reference_positions = reference.get_scaled_positions(wrap=False)
     for index, atoms in enumerate(structures):
@@ -416,11 +416,11 @@ def main(args):
         f"[3x6, {piezoelectric_unit}]:"
     )
     print_voigt_tensor(reported_full_voigt)
-    print(
-        f"\nFull piezoelectric tensor in the reference lattice basis [3x3x3, {lattice_basis_unit}]:"
-    )
-    print("(full fractional-basis tensor; no Cartesian engineering-Voigt contraction)")
-    print_lattice_tensor(full_lattice_basis)
+    # print(
+    #     f"\nFull piezoelectric tensor in the reference lattice basis [3x3x3, {lattice_basis_unit}]:"
+    # )
+    # print("(full fractional-basis tensor; no Cartesian engineering-Voigt contraction)")
+    # print_lattice_tensor(full_lattice_basis)
     print(f"\nClamped ProperPiezoelectricTensor fit [3x6, {piezoelectric_unit}]:")
     print_voigt_tensor(reported_clamped_voigt)
     print(f"\nClamped piezoelectric coefficient [{piezoelectric_unit}]:")
