@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field, replace
 from typing import List, Tuple
-from warnings import warn
 
 import numpy as np
 
@@ -52,7 +51,8 @@ class Tensor:
         if empty.is_atomic:
             data = np.asarray([data.copy() for _ in range(natoms)])
         elif natoms is not None:
-            warn(f"You provided 'natoms' = {natoms} for a tensor which is not atomic.")
+            pass
+            # warn(f"You provided 'natoms' = {natoms} for a tensor which is not atomic.")
         return cls(data=data)
 
     @property

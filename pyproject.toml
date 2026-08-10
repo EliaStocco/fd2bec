@@ -102,6 +102,7 @@ generate_random_displacements = "fd2bec.cli.displacements.generate_random_displa
 bec2charges = "fd2bec.cli.general.bec2charges:main"
 bec_extxyz2txt = "fd2bec.cli.general.bec_extxyz2txt:main"
 info_extxyz2txt = "fd2bec.cli.general.info_extxyz2txt:main"
+optimize = "fd2bec.cli.general.optimize:main"
 overview = "fd2bec.cli.general.overview:main"
 prepare_linear_system = "fd2bec.cli.general.prepare_linear_system:main"
 rotate_cell = "fd2bec.cli.general.rotate_cell:main"
@@ -109,6 +110,7 @@ show_piezo = "fd2bec.cli.general.show_piezo:main"
 solution2bec_txt = "fd2bec.cli.general.solution2bec_txt:main"
 solve_linear_system = "fd2bec.cli.general.solve_linear_system:main"
 sort_structure = "fd2bec.cli.general.sort_structure:main"
+tensor_symmetries = "fd2bec.cli.general.tensor_symmetries:main"
 
 # --- ml ---
 add_oxidation_numbers = "fd2bec.cli.ml.add_oxidation_numbers:main"
@@ -222,6 +224,10 @@ py-version = "3.10"
 # source root.
 # source-roots =
 
+# When enabled, pylint would attempt to guess common misconfiguration and emit
+# user-friendly hints instead of false-positive error messages.
+suggestion-mode = true
+
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
 # unsafe-load-any-extension =
@@ -330,11 +336,6 @@ module-naming-style = "snake_case"
 # require a docstring.
 no-docstring-rgx = "^_"
 
-# Regular expression matching correct parameter specification variable names. If
-# left empty, parameter specification variable names will be checked with the set
-# naming style.
-# paramspec-rgx =
-
 # List of decorators that produce properties, such as abc.abstractproperty. Add
 # to this list to register other decorators that produce valid properties. These
 # decorators are taken in consideration only for invalid-name.
@@ -347,10 +348,6 @@ property-classes = ["abc.abstractproperty"]
 # Regular expression matching correct type variable names. If left empty, type
 # variable names will be checked with the set naming style.
 # typevar-rgx =
-
-# Regular expression matching correct type variable tuple names. If left empty,
-# type variable tuple names will be checked with the set naming style.
-# typevartuple-rgx =
 
 # Naming style matching correct variable names.
 variable-naming-style = "snake_case"
@@ -435,8 +432,7 @@ indent-after-paren = 4
 # tab).
 indent-string = "    "
 
-# Maximum number of characters on a single line. Pylint's default of 100 is based
-# on PEP 8's guidance that teams may choose line lengths up to 99 characters.
+# Maximum number of characters on a single line.
 max-line-length = 100
 
 # Maximum number of lines in a module.
@@ -521,9 +517,6 @@ disable = ["raw-checker-failed", "bad-inline-option", "locally-disabled", "file-
 timeout-methods = ["requests.api.delete", "requests.api.get", "requests.api.head", "requests.api.options", "requests.api.patch", "requests.api.post", "requests.api.put", "requests.api.request"]
 
 [tool.pylint.miscellaneous]
-# Whether or not to search for fixme's in docstrings.
-# check-fixme-in-docstring =
-
 # List of note tags to take in consideration, separated by a comma.
 notes = ["FIXME", "XXX", "TODO"]
 

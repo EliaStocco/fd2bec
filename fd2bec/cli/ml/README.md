@@ -61,8 +61,8 @@ keeps its dedicated symmetric-strain construction because the proper-tensor
 regression is sensitive to rotational components of a general cell change:
 
 ```bash
-mace_polar_dPdS -i periodic.extxyz -m polar-1-m -o polarized-cells.extxyz
-dPdS2piezo -i polarized-cells.extxyz -r periodic.extxyz -o piezoelectric
+mace_polar_dPdS -i periodic.extxyz -m polar-1-m -o dipole-cells.extxyz
+dPdS2piezo -i dipole-cells.extxyz -r periodic.extxyz -o piezoelectric
 ```
 
 `dPdS2piezo` can also consume an ML dataset containing only `REF_dipole`; it

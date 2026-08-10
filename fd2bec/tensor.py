@@ -1,9 +1,22 @@
-from typing import Union
+from typing import Dict, Type, Union
 
 import numpy as np
 from ase.cell import Cell
 
 from ._tensor_base import SpecialDict, Tensor
+
+# ToDo:
+# 1) is_atomic has to be replaced by a list to allow hessian matrix
+# 2) 'input' and 'output' axis have to be specified, for example the code has to know that
+#    - the second axis of the forces are the positions
+#    - the last two axis of the stress, piezoelectric or elastic tensors are the strain
+# 3) an axis should be labelled with (bool,bool,bool) cooresponding to
+#    - is controvariant
+#    - is atomic
+#    - is affine
+
+# Positions will be (False,True,True)
+# Forces will be (True,True,False)
 
 
 class Vector(Tensor):
@@ -100,6 +113,11 @@ class LatticeVectors(GlobalVector):
     #     return np.linalg.inv(self.data)
 
 
+# ToDo: Energy should be a "primitive" scalar
+# ToDo: Volume should be a "primitive" density scalar field (https://en.wikipedia.org/wiki/Tensor_density)
+
+
+# ToDo: this should be Forces  = Derivative(Energy,Positions)
 class Forces(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
@@ -108,6 +126,7 @@ class Forces(Tensor):
         super().__init__(**kwargs)
 
 
+# ToDo: this should be Stress  = Derivative(Energy,Strain) ( and maybe / volume)
 class Stress(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
@@ -116,6 +135,16 @@ class Stress(Tensor):
         super().__init__(**kwargs)
 
 
+# ToDo: this should be ElasticStiffnessConstant  = Derivative(Stress,Strain) ( and maybe / volume)
+class ElasticStiffnessConstant(Tensor):
+    def __init__(self, **kwargs):
+        kwargs = SpecialDict(kwargs)
+        kwargs["axes"] = [True, True, True, True]
+        kwargs["is_atomic"] = False
+        super().__init__(**kwargs)
+
+
+# ToDo: this should be ImproperPiezoelectricTensor  = Derivative(Dipole,Strain) ( and maybe / volume)
 class ImproperPiezoelectricTensor(Tensor):
     """Raw derivative of Cartesian polarization with respect to strain."""
 
@@ -138,6 +167,7 @@ class ProperPiezoelectricTensor(Tensor):
         super().__init__(**kwargs)
 
 
+# ToDo: this should be BornCharges  = Derivative(Dipole,Positions)
 class BornCharges(Tensor):
     def __init__(self, **kwargs):
         kwargs = SpecialDict(kwargs)
@@ -156,3 +186,15 @@ class Rotation(Tensor):
 
 class Translation(GlobalVector):
     pass
+
+
+MAPPING: Dict[str, Type[Tensor]] = {
+    "dipole": Dipole,
+    "stress": Stress,
+    "elastic": ElasticStiffnessConstant,
+    "piezo": ProperPiezoelectricTensor,
+    "forces": Forces,
+    "bec": BornCharges,
+}
+
+# Questions: how to incorporate the fact that a tensor might be symmetric, and therefore a Voigt notation might be available?

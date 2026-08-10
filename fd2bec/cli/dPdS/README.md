@@ -9,51 +9,33 @@ generate_displacements -i reference.extxyz --what piezo -a 0.005 \
   --no-symmetry -o displaced-cells.extxyz
 ```
 
-Evaluate the Cartesian polarization of every frame and save it in the
-`REF_polarization` info field. Polarization values must use either e/Å² (the
-default) or C/m². Alternatively, store the total dipole in `REF_dipole` in
-eÅ; `dPdS2piezo` automatically converts it to e/Å² using the volume of each
-snapshot. A separate N×3 polarization text file is also supported.
-
-Dipole inputs are currently supported only in eÅ. Debye, C·m, and atomic-unit
-dipoles must be converted to eÅ before running `dPdS2piezo`.
+Store the total dipole of every frame in the `REF_dipole` info field. Dipoles
+must be in e·Å; Debye, C·m, and atomic-unit dipoles must be converted before
+running `dPdS2piezo`. The command converts each dipole to polarization using
+that frame's cell volume.
 
 ```bash
-dPdS2piezo -i polarized-cells.extxyz -r reference.extxyz \
-  --polarization-unit 'C/m^2' -o piezoelectric
+dPdS2piezo -i dipole-cells.extxyz -r reference.extxyz -o piezoelectric
 
-# Or supply the polarization separately:
-dPdS2piezo -i displaced-cells.extxyz -r reference.extxyz \
-  -p polarization.txt -o piezoelectric
-
-# Explicitly select a custom dipole field:
+# Select a custom dipole field, still in e·Å:
 dPdS2piezo -i dipole-cells.extxyz -r reference.extxyz \
-  --quantity dipole --dipole-keyword my_dipole -o piezoelectric
+  --dipole-keyword my_dipole -o piezoelectric
 ```
 
-In automatic mode an existing polarization is preferred over a dipole. Use
-`--quantity polarization` or `--quantity dipole` when both fields exist and
-you need to select one explicitly. When `--polarization-unit C/m^2` is selected,
-dipole-derived e/Å² values are converted to C/m² before fitting.
-
-Berry-phase polarizations are aligned by default in reduced coordinates using
-the polarization quantum of each snapshot's changing cell. A dipole from a
-periodic Berry-phase calculation is also multivalued: multiplying polarization
-by the cell volume does not remove its branch ambiguity. Dipole inputs are
-therefore divided by each snapshot's volume and branch-aligned by default too.
-Use `--no-unwrap` only when the input vectors have already been placed on a
-consistent branch. The older `--unwrap-dipoles` option is retained for command
-compatibility but is no longer necessary. Do not preprocess strained datasets
-with `build_dataset4dPdR`: that builder requires identical cells and volumes
-and is therefore intended for atomic, not lattice, displacements.
+Periodic dipoles can be multivalued. Branch alignment is enabled by default,
+using each snapshot's cell-dependent polarization quantum after conversion to
+polarization. Use `--no-unwrap` only when the dipoles are already on a
+consistent branch. Do not preprocess strained datasets with `build_dataset4dPdR`:
+that builder requires identical cells and volumes and is intended for atomic,
+not lattice, displacements.
 
 The command writes `improper-piezoelectric.txt` and
-`proper-piezoelectric.txt` as 3×6 matrices. It first fits the improper tensor,
-then obtains the proper tensor using Vanderbilt's geometric correction. A
-second, direct fit using the symmetry modes of `ProperPiezoelectricTensor` is
-written to `proper-piezoelectric-direct.txt`. All three matrices are also
-printed. Disable crystal-symmetry constraints in the direct fit with
-`--no-symmetry`.
+`full-piezoelectric.txt` as 3×6 matrices. It first fits the improper tensor,
+then obtains the full tensor from the dipole/lattice linear system using
+Vanderbilt's geometric correction. A second fit using the symmetry modes of
+`ProperPiezoelectricTensor` is called the clamped tensor and is written to
+`clamped-piezoelectric.txt`. All three matrices are also printed. Disable
+crystal-symmetry constraints in the clamped fit with `--no-symmetry`.
 
 For comparison, the command additionally prints the Vanderbilt proper tensor
 in the reference lattice (fractional) basis using the tensor class's basis
@@ -73,12 +55,9 @@ three reference-dipole components.
 The Voigt order is
 `xx, yy, zz, yz, xz, xy`, with engineering shear
 `(εxx, εyy, εzz, 2εyz, 2εxz, 2εxy)`. Since strain is dimensionless, the
-tensor has the same units as the supplied polarization. These units are shown
-in every numerical Cartesian tensor and named-coefficient heading:
-`e/Angstrom^2` by default or `C/m^2` when requested. The lattice-basis tensor
-contains two lattice-vector factors and one inverse lattice-vector factor;
-because cells are represented in Angstrom, its printed unit is `e/Angstrom`
-or `C*Angstrom/m^2`, respectively.
+tensor is reported in e/Å² because input dipoles are in e·Å. The lattice-basis
+tensor contains two lattice-vector factors and one inverse lattice-vector
+factor, so its printed unit is e/Å.
 Numerical 3×6 tensors are printed as aligned tables with `P_x`, `P_y`, and
 `P_z` row labels and explicit Voigt-column headers. The lattice-basis tensor is
 printed as three labeled 3×3 slices. Values below the display tolerance are
@@ -112,9 +91,13 @@ matrix is sufficient. Convert to the full array only when another API explicitly
 requires Cartesian indices. If a code defines stress or electric enthalpy with
 the opposite sign, the displayed minus sign changes accordingly.
 
-The Vanderbilt and direct proper tensors are compared after every fit. Their
+For the default `--clamped` workflow, every frame must retain the reference
+fractional coordinates. The full and clamped tensors are then compared; their
 maximum absolute difference and pass/fail status are printed and stored in
-`fit.json`; change the default absolute tolerance with `--agreement-tolerance`.
+`fit.json`. Change the default absolute tolerance with
+`--agreement-tolerance`. For internally relaxed structures, pass
+`--no-clamped`; fractional coordinates are then expected to change and the
+tensor-agreement check is skipped.
 
 The command first prints a compact symbolic 3×6 matrix in which `a`, `b`, ...
 denote independent parameters. It then prints every symmetry-allowed
@@ -150,28 +133,27 @@ matrix and stored in `fit.json`. The selection refers to the displayed frame:
 input Cartesian axes by default or conventional axes with
 `--conventional-axes`; it does not depend on an external tabulation.
 
-The improper tensor is fitted directly from the Cartesian polarization:
+The improper tensor is fitted directly from the dipole-derived polarization:
 
 ```text
 c_ijk = dP_i / dε_jk
 ```
 
-The proper tensor is obtained from the same fit and reference polarization:
+The full tensor is obtained from the same fit and reference polarization:
 
 ```text
 c~_ijk = c_ijk + δ_jk P_i - ½(δ_ij P_k + δ_ik P_j)
 ```
 
 The last two terms are symmetrized because this workflow applies symmetric
-strain rather than a general deformation gradient. Before fitting, polarization
+strain rather than a general deformation gradient. Before fitting, dipole
 branches are aligned in reduced coordinates using the polarization quantum of
-each strained cell. The `--polarization-unit` option supplies the necessary SI
-conversion while preserving that unit in the output. Use `--no-unwrap` only if
-the input polarizations have already been aligned.
+each strained cell. Use `--no-unwrap` only if the input dipoles have already
+been aligned.
 
 Keeping fractional coordinates fixed gives the clamped-ion response. If each
 strained structure is internally relaxed before its polarization is evaluated,
-the same post-processing gives the relaxed-ion response.
+the same post-processing with `--no-clamped` gives the relaxed-ion response.
 
 ## FHI-aims
 
@@ -192,7 +174,8 @@ build_dataset4dPdS_aims -i aims-results --pattern 'aims.n=*.out' \
 dPdS2piezo -i aims-piezoelectric.extxyz -r geometry.in -o piezoelectric
 ```
 
-The dataset builder converts the FHI-aims polarization from C/m² to e/Å².
+The dataset builder converts the FHI-aims polarization from C/m² to a total
+dipole in e·Å, which is stored in `REF_dipole` for `dPdS2piezo`.
 
 ## Quantum ESPRESSO
 
@@ -205,7 +188,7 @@ export QE="srun /path/to/pw.x"
 source sourceme.sh
 ```
 
-After extracting the three polarization components into an extxyz dataset:
+After extracting total dipoles in e·Å into an extxyz dataset:
 
 ```bash
 dPdS2piezo -i qe-piezoelectric.extxyz -r reference.extxyz -o piezoelectric

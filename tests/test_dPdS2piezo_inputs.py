@@ -1,52 +1,71 @@
+import warnings
+
 import numpy as np
 import pytest
 from ase import Atoms
 
 from fd2bec.cli import KEYWORDS
-from fd2bec.cli.dPdS.dPdS2piezo import attach_polarizations
-from fd2bec.piezoelectric import E_PER_ANGSTROM2_TO_C_PER_M2
+from fd2bec.cli.dPdS.dPdS2piezo import (
+    dipoles_to_polarizations,
+    prepare_args,
+    validate_clamped_coordinates,
+)
 
 
-def structure_with_dipole(cell, polarization):
+def structure_with_dipole(cell, dipole):
     atoms = Atoms("H", cell=cell, pbc=True)
-    atoms.info[KEYWORDS["dipole"]] = np.asarray(polarization) * atoms.get_volume()
+    atoms.info[KEYWORDS["dipole"]] = np.asarray(dipole)
     return atoms
 
 
-def test_dipole_only_structures_are_converted_using_each_volume():
-    expected = np.array([0.1, -0.2, 0.3])
+def test_dipoles_are_converted_using_each_cell_volume():
+    dipole = np.array([0.1, -0.2, 0.3])
     structures = [
-        structure_with_dipole([2, 3, 4], expected),
-        structure_with_dipole([3, 4, 5], expected),
+        structure_with_dipole([2, 3, 4], dipole),
+        structure_with_dipole([3, 4, 5], dipole),
     ]
 
-    converted = attach_polarizations(structures)
+    polarizations = dipoles_to_polarizations(structures)
 
-    assert converted == 2
-    for atoms in structures:
-        np.testing.assert_allclose(atoms.info[KEYWORDS["polarization"]], expected)
-
-
-def test_existing_polarization_is_preferred_in_auto_mode():
-    atoms = structure_with_dipole([2, 3, 4], [1, 1, 1])
-    atoms.info[KEYWORDS["polarization"]] = [4, 5, 6]
-
-    assert attach_polarizations([atoms]) == 0
-    np.testing.assert_allclose(atoms.info[KEYWORDS["polarization"]], [4, 5, 6])
-
-
-def test_explicit_dipole_mode_and_si_conversion():
-    atoms = structure_with_dipole([2, 3, 4], [0.1, 0.2, 0.3])
-    atoms.info[KEYWORDS["polarization"]] = [9, 9, 9]
-
-    attach_polarizations([atoms], quantity="dipole", polarization_unit="C/m^2")
-
-    np.testing.assert_allclose(
-        atoms.info[KEYWORDS["polarization"]],
-        np.array([0.1, 0.2, 0.3]) * E_PER_ANGSTROM2_TO_C_PER_M2,
-    )
+    np.testing.assert_allclose(polarizations[0], dipole / 24)
+    np.testing.assert_allclose(polarizations[1], dipole / 60)
 
 
 def test_missing_requested_vector_is_reported():
     with pytest.raises(ValueError, match="REF_dipole"):
-        attach_polarizations([Atoms("H", cell=[2, 2, 2], pbc=True)], quantity="dipole")
+        dipoles_to_polarizations([Atoms("H", cell=[2, 2, 2], pbc=True)])
+
+
+def fractional_structure(position):
+    return Atoms("H", scaled_positions=[position], cell=[2, 3, 4], pbc=True)
+
+
+def test_clamped_flag_defaults_true_and_has_negative_form():
+    parser = prepare_args("test")
+
+    assert parser.parse_args(["-i", "dataset.extxyz"]).clamped is True
+    assert parser.parse_args(["-i", "dataset.extxyz", "--no-clamped"]).clamped is False
+
+
+def test_clamped_dataset_requires_identical_fractional_coordinates():
+    reference = fractional_structure([0.1, 0.2, 0.3])
+    structures = [reference.copy(), fractional_structure([0.1, 0.2, 0.31])]
+
+    with pytest.raises(ValueError, match="--no-clamped"):
+        validate_clamped_coordinates(structures, reference, clamped=True)
+
+
+def test_relaxed_dataset_warns_when_fractional_coordinates_are_unchanged():
+    reference = fractional_structure([0.1, 0.2, 0.3])
+
+    with pytest.warns(UserWarning, match="same fractional coordinates"):
+        validate_clamped_coordinates([reference.copy()], reference, clamped=False)
+
+
+def test_relaxed_dataset_accepts_changed_fractional_coordinates_without_warning():
+    reference = fractional_structure([0.1, 0.2, 0.3])
+    structures = [fractional_structure([0.1, 0.2, 0.31])]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert not validate_clamped_coordinates(structures, reference, clamped=False)

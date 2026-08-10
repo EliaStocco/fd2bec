@@ -9,10 +9,7 @@ import numpy as np
 from fd2bec.cli import KEYWORDS, cli, extract_n
 from fd2bec.io import read, write
 
-description = (
-    "Extract FHI-aims Cartesian polarizations from strained calculations and "
-    "build the shared proper/improper piezoelectric dataset."
-)
+description = "Extract FHI-aims dipoles from strained calculations for dPdS2piezo."
 
 AIMS_POLARIZATION = re.compile(
     r"Cartesian Polarization\s+"
@@ -21,7 +18,7 @@ AIMS_POLARIZATION = re.compile(
     r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
 )
 
-# FHI-aims prints C/m²; this converts to e/Å².
+# FHI-aims prints C/m²; this converts to e/Å² before multiplying by volume.
 C_PER_M2_TO_E_PER_ANGSTROM2 = 0.06241517271464743
 
 
@@ -68,17 +65,18 @@ def main(args):
     for number, filename in enumerate(files):
         atoms = read(filename, format="aims-output", index=-1)
         polarization = extract_aims_polarization(filename) * C_PER_M2_TO_E_PER_ANGSTROM2
-        atoms.info[KEYWORDS["polarization"]] = polarization
+        dipole = polarization * atoms.get_volume()
+        atoms.info[KEYWORDS["dipole"]] = dipole
         atoms.info["source"] = str(filename)
         structures.append(atoms)
-        print(f" - {number:3d}) {filename}: {polarization.tolist()} e/Å²")
+        print(f" - {number:3d}) {filename}: {dipole.tolist()} e*Å")
 
     output = Path(args.output)
     if output.suffix != ".extxyz":
-        raise ValueError("The polarization dataset must be an extxyz file.")
+        raise ValueError("The dipole dataset must be an extxyz file.")
     output.parent.mkdir(parents=True, exist_ok=True)
     write(output, structures, format="extxyz")
-    print(f"Saved {len(structures)} polarized strained structures to '{output}'.")
+    print(f"Saved {len(structures)} dipole strained structures to '{output}'.")
     print(f"Next run: dPdS2piezo -i {output} -r reference-geometry")
 
 

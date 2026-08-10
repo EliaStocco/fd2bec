@@ -164,6 +164,7 @@ def random_cartesian_displacements(
     return cell_components2displacements(components)
 
 
+# ToDo: need to clarify/understand what the codes does
 def atomic_structure2unique_displacements(
     unit_cell: AtomicStructure, tensor: Tensor
 ) -> Tuple[np.ndarray, np.ndarray]:
