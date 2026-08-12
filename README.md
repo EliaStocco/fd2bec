@@ -11,7 +11,7 @@ pyenv activate fd2bec
 pyenv local fd2bec
 pip install --upgrade pip
 ./tools/initialize.sh          # for developers only, harmless anyway otherwise
-pip install -e .               # only editable mode is fully tested so far
+./tools/build_docs.sh          # creates fd2bec_math.pdf in the root directory
 ```
 
 For developers we really recommend using `python>=3.11`.
@@ -94,6 +94,9 @@ dPdS2piezo -i dipole-cells.extxyz -r reference.extxyz -o piezoelectric
 
 See `fd2bec/cli/dPdS/README.md` for the strain convention, dipole input,
 Berry-phase branch handling, and clamped-ion workflow.
+
+For a simple mathematical explanation of the symmetry reduction used
+throughout the package, see [`docs/source/get_symmetrizer.rst`](docs/source/get_symmetrizer.rst).
 
 # Testing
 We would recommend running tests using
