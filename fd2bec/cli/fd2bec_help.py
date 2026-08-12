@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """List the command-line scripts provided by fd2bec."""
 
+# Tested by pytest: tests/test_fd2bec_help.py
+
 import argparse
 import ast
 import sys

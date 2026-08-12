@@ -55,4 +55,3 @@ JobID            JobName NNodes NTasks  NCPUS       MaxRSS       AveRSS    Elaps
 
 Maximum memory per node: 33.466745 GB (defined as MaxRSS*Ntasks/NNodes)
 CPU utilization: 79.2 %
-

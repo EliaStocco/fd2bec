@@ -1,5 +1,7 @@
 """Build a finite-displacement dipole dataset with MACE-POLAR."""
 
+# Tested by pytest: tests/test_mace_polar.py
+
 import argparse
 from pathlib import Path
 from typing import Callable, List, Optional

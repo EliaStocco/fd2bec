@@ -91,13 +91,12 @@ matrix is sufficient. Convert to the full array only when another API explicitly
 requires Cartesian indices. If a code defines stress or electric enthalpy with
 the opposite sign, the displayed minus sign changes accordingly.
 
-For the default `--clamped` workflow, every frame must retain the reference
-fractional coordinates. The full and clamped tensors are then compared; their
-maximum absolute difference and pass/fail status are printed and stored in
-`fit.json`. Change the default absolute tolerance with
-`--agreement-tolerance`. For internally relaxed structures, pass
-`--no-clamped`; fractional coordinates are then expected to change and the
-tensor-agreement check is skipped.
+This command implements the clamped-ion workflow: every frame must retain the
+reference fractional coordinates. The full and clamped tensors are then
+compared; their maximum absolute difference and pass/fail status are printed
+and stored in `fit.json`. Change the absolute tolerance with
+`--agreement-tolerance`. Datasets with internally relaxed coordinates are not
+accepted by this command.
 
 The command first prints a compact symbolic 3×6 matrix in which `a`, `b`, ...
 denote independent parameters. It then prints every symmetry-allowed
@@ -151,9 +150,9 @@ branches are aligned in reduced coordinates using the polarization quantum of
 each strained cell. Use `--no-unwrap` only if the input dipoles have already
 been aligned.
 
-Keeping fractional coordinates fixed gives the clamped-ion response. If each
-strained structure is internally relaxed before its polarization is evaluated,
-the same post-processing with `--no-clamped` gives the relaxed-ion response.
+Keeping fractional coordinates fixed gives the clamped-ion response. A
+separate post-processing script should be used for internally relaxed
+structures.
 
 ## FHI-aims
 

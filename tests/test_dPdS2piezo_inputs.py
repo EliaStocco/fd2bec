@@ -1,5 +1,3 @@
-import warnings
-
 import numpy as np
 import pytest
 from ase import Atoms
@@ -40,32 +38,23 @@ def fractional_structure(position):
     return Atoms("H", scaled_positions=[position], cell=[2, 3, 4], pbc=True)
 
 
-def test_clamped_flag_defaults_true_and_has_negative_form():
+def test_clamped_workflow_has_no_relaxed_ion_option():
     parser = prepare_args("test")
 
-    assert parser.parse_args(["-i", "dataset.extxyz"]).clamped is True
-    assert parser.parse_args(["-i", "dataset.extxyz", "--no-clamped"]).clamped is False
+    assert not hasattr(parser.parse_args(["-i", "dataset.extxyz"]), "clamped")
+    with pytest.raises(SystemExit):
+        parser.parse_args(["-i", "dataset.extxyz", "--no-clamped"])
 
 
 def test_clamped_dataset_requires_identical_fractional_coordinates():
     reference = fractional_structure([0.1, 0.2, 0.3])
     structures = [reference.copy(), fractional_structure([0.1, 0.2, 0.31])]
 
-    with pytest.raises(ValueError, match="--no-clamped"):
-        validate_clamped_coordinates(structures, reference, clamped=True)
+    with pytest.raises(ValueError, match="clamped-ion"):
+        validate_clamped_coordinates(structures, reference)
 
 
-def test_relaxed_dataset_warns_when_fractional_coordinates_are_unchanged():
+def test_clamped_dataset_accepts_unchanged_fractional_coordinates():
     reference = fractional_structure([0.1, 0.2, 0.3])
 
-    with pytest.warns(UserWarning, match="same fractional coordinates"):
-        validate_clamped_coordinates([reference.copy()], reference, clamped=False)
-
-
-def test_relaxed_dataset_accepts_changed_fractional_coordinates_without_warning():
-    reference = fractional_structure([0.1, 0.2, 0.3])
-    structures = [fractional_structure([0.1, 0.2, 0.31])]
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        assert not validate_clamped_coordinates(structures, reference, clamped=False)
+    assert validate_clamped_coordinates([reference.copy()], reference)

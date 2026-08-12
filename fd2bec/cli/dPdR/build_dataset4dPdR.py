@@ -1,3 +1,5 @@
+# Tested by pytest: tests/test_aims_workflow_wrappers.py
+
 import argparse
 import json
 import os
@@ -44,6 +46,81 @@ FORMAT_REGISTRY = {
         "drop_patterns": [],
     },
 }
+
+
+# ============================================================
+# CLI DESCRIPTION
+# ============================================================
+
+description = (
+    "Build dataset to compute Born Effective Charges as derivative of polarization/dipole w.r.t. nuclear displacements.\n"
+    "The script reads either polarization or dipole from DFT output files.\n\n"
+    "Input parsing is controlled via '--format'. This can be:\n"
+    "  (1) a predefined format key\n"
+    "  (2) a JSON file defining a custom format\n\n"
+    "Each format defines:\n"
+    "  - type: polarization or dipole\n"
+    "  - regex: extraction pattern\n"
+    "  - factor: unit conversion factor\n"
+    "  - drop_patterns: optional lines to ignore\n\n"
+    "Available formats:\n"
+    f"{', '.join(FORMAT_REGISTRY.keys())}\n"
+)
+
+# ============================================================
+# ARGPARSE
+# ============================================================
+
+
+def prepare_args(descr):
+
+    parser = argparse.ArgumentParser(
+        description=descr,
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+
+    argv = {"metavar": "\b"}
+
+    parser.add_argument(
+        "-i",
+        "--input",
+        **argv,
+        type=str,
+        required=True,
+        help="file with list of files or folder containing outputs",
+    )
+
+    parser.add_argument(
+        "-r",
+        "--reference",
+        **argv,
+        type=str,
+        required=True,
+        help="file with the reference structure",
+    )
+
+    parser.add_argument(
+        "-f",
+        "--format",
+        **argv,
+        type=str,
+        required=True,
+        help=(
+            "Format key or JSON file.\n"
+            f"Available built-in formats:\n{', '.join(FORMAT_REGISTRY.keys())}"
+        ),
+    )
+
+    parser.add_argument(
+        "-o",
+        "--output",
+        **argv,
+        type=str,
+        required=True,
+        help="output extxyz file",
+    )
+
+    return parser
 
 
 # ============================================================
@@ -108,85 +185,9 @@ def filtered_temp_file(path, fmt):
     return tmp.name
 
 
-# ============================================================
-# CLI DESCRIPTION
-# ============================================================
-
-description = (
-    "Build dataset to compute Born Effective Charges as derivative of polarization/dipole w.r.t. nuclear displacements.\n"
-    "The script reads either polarization or dipole from DFT output files.\n\n"
-    "Input parsing is controlled via '--format'. This can be:\n"
-    "  (1) a predefined format key\n"
-    "  (2) a JSON file defining a custom format\n\n"
-    "Each format defines:\n"
-    "  - type: polarization or dipole\n"
-    "  - regex: extraction pattern\n"
-    "  - factor: unit conversion factor\n"
-    "  - drop_patterns: optional lines to ignore\n\n"
-    "Available formats:\n"
-    f"{', '.join(FORMAT_REGISTRY.keys())}\n"
-)
-
-
 def count_lines(path):
     with open(path, "r", encoding="utf-8") as f:
         return sum(1 for _ in f)
-
-
-# ============================================================
-# ARGPARSE
-# ============================================================
-
-
-def prepare_args(descr):
-
-    parser = argparse.ArgumentParser(
-        description=descr,
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-
-    argv = {"metavar": "\b"}
-
-    parser.add_argument(
-        "-i",
-        "--input",
-        **argv,
-        type=str,
-        required=True,
-        help="file with list of files or folder containing outputs",
-    )
-
-    parser.add_argument(
-        "-r",
-        "--reference",
-        **argv,
-        type=str,
-        required=True,
-        help="file with the reference structure",
-    )
-
-    parser.add_argument(
-        "-f",
-        "--format",
-        **argv,
-        type=str,
-        required=True,
-        help=(
-            "Format key or JSON file.\n"
-            f"Available built-in formats:\n{', '.join(FORMAT_REGISTRY.keys())}"
-        ),
-    )
-
-    parser.add_argument(
-        "-o",
-        "--output",
-        **argv,
-        type=str,
-        required=True,
-        help="output extxyz file",
-    )
-
-    return parser
 
 
 # ============================================================

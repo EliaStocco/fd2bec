@@ -1,5 +1,7 @@
 """Fit proper and improper piezoelectric tensors from one strained dataset."""
 
+# Tested by pytest: tests/test_dPdS2piezo_inputs.py
+
 import argparse
 import json
 import warnings
@@ -26,12 +28,67 @@ from fd2bec.piezoelectric import (
 from fd2bec.show import print_reference_structure
 
 description = (
-    "Evaluate full and clamped piezoelectric tensors from strained structures. "
-    "Each frame must contain a dipole in e*Angstrom."
+    "Evaluate proper and improper piezoelectric tensors for clamped-ion strained "
+    "structures. Each frame must contain a dipole in e*Angstrom."
 )
 
+
 VOIGT_LABELS = ("xx", "yy", "zz", "yz", "xz", "xy")
+
+
 CARTESIAN_LABELS = ("x", "y", "z")
+
+
+def prepare_args(descr):
+    parser = argparse.ArgumentParser(description=descr)
+    argv = {"metavar": "\b"}
+    parser.add_argument(
+        "-i", "--input", **argv, required=True, help="multi-frame extxyz dataset with dipoles"
+    )
+    parser.add_argument(
+        "-r",
+        "--reference",
+        **argv,
+        default=None,
+        help="unstrained reference structure; defaults to the first input frame",
+    )
+    parser.add_argument(
+        "--dipole-keyword",
+        default=KEYWORDS["dipole"],
+        help="info key for dipoles in e*Angstrom (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--no-symmetry",
+        action="store_true",
+        help="disable crystal-symmetry constraints in the clamped-ion tensor fit",
+    )
+    parser.add_argument(
+        "--conventional-axes",
+        action="store_true",
+        help=(
+            "rotate reported and saved Cartesian tensors into spglib's "
+            "conventional crystallographic axes"
+        ),
+    )
+    parser.add_argument(
+        "--no-unwrap",
+        action="store_true",
+        help="disable default periodic dipole branch alignment",
+    )
+    parser.add_argument(
+        "--agreement-tolerance",
+        type=float,
+        default=1e-6,
+        help="absolute tolerance comparing the two proper tensors (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        **argv,
+        default="piezoelectric",
+        help="output folder (default: %(default)s)",
+    )
+    return parser
 
 
 def _display_number(value, precision=6, zero_tolerance=5e-10):
@@ -64,67 +121,6 @@ def print_lattice_tensor(tensor, precision=6):
         for axis, row in zip(CARTESIAN_LABELS, block):
             values = "".join(f"{_display_number(value, precision):>{width}}" for value in row)
             print(f"  {axis:<5s}{values}")
-
-
-def prepare_args(descr):
-    parser = argparse.ArgumentParser(description=descr)
-    argv = {"metavar": "\b"}
-    parser.add_argument(
-        "-i", "--input", **argv, required=True, help="multi-frame extxyz dataset with dipoles"
-    )
-    parser.add_argument(
-        "-r",
-        "--reference",
-        **argv,
-        default=None,
-        help="unstrained reference structure; defaults to the first input frame",
-    )
-    parser.add_argument(
-        "--dipole-keyword",
-        default=KEYWORDS["dipole"],
-        help="info key for dipoles in e*Angstrom (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--no-symmetry",
-        action="store_true",
-        help="disable crystal-symmetry constraints in the clamped-tensor fit",
-    )
-    parser.add_argument(
-        "--clamped",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help=(
-            "require identical fractional coordinates in every frame; use "
-            "--no-clamped for internally relaxed structures"
-        ),
-    )
-    parser.add_argument(
-        "--conventional-axes",
-        action="store_true",
-        help=(
-            "rotate reported and saved Cartesian tensors into spglib's "
-            "conventional crystallographic axes"
-        ),
-    )
-    parser.add_argument(
-        "--no-unwrap",
-        action="store_true",
-        help="disable default periodic dipole branch alignment",
-    )
-    parser.add_argument(
-        "--agreement-tolerance",
-        type=float,
-        default=1e-6,
-        help="absolute tolerance comparing the two proper tensors (default: %(default)s)",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        **argv,
-        default="piezoelectric",
-        help="output folder (default: %(default)s)",
-    )
-    return parser
 
 
 def dipoles_to_polarizations(structures, dipole_keyword=KEYWORDS["dipole"]):
@@ -165,22 +161,13 @@ def fractional_coordinates_are_clamped(structures: List[Atoms], reference: Atoms
     return True
 
 
-def validate_clamped_coordinates(structures, reference, clamped):
-    """Validate that the coordinate behavior agrees with the selected workflow."""
-    coordinates_are_clamped = fractional_coordinates_are_clamped(structures, reference)
-    if clamped and not coordinates_are_clamped:
+def validate_clamped_coordinates(structures, reference):
+    """Require every frame to retain the reference fractional coordinates."""
+    if not fractional_coordinates_are_clamped(structures, reference):
         raise ValueError(
-            "--clamped requires identical fractional coordinates in every structure. "
-            "Use --no-clamped for an internally relaxed dataset."
+            "The clamped-ion workflow requires identical fractional coordinates in every structure."
         )
-    if not clamped and coordinates_are_clamped:
-        warnings.warn(
-            "--no-clamped was selected, but every structure has the same fractional "
-            "coordinates as the reference.",
-            UserWarning,
-            stacklevel=2,
-        )
-    return coordinates_are_clamped
+    return True
 
 
 @cli(prepare_args, description)
@@ -192,7 +179,7 @@ def main(args):
         raise ValueError("The input dataset contains no structures.")
     reference = read(args.reference, index=0) if args.reference else structures[0].copy()
     print_reference_structure(reference)
-    validate_clamped_coordinates(structures, reference, args.clamped)
+    validate_clamped_coordinates(structures, reference)
 
     fitted_polarizations = dipoles_to_polarizations(structures, args.dipole_keyword)
     print(
@@ -308,7 +295,7 @@ def main(args):
             rtol=1e-5,
         )
     )
-    if args.clamped and not full_clamped_agreement:
+    if not full_clamped_agreement:
         warnings.warn(
             "The full and clamped piezoelectric tensors differ for a clamped dataset: "
             f"maximum absolute difference {full_clamped_difference:.6e} exceeds the "
@@ -365,7 +352,7 @@ def main(args):
                 "branch_unwrapping_enabled": unwrap_enabled,
                 "dipole_unit": "e*Angstrom",
                 "polarization_unit": "e/Angstrom^2",
-                "clamped": args.clamped,
+                "clamped": True,
                 "symmetry_enabled": not args.no_symmetry,
                 "coordinate_frame": "conventional" if args.conventional_axes else "input",
                 "coordinate_rotation_conventional_from_input": coordinate_rotation.tolist(),
@@ -387,10 +374,7 @@ def main(args):
                 "clamped_reference_polarization": (
                     coordinate_rotation @ clamped_reference
                 ).tolist(),
-                "full_clamped_comparison_applicable": args.clamped,
-                "full_and_clamped_tensors_agree": (
-                    full_clamped_agreement if args.clamped else None
-                ),
+                "full_and_clamped_tensors_agree": full_clamped_agreement,
                 "full_clamped_tensor_max_abs_difference": full_clamped_difference,
                 "full_clamped_tensor_agreement_tolerance": args.agreement_tolerance,
                 "dipole_lattice_fit_rank": int(dipole_fit.linear_system.rank),
@@ -431,15 +415,12 @@ def main(args):
     elif coefficient_values == {}:
         print("none")
     print()
-    if args.clamped:
-        agreement_label = "AGREE" if full_clamped_agreement else "DO NOT AGREE"
-        print(
-            f"Full/clamped tensor check: {agreement_label}; maximum |difference| = "
-            f"{full_clamped_difference:.6e} {piezoelectric_unit} "
-            f"(absolute tolerance {args.agreement_tolerance:.6e} {piezoelectric_unit})."
-        )
-    else:
-        print("Full/clamped tensor agreement check skipped for internally relaxed structures.")
+    agreement_label = "AGREE" if full_clamped_agreement else "DO NOT AGREE"
+    print(
+        f"Full/clamped tensor check: {agreement_label}; maximum |difference| = "
+        f"{full_clamped_difference:.6e} {piezoelectric_unit} "
+        f"(absolute tolerance {args.agreement_tolerance:.6e} {piezoelectric_unit})."
+    )
     print("Converse stress convention: delta_sigma_V = - proper_e.T @ electric_field.")
     print(
         f"Clamped fit: {direct_basis.shape[1]} symmetry-allowed tensor parameters; "

@@ -75,6 +75,7 @@ line-length = 100
 [project.scripts]
 
 # --- aims ---
+get_basis_functions_fhi_aims = "fd2bec.cli.aims.get_basis_functions_fhi_aims:main"
 post_process_aims = "fd2bec.cli.aims.post_process_aims:main"
 prepare_aims = "fd2bec.cli.aims.prepare_aims:main"
 
@@ -91,6 +92,9 @@ dPdR2bec = "fd2bec.cli.dPdR.dPdR2bec:main"
 aims_geometries4dPdS = "fd2bec.cli.dPdS.aims_geometries4dPdS:main"
 build_dataset4dPdS_aims = "fd2bec.cli.dPdS.build_dataset4dPdS_aims:main"
 dPdS2piezo = "fd2bec.cli.dPdS.dPdS2piezo:main"
+
+# --- dataset ---
+split_extxyz = "fd2bec.cli.dataset.split_extxyz:main"
 
 # --- displacements ---
 apply_displacements = "fd2bec.cli.displacements.apply_displacements:main"
@@ -110,6 +114,8 @@ show_piezo = "fd2bec.cli.general.show_piezo:main"
 solution2bec_txt = "fd2bec.cli.general.solution2bec_txt:main"
 solve_linear_system = "fd2bec.cli.general.solve_linear_system:main"
 sort_structure = "fd2bec.cli.general.sort_structure:main"
+space_group = "fd2bec.cli.general.space_group:main"
+space_group_dataset = "fd2bec.cli.general.space_group_dataset:main"
 tensor_symmetries = "fd2bec.cli.general.tensor_symmetries:main"
 
 # --- ml ---
@@ -224,10 +230,6 @@ py-version = "3.10"
 # source root.
 # source-roots =
 
-# When enabled, pylint would attempt to guess common misconfiguration and emit
-# user-friendly hints instead of false-positive error messages.
-suggestion-mode = true
-
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
 # unsafe-load-any-extension =
@@ -336,6 +338,11 @@ module-naming-style = "snake_case"
 # require a docstring.
 no-docstring-rgx = "^_"
 
+# Regular expression matching correct parameter specification variable names. If
+# left empty, parameter specification variable names will be checked with the set
+# naming style.
+# paramspec-rgx =
+
 # List of decorators that produce properties, such as abc.abstractproperty. Add
 # to this list to register other decorators that produce valid properties. These
 # decorators are taken in consideration only for invalid-name.
@@ -348,6 +355,10 @@ property-classes = ["abc.abstractproperty"]
 # Regular expression matching correct type variable names. If left empty, type
 # variable names will be checked with the set naming style.
 # typevar-rgx =
+
+# Regular expression matching correct type variable tuple names. If left empty,
+# type variable tuple names will be checked with the set naming style.
+# typevartuple-rgx =
 
 # Naming style matching correct variable names.
 variable-naming-style = "snake_case"
@@ -432,7 +443,8 @@ indent-after-paren = 4
 # tab).
 indent-string = "    "
 
-# Maximum number of characters on a single line.
+# Maximum number of characters on a single line. Pylint's default of 100 is based
+# on PEP 8's guidance that teams may choose line lengths up to 99 characters.
 max-line-length = 100
 
 # Maximum number of lines in a module.
@@ -517,6 +529,9 @@ disable = ["raw-checker-failed", "bad-inline-option", "locally-disabled", "file-
 timeout-methods = ["requests.api.delete", "requests.api.get", "requests.api.head", "requests.api.options", "requests.api.patch", "requests.api.post", "requests.api.put", "requests.api.request"]
 
 [tool.pylint.miscellaneous]
+# Whether or not to search for fixme's in docstrings.
+# check-fixme-in-docstring =
+
 # List of note tags to take in consideration, separated by a comma.
 notes = ["FIXME", "XXX", "TODO"]
 

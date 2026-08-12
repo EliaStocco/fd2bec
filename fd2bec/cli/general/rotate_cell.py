@@ -1,5 +1,7 @@
 """Rotate periodic structures into ASE's lower-triangular cell standard form."""
 
+# Tested by pytest: tests/test_rotate_cell.py
+
 import argparse
 
 import numpy as np

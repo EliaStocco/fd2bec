@@ -1,7 +1,8 @@
 """Prepare Quantum ESPRESSO SCF and Berry-phase NSCF calculations."""
 
+# Tested by pytest: tests/test_prepare_qe.py
+
 import argparse
-import os
 import re
 import subprocess
 import sys
@@ -189,11 +190,9 @@ def prepare_qe_files(input_file, scf_template, output, nppstr_factor=10):
     return len(structures), k_grid
 
 
-def write_run_script(output: Path, script_path: Path, last_index: int) -> None:
-    """Write a relocatable helper whose paths are relative to its own location."""
-    output = output.absolute()
+def write_run_script(script_path: Path) -> None:
+    """Copy the generic QE helper to its destination."""
     script_path = script_path.absolute()
-    relative_root = os.path.relpath(output, start=script_path.parent)
 
     with (
         resources.files("fd2bec.cli.qe")
@@ -201,8 +200,6 @@ def write_run_script(output: Path, script_path: Path, last_index: int) -> None:
         .open("r", encoding="utf-8") as stream
     ):
         script = stream.read()
-    script = script.replace("__FD2BEC_RELATIVE_ROOT__", relative_root)
-    script = script.replace("__FD2BEC_LAST_INDEX__", str(last_index))
     script_path.parent.mkdir(parents=True, exist_ok=True)
     script_path.write_text(script, encoding="utf-8")
 
@@ -238,7 +235,7 @@ def main(args):
     number, k_grid = prepare_qe_files(structures_output, args.template, output, args.nppstr_factor)
 
     script_path = Path(args.script) if args.script else output / "sourceme.sh"
-    write_run_script(output, script_path, number - 1)
+    write_run_script(script_path)
 
     print(f"Prepared {number} {args.what} structure(s) in '{output}'.")
     print(f"Automatic k-grid: {k_grid[0]} {k_grid[1]} {k_grid[2]}")

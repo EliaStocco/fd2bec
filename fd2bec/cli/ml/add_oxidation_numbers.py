@@ -1,5 +1,7 @@
 """Add species-based oxidation numbers to every structure in an extxyz file."""
 
+# Tested by pytest: tests/test_add_oxidation_numbers.py
+
 import argparse
 import json
 import warnings

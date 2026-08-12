@@ -1,5 +1,7 @@
 """Write every structure in a multi-frame extxyz file to a separate file."""
 
+# Tested by pytest: tests/test_extxyz2folder.py, tests/test_prepare_qe.py, tests/test_aims_workflow_wrappers.py
+
 import argparse
 from pathlib import Path
 from typing import Iterable, List

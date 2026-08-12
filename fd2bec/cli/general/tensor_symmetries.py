@@ -1,5 +1,7 @@
 """Display symmetry-allowed tensor components in readable matrix form."""
 
+# Tested by pytest: tests/test_tensor_symmetries.py
+
 import argparse
 from itertools import product
 

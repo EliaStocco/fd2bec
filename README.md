@@ -93,7 +93,7 @@ dPdS2piezo -i dipole-cells.extxyz -r reference.extxyz -o piezoelectric
 ```
 
 See `fd2bec/cli/dPdS/README.md` for the strain convention, dipole input,
-Berry-phase branch handling, and clamped-ion versus relaxed-ion workflows.
+Berry-phase branch handling, and clamped-ion workflow.
 
 # Testing
 We would recommend running tests using

@@ -13,28 +13,6 @@ from fd2bec.mathematics import wrap
 description = "Post process Quantum ESPRESSO Berry-phase polarization calculations."
 
 
-def parse_polarization_scalar(nscf_file: Path) -> float:
-    """Extracts scalar P (in e/Omega * bohr) from a QE NSCF Berry phase output.
-
-    Target line format:
-        P =   1.6664509  (mod  15.1058715)  (e/Omega).bohr
-    """
-    pattern = re.compile(
-        r"P\s*=\s*([-+]?\d*\.\d+|\d+)\s*\(mod\s*[-+]?\d*\.\d+|\d+\)\s*\(e/Omega\)\.bohr",
-        re.IGNORECASE,
-    )
-    with open(nscf_file, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    matches = pattern.findall(content)
-    if not matches:
-        raise ValueError(
-            f"Could not parse polarization scalar 'P = ... (e/Omega).bohr' from '{nscf_file}'."
-        )
-
-    return float(matches[-1])
-
-
 def prepare_args(descr):
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
@@ -61,6 +39,28 @@ def prepare_args(descr):
         help="assembled polarized dataset destination (default: %(default)s)",
     )
     return parser
+
+
+def parse_polarization_scalar(nscf_file: Path) -> float:
+    """Extracts scalar P (in e/Omega * bohr) from a QE NSCF Berry phase output.
+
+    Target line format:
+        P =   1.6664509  (mod  15.1058715)  (e/Omega).bohr
+    """
+    pattern = re.compile(
+        r"P\s*=\s*([-+]?\d*\.\d+|\d+)\s*\(mod\s*[-+]?\d*\.\d+|\d+\)\s*\(e/Omega\)\.bohr",
+        re.IGNORECASE,
+    )
+    with open(nscf_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    matches = pattern.findall(content)
+    if not matches:
+        raise ValueError(
+            f"Could not parse polarization scalar 'P = ... (e/Omega).bohr' from '{nscf_file}'."
+        )
+
+    return float(matches[-1])
 
 
 @cli(prepare_args, description)
@@ -93,7 +93,11 @@ def main(args):
 
         for xyz in range(1, 4):
             nscf = geometries_dir / f"nscf.g={xyz}.out"
-            pol_atoms = read(nscf)
+            try:
+                pol_atoms = read(nscf)
+            except Exception as e:
+                print(f"Error with file {nscf}.")
+                raise e
 
             # Ensure NSCF geometry consistency
             assert np.allclose(atoms.positions, pol_atoms.positions), (

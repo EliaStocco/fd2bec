@@ -1,5 +1,7 @@
 """Build a polarized strained extxyz dataset from FHI-aims outputs."""
 
+# Tested by pytest: tests/test_piezoelectric_aims.py
+
 import argparse
 import re
 from pathlib import Path
@@ -11,6 +13,7 @@ from fd2bec.io import read, write
 
 description = "Extract FHI-aims dipoles from strained calculations for dPdS2piezo."
 
+
 AIMS_POLARIZATION = re.compile(
     r"Cartesian Polarization\s+"
     r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+"
@@ -18,21 +21,9 @@ AIMS_POLARIZATION = re.compile(
     r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
 )
 
+
 # FHI-aims prints C/m²; this converts to e/Å² before multiplying by volume.
 C_PER_M2_TO_E_PER_ANGSTROM2 = 0.06241517271464743
-
-
-def extract_aims_polarization(path: Path) -> np.ndarray:
-    """Return the final Cartesian polarization printed by FHI-aims."""
-    polarization = None
-    with path.open("r", encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            match = AIMS_POLARIZATION.search(line)
-            if match:
-                polarization = np.asarray([float(value) for value in match.groups()])
-    if polarization is None:
-        raise ValueError(f"No Cartesian Polarization found in '{path}'.")
-    return polarization
 
 
 def prepare_args(descr):
@@ -52,6 +43,19 @@ def prepare_args(descr):
         help="polarized extxyz output (default: %(default)s)",
     )
     return parser
+
+
+def extract_aims_polarization(path: Path) -> np.ndarray:
+    """Return the final Cartesian polarization printed by FHI-aims."""
+    polarization = None
+    with path.open("r", encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            match = AIMS_POLARIZATION.search(line)
+            if match:
+                polarization = np.asarray([float(value) for value in match.groups()])
+    if polarization is None:
+        raise ValueError(f"No Cartesian Polarization found in '{path}'.")
+    return polarization
 
 
 @cli(prepare_args, description)

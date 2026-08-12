@@ -1,3 +1,5 @@
+# Tested by pytest: tests/test_generate_symmetry_inequivalent_displacements.py, tests/test_prepare_qe.py, tests/test_aims_workflow_wrappers.py
+
 import argparse
 from typing import Tuple
 from warnings import warn

@@ -34,17 +34,37 @@ run_aims(){
 # Logging
 LOG_FILE="log.out"
 rm -f "$LOG_FILE"
-
+use_csc="${use_csc:-USE_CSC_DEFAULT}"
+delete_csc="${delete_csc:-true}"
 
 mkdir -p results
-for n in {0..NNN}; do
-    gfile="geometries/geometry.n=${n}.in"
-    if [ ! -e "${gfile}" ]; then
-        break
+mapfile -t geometry_files < <(
+    find geometries -maxdepth 1 -type f -name 'geometry.n=*.in' -printf '%f\n' | sort -V
+)
+first_geometry=true
+for geometry_file in "${geometry_files[@]}"; do
+    gfile="geometries/${geometry_file}"
+    n="${geometry_file#geometry.n=}"
+    n="${n%.in}"
+
+    if [[ "${first_geometry}" == "true" ]]; then
+        csc_control="control.first.in"
+        first_geometry=false
+    else
+        csc_control="control.other.in"
     fi
+
     export AIMS_OUTPUT_FILE="results/aims.n=${n}.out"
-    if [ ! -e "${AIMS_OUTPUT_FILE}" ]; then
-        cp ${gfile} geometry.in
+    if [[ ! -e "${AIMS_OUTPUT_FILE}" ]]; then
+        cp "${gfile}" geometry.in
+        if [[ "${use_csc}" == "true" ]] ; then
+            cp "${csc_control}" control.in
+        else
+            cp control.general.in control.in
+        fi
         run_aims
     fi
 done
+if [[ "${delete_csc}" == "true" ]]; then
+    rm -f -- *.csc
+fi

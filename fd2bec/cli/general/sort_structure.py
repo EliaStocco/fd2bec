@@ -1,5 +1,7 @@
 """Reorder an ASE structure so that its atom indices match a reference."""
 
+# Tested by pytest: tests/test_sort_structure.py
+
 import argparse
 
 import numpy as np
@@ -11,16 +13,9 @@ from fd2bec.cli.general.rotate_cell import is_ase_standard_cell
 from fd2bec.io import read, write
 
 description = "Reorder a structure so its atom order matches a reference structure."
+
+
 DEFAULT_ATOL = 1e-2
-
-
-def require_ase_standard_cell(reference: Atoms) -> None:
-    """Raise an actionable error when a periodic reference cell is rotated."""
-    if not is_ase_standard_cell(reference):
-        raise ValueError(
-            "Reference cell is not in ASE's lower-triangular standard form. "
-            "Run `rotate_cell -i <reference> -o <rotated-reference>` first."
-        )
 
 
 def prepare_args(descr):
@@ -59,6 +54,15 @@ def prepare_args(descr):
         ),
     )
     return parser
+
+
+def require_ase_standard_cell(reference: Atoms) -> None:
+    """Raise an actionable error when a periodic reference cell is rotated."""
+    if not is_ase_standard_cell(reference):
+        raise ValueError(
+            "Reference cell is not in ASE's lower-triangular standard form. "
+            "Run `rotate_cell -i <reference> -o <rotated-reference>` first."
+        )
 
 
 def sort_atoms_like(reference: Atoms, candidate: Atoms, atol: float = DEFAULT_ATOL) -> Atoms:

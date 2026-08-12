@@ -85,9 +85,10 @@ def test_run_script_uses_relocatable_paths(tmp_path):
     output = tmp_path / "prepared"
     script = output / "sourceme.sh"
 
-    write_run_script(output, script, last_index=4)
+    write_run_script(script)
     content = script.read_text()
 
     assert str(tmp_path) not in content
-    assert 'FD2BEC_QE_ROOT="${FD2BEC_QE_SCRIPT_DIR}/."' in content
-    assert "FD2BEC_QE_LAST_INDEX=4" in content
+    assert 'ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' in content
+    assert "geometry.n=*.in" in content
+    assert "__FD2BEC_" not in content
