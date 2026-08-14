@@ -139,15 +139,22 @@ def _signed_directions(directions: np.ndarray) -> np.ndarray:
     return signed[np.sort(first)]
 
 
-def _rank_increasing_generators(candidates: np.ndarray, orbits: np.ndarray) -> np.ndarray:
-    """Keep candidates whose symmetry orbit adds a new independent direction."""
+def _rank_increasing_generators(candidates: np.ndarray, design_blocks: np.ndarray) -> np.ndarray:
+    """Keep candidates whose response block adds an independent parameter direction."""
     candidates = np.asarray(candidates, dtype=float)
-    covered = np.empty((0, orbits.shape[-1]))
+    design_blocks = np.asarray(design_blocks, dtype=float)
+    if design_blocks.ndim != 3 or len(design_blocks) != len(candidates):
+        raise ValueError(
+            "Response design blocks must have shape "
+            "(number_of_candidates, response_size, number_of_modes)."
+        )
+
+    covered = np.empty((0, design_blocks.shape[-1]))
     selected = []
     rank = 0
-    for candidate, orbit in zip(candidates, orbits):
-        orbit = np.asarray(orbit, dtype=float).reshape((-1, orbits.shape[-1]))
-        trial = np.vstack((covered, orbit))
+    for candidate, block in zip(candidates, design_blocks):
+        block = block.reshape((-1, design_blocks.shape[-1]))
+        trial = np.vstack((covered, block))
         trial_rank = np.linalg.matrix_rank(trial, tol=1e-10)
         if trial_rank > rank:
             selected.append(candidate)
@@ -252,8 +259,13 @@ def symmetry_inequivalent_displacements(
     input_size = int(np.prod(tensor2perturbation_shape(tensor)))
     response_size = modes.size // (len(modes) * input_size)
     mode_matrix = modes.reshape((len(modes), response_size, input_size))
-    response_orbits = np.einsum("moi,ki->kmo", mode_matrix, input_candidates)
-    selected = _rank_increasing_generators(candidates, response_orbits)
+    # Each candidate contributes a response-by-mode block to the eventual
+    # linear fit.  Stack response rows and test rank in the mode/parameter
+    # columns.  Keeping the mode axis last is essential: ranking the transposed
+    # (mode, response) blocks only measures the output-space dimension and can
+    # omit symmetry-allowed tensor parameters.
+    response_design = np.einsum("moi,ki->kom", mode_matrix, input_candidates)
+    selected = _rank_increasing_generators(candidates, response_design)
     all_candidates = candidates if has_structure_representation else selected
     return _signed_directions(selected), _signed_directions(all_candidates)
 

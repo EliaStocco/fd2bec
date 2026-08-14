@@ -1,6 +1,8 @@
 import numpy as np
+import pytest
 from ase import Atoms
 
+from fd2bec.atomic import AtomicStructure
 from fd2bec.cli.displacements.generate_displacements import (
     TENSOR_TARGETS,
     _target_tensor,
@@ -11,6 +13,7 @@ from fd2bec.cli.displacements.generate_displacements import (
     proper_piezoelectric_cell_displacements,
     random_cartesian_displacements,
 )
+from fd2bec.piezoelectric import proper_piezoelectric_symmetry_basis
 from fd2bec.tensor import BornCharges, ImproperPiezoelectricTensor
 
 
@@ -100,6 +103,109 @@ def test_random_cell_displacements_are_lower_triangular():
 
     assert displacements.shape == (4, 9)
     np.testing.assert_allclose(matrices, np.tril(matrices))
+
+
+PHASE_STRUCTURES = {
+    "cubic": {
+        "cell": np.diag([3.9775557239945183] * 3),
+        "scaled_positions": [
+            [0.5, 0.5, 0.5],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.5],
+            [0.0, 0.5, 0.0],
+            [0.5, 0.0, 0.0],
+        ],
+    },
+    "tetragonal": {
+        "cell": np.diag([3.9630821981688404, 3.9630821981688404, 4.051482709681195]),
+        "scaled_positions": [
+            [0.5, 0.5, 0.5],
+            [0.0, 0.0, 0.015716720164655616],
+            [0.0, 0.0, 0.4710470232144153],
+            [0.0, 0.5, -0.018084606365200425],
+            [0.5, 0.0, -0.018084606365200425],
+        ],
+    },
+    "orthorhombic": {
+        "cell": np.diag([3.956890824831104, 4.015338059204685, 4.015338059204685]),
+        "scaled_positions": [
+            [0.5, 0.5, 0.5],
+            [0.0, -0.013176272886592092, -0.013176272886592092],
+            [0.0, 0.012377573013078772, 0.5218384253342361],
+            [0.0, 0.5218384253342361, 0.012377573013078772],
+            [0.5, 0.014849066036499475, 0.014849066036499475],
+        ],
+    },
+    "rhombohedral": {
+        "cell": [
+            [3.9968414651261877, 0.0, 0.0],
+            [0.009112640060936053, 3.996831076883682, 0.0],
+            [0.009112640060936053, 0.009091887233766279, 3.996820735876166],
+        ],
+        "scaled_positions": [
+            [0.5, 0.5, 0.5],
+            [0.011426470066678369, 0.011426470352913255, 0.011426471943077656],
+            [-0.011333998425580718, -0.011333999795953143, 0.48209931526428623],
+            [-0.011333998418420536, 0.48209931077150564, -0.01133399844365788],
+            [0.48209931570821524, -0.011334002286522187, -0.01133399844365788],
+        ],
+    },
+}
+
+
+def _phase_structure(phase):
+    values = PHASE_STRUCTURES[phase]
+    return Atoms(
+        "BaTiO3",
+        cell=values["cell"],
+        scaled_positions=values["scaled_positions"],
+        pbc=True,
+    )
+
+
+def _proper_piezoelectric_design(displacements, cell, symmetry_basis):
+    inverse_cell = np.linalg.inv(cell)
+    blocks = []
+    for displacement in displacements.reshape((-1, 3, 3)):
+        gradient = (inverse_cell @ displacement).T
+        strain = 0.5 * (gradient + gradient.T)
+        block = np.zeros((3, 27))
+        for component in range(3):
+            block[component, 9 * component : 9 * component + 9] = strain.reshape(9)
+        blocks.append(block @ symmetry_basis)
+    return np.vstack(blocks)
+
+
+@pytest.mark.parametrize(
+    "phase, space_group, number_of_parameters, number_of_structures",
+    [
+        ("cubic", 221, 0, 1),
+        ("tetragonal", 99, 3, 7),
+        ("orthorhombic", 38, 5, 9),
+        ("rhombohedral", 160, 4, 5),
+    ],
+)
+def test_piezoelectric_displacements_span_every_symmetry_allowed_parameter(
+    phase, space_group, number_of_parameters, number_of_structures
+):
+    """Regression test using the BaTiO3 phases exercised by MACE-POLAR."""
+    reference = _phase_structure(phase)
+    unit_cell = AtomicStructure.from_ase(reference)
+    tensor = _target_tensor("piezo", len(reference))
+
+    if number_of_parameters:
+        selected, candidates = proper_piezoelectric_cell_displacements(unit_cell, tensor)
+    else:
+        with pytest.warns(UserWarning, match="no symmetry-allowed components"):
+            selected, candidates = proper_piezoelectric_cell_displacements(unit_cell, tensor)
+    symmetry_basis = proper_piezoelectric_symmetry_basis(unit_cell)
+    design = _proper_piezoelectric_design(selected, reference.cell.array, symmetry_basis)
+
+    assert unit_cell.space_group == space_group
+    assert symmetry_basis.shape == (27, number_of_parameters)
+    assert selected.shape == (number_of_structures, 9)
+    assert candidates.shape == (13, 9)
+    assert np.linalg.matrix_rank(design, tol=1e-10) == number_of_parameters
 
 
 def test_atomic_displacements_are_saved_on_displaced_structures():
