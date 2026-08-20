@@ -1,9 +1,11 @@
 .python-version
+examples/
 my_workflows/
 model/
 coverage.txt
 table.pdf
 results.csv
+docs/source/generated
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
