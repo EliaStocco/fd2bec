@@ -6,6 +6,7 @@ coverage.txt
 table.pdf
 results.csv
 docs/source/generated
+pytest-report.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
