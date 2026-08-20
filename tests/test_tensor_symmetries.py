@@ -1,18 +1,16 @@
 import numpy as np
 
-from fd2bec.cli.structures.tensor_symmetries import _physical_modes, _selected_basis
 from fd2bec.tensor_components import (
     _symmetric_basis,
-    add_affine_reference,
-    common_symbolic_components,
     flattened_nuclear_position_matrix,
     print_components,
     print_independent_components,
+    symmetric_pairs,
     symbolic_affine_components,
     symbolic_components,
-    symmetric_pairs,
     voigt_components,
 )
+from fd2bec.cli.structures.tensor_symmetries import _physical_modes, _selected_basis
 
 
 def test_symbolic_components_use_independent_letters():
@@ -29,38 +27,6 @@ def test_symbolic_components_with_no_modes_returns_zero_tensor():
 
     assert pivots == []
     assert symbolic.tolist() == [["0", "0", "0"], ["0", "0", "0"]]
-
-
-def test_common_symbolic_components_keep_symbols_consistent_between_spaces():
-    first = np.asarray([[1.0, 1.0, 0.0]])
-    second = np.asarray([[0.0, 1.0, 1.0]])
-
-    symbolic, common_pivots, parameter_indices = common_symbolic_components(
-        [first, second]
-    )
-
-    assert common_pivots == [0, 1]
-    assert parameter_indices == [[0], [1]]
-    assert symbolic[0].tolist() == ["a", "a", "0"]
-    assert symbolic[1].tolist() == ["0", "b", "b"]
-
-
-def test_add_affine_reference_preserves_shared_parameter_names():
-    reference = np.asarray([0.5, 0.982, 0.0])
-    symbolic = np.asarray(["a", "-a", "0"])
-
-    result = add_affine_reference(reference, symbolic, fractional=True)
-
-    assert result.tolist() == ["0.5 + a", "-a", "0.0"]
-
-
-def test_add_affine_reference_retains_fixed_cartesian_coordinates():
-    reference = np.asarray([1.25, 2.5])
-    symbolic = np.asarray(["a", "0"])
-
-    result = add_affine_reference(reference, symbolic)
-
-    assert result.tolist() == ["a", "2.5"]
 
 
 def test_symbolic_affine_components_show_ideal_fractional_coordinates_and_displacements():

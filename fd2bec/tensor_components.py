@@ -85,12 +85,10 @@ def _independent_rows(basis: np.ndarray, atol: float) -> list[int]:
     return pivots
 
 
-def _format_expression(coefficients, atol: float, parameter_indices=None) -> str:
+def _format_expression(coefficients, atol: float) -> str:
     """Format one component as a linear combination of parameter names."""
-    if parameter_indices is None:
-        parameter_indices = range(len(coefficients))
     terms = []
-    for index, coefficient in zip(parameter_indices, coefficients):
+    for index, coefficient in enumerate(coefficients):
         if abs(coefficient) <= atol:
             continue
         name = parameter_name(index)
@@ -104,23 +102,6 @@ def _format_expression(coefficients, atol: float, parameter_indices=None) -> str
         else:
             terms.append((" - " if coefficient < 0 else " + ") + term)
     return "".join(terms) if terms else "0"
-
-
-def _component_basis(
-    component_modes: np.ndarray,
-    axes=None,
-    atol: float = 1e-10,
-    symmetric_axis_pairs=None,
-):
-    """Return a column-oriented, linearly independent component basis."""
-    modes = np.asarray(component_modes, dtype=float)
-    shape = modes.shape[1:]
-    dimension = int(np.prod(shape, dtype=int)) if shape else 1
-    basis = modes.reshape((modes.shape[0], dimension)).T
-    if axes is not None:
-        pairs = symmetric_pairs(axes, shape, declared_pairs=symmetric_axis_pairs)
-        basis = _symmetric_basis(basis, shape, pairs, atol=atol)
-    return _independent_columns(basis, atol)
 
 
 def symbolic_components(
@@ -177,12 +158,12 @@ def _symbolic_coefficients(
 ):
     """Return component coefficients and pivots for a real-space mode basis."""
     modes = np.asarray(component_modes, dtype=float)
-    basis = _component_basis(
-        modes,
-        axes=axes,
-        atol=atol,
-        symmetric_axis_pairs=symmetric_axis_pairs,
-    )
+    shape = modes.shape[1:]
+    dimension = int(np.prod(shape, dtype=int)) if shape else 1
+    basis = modes.reshape((modes.shape[0], dimension)).T
+    if axes is not None:
+        pairs = symmetric_pairs(axes, shape, declared_pairs=symmetric_axis_pairs)
+        basis = _symmetric_basis(basis, shape, pairs, atol=atol)
     if basis.shape[1] == 0:
         return np.empty((0, 0)), []
 
@@ -191,105 +172,6 @@ def _symbolic_coefficients(
         basis = _independent_columns(basis, atol)
         pivots = _independent_rows(basis, atol)
     return basis @ np.linalg.inv(basis[pivots, :]), pivots
-
-
-def common_symbolic_components(
-    component_modes,
-    axes=None,
-    atol: float = 1e-10,
-    symmetric_axis_pairs=None,
-):
-    """Express several allowed tensor spaces with one set of symbols.
-
-    The common space is the linear span of all supplied symmetry-allowed
-    spaces.  Its parameters are actual tensor entries selected in flattened
-    component order.  Each structure uses the subset of those entries that is
-    independent for that structure, so zeros and equalities imposed by its
-    higher symmetry remain visible while every symbol keeps the same meaning.
-
-    Returns
-    -------
-    symbolic, common_pivots, parameter_indices
-        One symbolic tensor per structure, flattened tensor entries defining
-        all common symbols, and the common-symbol indices independently used
-        by each structure.
-    """
-    modes_collection = [np.asarray(modes, dtype=float) for modes in component_modes]
-    if not modes_collection:
-        raise ValueError("At least one set of component modes is required.")
-    shape = modes_collection[0].shape[1:]
-    if any(modes.shape[1:] != shape for modes in modes_collection):
-        raise ValueError("All component-mode sets must have the same tensor shape.")
-    if axes is not None and len(axes) != len(shape):
-        raise ValueError("The number of axes must match the tensor dimensions.")
-
-    bases = [
-        _component_basis(
-            modes,
-            axes=axes,
-            atol=atol,
-            symmetric_axis_pairs=symmetric_axis_pairs,
-        )
-        for modes in modes_collection
-    ]
-    common_basis = _independent_columns(np.concatenate(bases, axis=1), atol)
-    common_pivots = _independent_rows(common_basis, atol)
-
-    symbolic = []
-    all_parameter_indices = []
-    for basis in bases:
-        if basis.shape[1] == 0:
-            symbolic.append(np.full(shape, "0", dtype=object))
-            all_parameter_indices.append([])
-            continue
-
-        common_coordinates = basis[common_pivots, :]
-        parameter_indices = _independent_rows(common_coordinates, atol)
-        selected = common_coordinates[parameter_indices, :]
-        coefficients = basis @ np.linalg.inv(selected)
-        expressions = [_format_expression(row, atol, parameter_indices) for row in coefficients]
-        symbolic.append(np.asarray(expressions, dtype=object).reshape(shape))
-        all_parameter_indices.append(parameter_indices)
-
-    return symbolic, common_pivots, all_parameter_indices
-
-
-def add_affine_reference(reference_components, symbolic, *, fractional=False, atol=1e-8):
-    """Add reference coordinates to an already parameterized symbolic array."""
-    reference_components = np.asarray(reference_components, dtype=float)
-    result = np.asarray(symbolic, dtype=object).copy()
-    if result.shape != reference_components.shape:
-        raise ValueError("Reference and symbolic components must have the same shape.")
-
-    fixed_components = result == "0"
-    for index in zip(*np.where(fixed_components)):
-        value = reference_components[index]
-        if fractional:
-            value %= 1.0
-            if np.isclose(value, 0.0, atol=atol) or np.isclose(value, 1.0, atol=atol):
-                value = 0.0
-            elif np.isclose(value, 0.5, atol=atol):
-                value = 0.5
-        result[index] = str(value)
-
-    if not fractional:
-        return result
-
-    values = reference_components % 1.0
-    origins = (np.round(2.0 * values) / 2.0) % 1.0
-    for index in np.ndindex(result.shape):
-        if fixed_components[index]:
-            continue
-
-        expression = result[index]
-        origin = origins[index]
-        if np.isclose(origin, 0.0, atol=atol):
-            continue
-        if expression.startswith("-"):
-            result[index] = f"{origin} - {expression[1:]}"
-        else:
-            result[index] = f"{origin} + {expression}"
-    return result
 
 
 def _format_affine_expression(constant: float, coefficients: np.ndarray, atol: float) -> str:
