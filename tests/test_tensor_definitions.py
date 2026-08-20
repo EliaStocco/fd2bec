@@ -55,6 +55,12 @@ def test_tensor_instance_round_trip_and_role_shapes():
     assert tensor.output_shape == (3,)
 
 
+def test_tensor_repr_is_compact_and_identifies_its_definition():
+    tensor = BornCharges(data=np.zeros((4, 3, 3)))
+
+    assert repr(tensor) == "BornCharges(definition='born_charges', shape=(4, 3, 3), basis='cartesian')"
+
+
 def test_scalar_volume_and_invalid_scalar_operand():
     assert np.allclose(evaluate_scalar(VOLUME, np.diag([2.0, 3.0, -4.0])),24.0)
     with pytest.raises(ValueError):
@@ -66,6 +72,18 @@ def test_invalid_axis_size_and_missing_atomic_template_size():
         BornCharges(data=np.zeros((3, 3, 2)))
     with pytest.raises(ValueError):
         BornCharges.template()
+
+
+def test_data_is_reshaped_when_its_size_matches_the_explicit_shape():
+    with pytest.warns(UserWarning, match=r"reshaped.*\(4, 3, 3\)"):
+        tensor = BornCharges(data=np.zeros(36))
+
+    assert tensor.shape == (4, 3, 3)
+
+
+def test_invalid_data_does_not_warn_when_no_explicit_shape_matches():
+    with pytest.raises(ValueError, match="needs at least"):
+        BornCharges(data=np.zeros(35))
 
 
 def test_stress_and_elastic_definitions_have_explicit_roles():

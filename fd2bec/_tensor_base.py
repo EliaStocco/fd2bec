@@ -6,6 +6,7 @@ The mathematical metadata lives in ordinary dictionaries in
 """
 
 import json
+import warnings
 from copy import copy, deepcopy
 from typing import List, Tuple
 
@@ -51,6 +52,37 @@ class Tensor:
         self.data = None if data is None else np.asarray(data)
         self._validate_data()
 
+    def __repr__(self):
+        return (
+            f"{type(self).__name__}(definition={self.definition['name']!r}, "
+            f"shape={self.shape}, basis={self.basis!r})"
+        )
+
+    def print_components(self, components=None, *, title=None, voigt=False):
+        """Print this tensor's numeric or symbolic components with axis labels.
+
+        Set ``voigt=True`` to also print any explicitly named symmetric strain
+        axes in Voigt notation.
+        """
+        if components is None:
+            if self.data is None:
+                raise ValueError("Tensor components require data.")
+            components = self.data
+        from .tensor_components import (
+            VOIGT_LABELS,
+            print_components,
+            symmetric_pairs,
+            voigt_components,
+        )
+
+        print_components(components, self.axes, title=title)
+        if voigt:
+            pairs = symmetric_pairs(self.axes, np.shape(components))
+            if pairs:
+                components, axes = voigt_components(np.asarray(components), self.axes, pairs)
+                print("\nVoigt notation (" + ", ".join(VOIGT_LABELS) + "):")
+                print_components(components, axes)
+
     def _validate_data(self):
         if self.data is None:
             return
@@ -58,6 +90,8 @@ class Tensor:
         if not axes:
             return
         if self.data.ndim < len(axes):
+            if self._reshape_if_compatible():
+                return
             raise ValueError(
                 f"Data for {self.definition['name']!r} needs at least {len(axes)} "
                 f"dimensions for its explicit axes, got shape {self.data.shape}."
@@ -65,14 +99,50 @@ class Tensor:
         sizes = self.data.shape[-len(axes) :]
         atomic_sizes = [size for axis, size in zip(axes, sizes) if axis["type"] == "atomic"]
         if atomic_sizes and len(set(atomic_sizes)) != 1:
+            if self._reshape_if_compatible():
+                return
             raise ValueError("All atomic dimensions must have the same natoms size.")
         for axis, size in zip(axes, sizes):
             expected = atomic_sizes[0] if axis["type"] == "atomic" else 3
             if size != expected:
+                if self._reshape_if_compatible():
+                    return
                 kind = "natoms" if axis["type"] == "atomic" else "3"
                 raise ValueError(
                     f"Axis {axis['name']!r} is {axis['type']} and requires size {kind}; got {size}."
                 )
+
+    def _reshape_if_compatible(self) -> bool:
+        """Reshape data to its explicit shape when its size makes that possible."""
+        axes = self.axes
+        cartesian_axes = sum(axis["type"] == "cartesian" for axis in axes)
+        atomic_axes = sum(axis["type"] == "atomic" for axis in axes)
+        cartesian_size = 3**cartesian_axes
+
+        if self.data.size % cartesian_size:
+            return False
+        atomic_size = self.data.size // cartesian_size
+        if atomic_axes:
+            natoms = round(atomic_size ** (1 / atomic_axes))
+            if natoms**atomic_axes != atomic_size:
+                return False
+            shape = tuple(
+                natoms if axis["type"] == "atomic" else 3 for axis in axes
+            )
+        elif atomic_size == 1:
+            shape = (3,) * cartesian_axes
+        else:
+            return False
+
+        original_shape = self.data.shape
+        self.data = self.data.reshape(shape)
+        warnings.warn(
+            f"Data for {self.definition['name']!r} with shape {original_shape} was reshaped "
+            f"to its explicit tensor shape {shape}.",
+            UserWarning,
+            stacklevel=3,
+        )
+        return True
 
     @property
     def axes(self):

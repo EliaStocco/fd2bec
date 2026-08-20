@@ -711,4 +711,6 @@ class AtomicStructure:
         else:
             theta_real = S.T  # .reshape((len(theta), -1, 3))
 
+        # theta and theta_real are returned flattened because
+        # they work alssso for affine vectors
         return S, theta, theta_real  # , shape

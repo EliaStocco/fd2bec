@@ -1,6 +1,28 @@
 from pathlib import Path
 
+import pytest
+
 import fd2bec.cli.aims.prepare_aims as prepare_aims
+
+
+def test_prepare_args_accepts_explicit_k_grid():
+    args = prepare_aims.prepare_args("test").parse_args(
+        [
+            "-i",
+            "reference.extxyz",
+            "--k-grid",
+            "3",
+            "4",
+            "5",
+            "--k-grid-polarization",
+            "6",
+            "7",
+            "8",
+        ]
+    )
+
+    assert args.k_grid == [3, 4, 5]
+    assert args.k_grid_polarization == [6, 7, 8]
 
 
 def test_ensure_basis_functions_appends_species_only_when_missing(monkeypatch, tmp_path):
@@ -76,6 +98,73 @@ def test_update_control_file_uses_polarization_density(monkeypatch, tmp_path):
     assert "output polarization 1 5 6 8\n" in control.read_text(encoding="utf-8")
     assert "output polarization 2 4 10 8\n" in control.read_text(encoding="utf-8")
     assert "output polarization 3 4 6 9\n" in control.read_text(encoding="utf-8")
+
+
+def test_update_control_file_uses_explicit_k_grid(monkeypatch, tmp_path):
+    control = tmp_path / "control.in"
+    control.write_text("k_grid 1 1 1\nspecies H\n", encoding="utf-8")
+
+    def fake_suggest_kgrid(_, density):
+        assert density == 10.0
+        return (6, 6, 6)
+
+    monkeypatch.setattr(prepare_aims, "suggest_kgrid", fake_suggest_kgrid)
+
+    k_grid, _ = prepare_aims.update_control_file(
+        control,
+        "reference.extxyz",
+        5.0,
+        k_grid=(2, 3, 4),
+    )
+
+    assert k_grid == (2, 3, 4)
+    assert control.read_text(encoding="utf-8") == (
+        "k_grid 2 3 4\n"
+        "output polarization 1 6 3 4\n"
+        "output polarization 2 2 6 4\n"
+        "output polarization 3 2 3 6\n"
+        "species H\n"
+    )
+
+
+def test_update_control_file_uses_explicit_polarization_k_grid(monkeypatch, tmp_path):
+    control = tmp_path / "control.in"
+    control.write_text("species H\n", encoding="utf-8")
+
+    def fail_if_called(*_):
+        raise AssertionError("k-grid density should not be used for explicit grids")
+
+    monkeypatch.setattr(prepare_aims, "suggest_kgrid", fail_if_called)
+
+    prepare_aims.update_control_file(
+        control,
+        "reference.extxyz",
+        5.0,
+        k_grid=(2, 3, 4),
+        k_grid_polarization=(7, 8, 9),
+    )
+
+    assert control.read_text(encoding="utf-8") == (
+        "k_grid 2 3 4\n"
+        "output polarization 1 7 3 4\n"
+        "output polarization 2 2 8 4\n"
+        "output polarization 3 2 3 9\n"
+        "species H\n"
+    )
+
+
+def test_explicit_polarization_k_grid_must_exceed_scf_grid(tmp_path):
+    control = tmp_path / "control.in"
+    control.write_text("species H\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must exceed"):
+        prepare_aims.update_control_file(
+            control,
+            "reference.extxyz",
+            5.0,
+            k_grid=(2, 3, 4),
+            k_grid_polarization=(2, 8, 9),
+        )
 
 
 def test_write_control_templates_always_writes_general_and_csc_controls(tmp_path):

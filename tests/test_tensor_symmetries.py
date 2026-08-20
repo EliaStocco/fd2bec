@@ -1,10 +1,10 @@
 import numpy as np
 
-from fd2bec.cli.general.tensor_symmetries import (
+from fd2bec.tensor_components import (
     _symmetric_basis,
-    _symmetric_pairs,
+    print_components,
     print_independent_components,
-    print_symbolic_tensor,
+    symmetric_pairs,
     symbolic_components,
     voigt_components,
 )
@@ -13,10 +13,30 @@ from fd2bec.cli.general.tensor_symmetries import (
 def test_symbolic_components_use_independent_letters():
     basis = np.asarray([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
 
-    symbolic, pivots = symbolic_components(basis, (3,))
+    symbolic, pivots = symbolic_components(basis.T)
 
     assert pivots == [0, 1]
     assert symbolic.tolist() == ["a", "b", "a + b"]
+
+
+def test_tensor_print_components_accepts_symbolic_components(capsys):
+    from fd2bec.tensor import BornCharges
+
+    tensor = BornCharges(data=np.zeros((1, 3, 3)))
+    symbolic = np.full((1, 3, 3), "a", dtype=object)
+
+    tensor.print_components(symbolic)
+
+    assert "[atom=0]" in capsys.readouterr().out
+
+
+def test_tensor_print_components_can_include_voigt_notation(capsys):
+    from fd2bec.tensor import ProperPiezoelectricTensor
+
+    tensor = ProperPiezoelectricTensor(data=np.zeros((3, 3, 3)))
+    tensor.print_components(np.full((3, 3, 3), "a", dtype=object), voigt=True)
+
+    assert "Voigt notation (xx, yy, zz, yz, xz, xy):" in capsys.readouterr().out
 
 
 def test_strain_pair_is_symmetrized_and_voigt_compressed():
@@ -26,9 +46,10 @@ def test_strain_pair_is_symmetrized_and_voigt_compressed():
         {"name": "strain_j", "type": "cartesian", "role": "input"},
     ]
     basis = np.eye(27)
-    pairs = _symmetric_pairs(axes, (3, 3, 3))
+    pairs = symmetric_pairs(axes, (3, 3, 3))
     display_basis = _symmetric_basis(basis, (3, 3, 3), pairs)
-    symbolic, _ = symbolic_components(display_basis, (3, 3, 3))
+    modes = basis.T.reshape((27, 3, 3, 3))
+    symbolic, _ = symbolic_components(modes, axes=axes)
     voigt, _ = voigt_components(symbolic, axes, pairs)
 
     assert pairs == [(1, 2)]
@@ -61,7 +82,7 @@ def test_equal_atomic_blocks_are_printed_once(capsys):
     block = np.asarray([["a", "0", "0"], ["0", "a", "0"], ["0", "0", "a"]])
     symbolic = np.stack([block, block])
 
-    print_symbolic_tensor(symbolic, axes)
+    print_components(symbolic, axes)
 
     output = capsys.readouterr().out
     assert "[atom={0, 1}]" in output

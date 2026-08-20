@@ -166,6 +166,7 @@ class PiezoelectricDerivative(_DefinedTensor):
 
 
 MAPPING: Dict[str, Type[Tensor]] = {
+    "positions" : Position,
     "dipole": Dipole,
     "stress": Stress,
     "elastic": ElasticStiffnessConstant,

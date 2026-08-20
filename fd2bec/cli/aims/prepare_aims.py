@@ -54,7 +54,16 @@ def prepare_args(descr):
         **argv,
         type=float,
         default=8.0,
-        help="reciprocal-space k-grid density (default: %(default)s)",
+        help=(
+            "reciprocal-space k-grid density, ignored when --k-grid is given (default: %(default)s)"
+        ),
+    )
+    parser.add_argument(
+        "--k-grid",
+        nargs=3,
+        type=int,
+        metavar=("NX", "NY", "NZ"),
+        help="explicit SCF k-grid; overrides --k-density",
     )
     parser.add_argument(
         "--k_density_polarization",
@@ -65,8 +74,19 @@ def prepare_args(descr):
         default=10.0,
         help=(
             "absolute reciprocal-space k-grid density along each polarization "
-            "direction (default: %(default)s)"
+            "direction, ignored when --k-grid-polarization is given "
+            "(default: %(default)s)"
         ),
+    )
+    parser.add_argument(
+        "--k_grid_polarization",
+        "--k-grid-polarization",
+        "--polarization-k-grid",
+        dest="k_grid_polarization",
+        nargs=3,
+        type=int,
+        metavar=("NX", "NY", "NZ"),
+        help="explicit polarization k-grid; overrides --k-density-polarization",
     )
     parser.add_argument(
         "--basis",
@@ -286,15 +306,23 @@ def update_control_file(
     input_file: str,
     k_density: float,
     k_density_polarization: float = 10.0,
+    k_grid: Optional[Tuple[int, int, int]] = None,
+    k_grid_polarization: Optional[Tuple[int, int, int]] = None,
 ) -> Tuple[Tuple[int, int, int], bool]:
     """Normalize k-grid and polarization settings in ``control.in``.
 
     Existing ``k_grid``, ``k_grid_density``, and ``output polarization`` lines
     are compared to the requested settings and replaced as one consistent
     block. This avoids duplicate settings and handles controls that specify
-    only ``k_grid_density``.
+    only ``k_grid_density``. Explicit SCF and polarization grids take
+    precedence over the grids derived from their respective densities.
     """
-    k_grid = tuple(suggest_kgrid(input_file, k_density))
+    if k_grid is None:
+        k_grid = tuple(suggest_kgrid(input_file, k_density))
+    else:
+        k_grid = tuple(k_grid)
+        if len(k_grid) != 3 or any(value <= 0 for value in k_grid):
+            raise ValueError("Every explicit k-grid dimension must be positive.")
     lines = control_file.read_text(encoding="utf-8").splitlines(keepends=True)
     existing_k_grids = []
     existing_densities = []
@@ -309,7 +337,20 @@ def update_control_file(
         elif tokens == ("output", "polarization"):
             existing_polarizations.append(_parse_polarization(line))
 
-    polarization_grid = tuple(suggest_kgrid(input_file, k_density_polarization))
+    if k_grid_polarization is None:
+        polarization_grid = tuple(suggest_kgrid(input_file, k_density_polarization))
+    else:
+        polarization_grid = tuple(k_grid_polarization)
+        if len(polarization_grid) != 3 or any(value <= 0 for value in polarization_grid):
+            raise ValueError("Every explicit polarization k-grid dimension must be positive.")
+        if any(
+            polarization_value <= scf_value
+            for polarization_value, scf_value in zip(polarization_grid, k_grid)
+        ):
+            raise ValueError(
+                "Every explicit polarization k-grid dimension must exceed "
+                "the corresponding SCF k-grid dimension."
+            )
     expected_polarizations = polarization_kgrids(k_grid, polarization_grid)
     settings_match = (
         all(old_grid == k_grid for old_grid in existing_k_grids)
@@ -405,9 +446,15 @@ def main(args):
         )
     if args.seed is not None and args.number is None:
         raise ValueError("--seed can only be used together with --number.")
-    if args.k_density <= 0:
+    if args.k_grid is None and args.k_density <= 0:
         raise ValueError("--k-density must be positive.")
-    if args.k_density_polarization <= 0:
+    if args.k_grid is not None and any(value <= 0 for value in args.k_grid):
+        raise ValueError("Every --k-grid dimension must be positive.")
+    if args.k_grid_polarization is not None and any(
+        value <= 0 for value in args.k_grid_polarization
+    ):
+        raise ValueError("Every --k-grid-polarization dimension must be positive.")
+    if args.k_grid_polarization is None and args.k_density_polarization <= 0:
         raise ValueError("--k_density_polarization must be positive.")
     if not CONTROL_FILE.is_file():
         raise FileNotFoundError("prepare_aims requires a control.in in the current directory.")
@@ -429,6 +476,8 @@ def main(args):
         args.input,
         args.k_density,
         args.k_density_polarization,
+        k_grid=args.k_grid,
+        k_grid_polarization=args.k_grid_polarization,
     )
     print(f"Updated control.in k-grid: {' '.join(str(value) for value in k_grid)}")
     print("Updated control.in Berry-phase polarization settings.")
@@ -485,7 +534,10 @@ def main(args):
     print(f"k_grid {kx} {ky} {kz}")
 
     print("\nRecommended keywords for computing the polarization")
-    polarization_grid = tuple(suggest_kgrid(args.input, args.k_density_polarization))
+    if args.k_grid_polarization is None:
+        polarization_grid = tuple(suggest_kgrid(args.input, args.k_density_polarization))
+    else:
+        polarization_grid = tuple(args.k_grid_polarization)
     for polarization in polarization_kgrids(k_grid, polarization_grid):
         print("output polarization " + " ".join(str(value) for value in polarization))
 

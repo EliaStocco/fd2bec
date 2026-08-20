@@ -68,3 +68,4 @@ done
 if [[ "${delete_csc}" == "true" ]]; then
     rm -f -- *.csc
 fi
+touch DONE

@@ -26,11 +26,16 @@ prepare_aims -i reference.extxyz --what piezo
 
 Use `--no-symmetry` for all signed basis displacements or `--number N --seed S`
 for random displacements. `--k-density D` determines the k-grid, replacing
-any existing `k_grid` or `k_grid_density` setting. The matching three
+any existing `k_grid` or `k_grid_density` setting. Use `--k-grid NX NY NZ` to
+specify the SCF k-grid explicitly instead; it takes precedence over
+`--k-density`. The matching three
 `output polarization` lines are also written to `control.in`. Use
 `--k_density_polarization D` to choose the absolute reciprocal-space density
-along each polarization direction; the generated polarization meshes always
-contain more k-points than the SCF mesh.
+along each polarization direction, or `--k-grid-polarization NX NY NZ` to set
+that grid explicitly. The explicit grid takes precedence over the polarization
+density, and each of its dimensions must exceed the corresponding SCF-grid
+dimension. The generated polarization meshes always contain more k-points
+than the SCF mesh.
 
 The command writes a multi-frame extxyz file, a text displacement table,
 individual AIMS geometries, a log, and `sourceme.sh`. Set `AIMS` in the
