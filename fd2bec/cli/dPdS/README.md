@@ -129,7 +129,7 @@ The modes are expressed in the input Cartesian frame. For a rhombohedral
 structure represented in pseudocubic Cartesian axes, the threefold axis is not
 a Cartesian axis, so individual modes can contain several nonzero Cartesian
 components. A textbook trigonal representation requires first rotating the
-structure and tensor to symmetry-adapted axes. Pass `--conventional-axes` to
+structure and tensor to symmetry-adapted axes. Pass `--conventional_axes` to
 rotate the reported and saved piezoelectric tensors, reference polarization,
 symbolic matrix, and numeric modes into spglib's conventional Cartesian axes.
 The fitted data are not modified; the coordinate rotation is applied after the
@@ -140,7 +140,7 @@ are printed before the fit and recorded in `fit.json`.
 The command also prints the unstrained reference cell vectors, lattice
 parameters `(a, b, c, alpha, beta, gamma)`, and wrapped fractional coordinates
 with atom indices and chemical symbols. These describe the input reference
-frame, even when `--conventional-axes` is used for the reported tensors.
+frame, even when `--conventional_axes` is used for the reported tensors.
 
 The command chooses one reproducible set of independent matrix entries from
 the canonical symmetry modes. Their names are generated directly from their
@@ -148,7 +148,7 @@ the canonical symmetry modes. Their names are generated directly from their
 column. Each selected name and fitted value is printed after the direct-fit
 matrix and stored in `fit.json`. The selection refers to the displayed frame:
 input Cartesian axes by default or conventional axes with
-`--conventional-axes`; it does not depend on an external tabulation.
+`--conventional_axes`; it does not depend on an external tabulation.
 
 The improper tensor is fitted directly from the Cartesian polarization:
 

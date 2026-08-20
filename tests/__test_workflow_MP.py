@@ -6,7 +6,7 @@ from fd2bec.io import read
 
 from fd2bec import ATOL
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli.generate_all_displacements import atomic_structure2all_displacements
+from fd2bec.displacements import atomic_structure2all_displacements
 from fd2bec.tensor import BornCharges
 
 # from fd2bec.symmetry import is_sohncke

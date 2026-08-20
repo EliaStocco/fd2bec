@@ -11,10 +11,7 @@ from ase import Atoms
 
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import KEYWORDS, cli
-from fd2bec.cli.displacements.generate_displacements import (
-    atomic_structure2all_displacements,
-    displacements2structures,
-)
+from fd2bec.displacements import atomic_structure2all_displacements, displacements2structures
 from fd2bec.io import read, write
 
 description = (

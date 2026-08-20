@@ -10,6 +10,7 @@ from fd2bec import ATOL, Basis
 from fd2bec._tensor_base import Tensor
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import cli
+from fd2bec.displacements import symmetry_inequivalent_displacements
 from fd2bec.io import read
 from fd2bec.show import print_reference_structure
 from fd2bec.tensor import MAPPING
@@ -44,7 +45,7 @@ def prepare_args(descr: str):
         choices=choices,
     )
     parser.add_argument(
-        "--conventional-axes",
+        "--conventional_axes",
         action="store_true",
         help="rotate Cartesian tensor components into spglib's conventional axes",
     )
@@ -101,9 +102,9 @@ def main(args: argparse.Namespace):
     if basis == "fractional" and not unit_cell.pbc:
         raise ValueError("Fractional tensor components require a periodic structure.")
     if basis == "fractional" and args.conventional_axes:
-        raise ValueError("--conventional-axes is only supported with Cartesian components.")
+        raise ValueError("--conventional_axes is only supported with Cartesian components.")
     if args.name == "positions" and args.conventional_axes:
-        raise ValueError("--conventional-axes is not supported for positions.")
+        raise ValueError("--conventional_axes is not supported for positions.")
 
     tensor_class = MAPPING[args.name]
     if args.name == "positions":
@@ -134,6 +135,10 @@ def main(args: argparse.Namespace):
     print("done")
     modes = _physical_modes(component_modes, shape, affine=tensor.has_affine_axis)
     print("n. symmetry-inequivalent component(s): ", len(modes))
+    finite_difference_displacements, _ = symmetry_inequivalent_displacements(
+        unit_cell, tensor, component_modes=component_modes
+    )
+    print("n. finite-difference displacements required: ", len(finite_difference_displacements) - 1)
 
     frame_label = "input"
     if args.conventional_axes:

@@ -14,6 +14,7 @@ from fd2bec.tensor import (
     VOLUME,
     BornCharges,
     ForceConstants,
+    MAPPING,
     Position,
     Tensor,
     derivative,
@@ -42,6 +43,11 @@ def test_repeated_derivative_has_two_atomic_dimensions():
         "cartesian",
     ]
     assert ForceConstants.template(3).shape == (3, 3, 3, 3)
+
+
+def test_force_constants_use_one_canonical_registry_name():
+    assert MAPPING["force_constants"] is ForceConstants
+    assert not {"force-constant", "force-constants", "hessian"} & MAPPING.keys()
 
 
 def test_template_accepts_an_explicit_basis():

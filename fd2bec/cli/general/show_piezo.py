@@ -40,7 +40,7 @@ def prepare_args(descr):
         default="piezoelectric",
     )
     parser.add_argument(
-        "--conventional-axes",
+        "--conventional_axes",
         action="store_true",
         help=(
             "rotate reported and saved Cartesian tensors into spglib's "

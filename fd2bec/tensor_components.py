@@ -246,7 +246,37 @@ def voigt_components(symbolic, axes, pairs):
     return result, voigt_axes
 
 
+def flattened_nuclear_position_matrix(components, axes):
+    """Return force constants as an atom-major ``3N x 3N`` matrix.
+
+    Force constants are stored with the two atomic axes first and the two
+    Cartesian axes last.  Interleaving each atom with its ``x``, ``y``, and
+    ``z`` components gives the conventional matrix indexing used for nuclear
+    displacements.
+    """
+    components = np.asarray(components, dtype=object)
+    axis_types = [axis.get("type") for axis in axes]
+    if components.ndim != 4 or axis_types != ["atomic", "atomic", "cartesian", "cartesian"]:
+        raise ValueError("Force constants must have atomic, atomic, Cartesian, Cartesian axes.")
+    natoms, other_natoms, first_size, second_size = components.shape
+    if natoms != other_natoms or (first_size, second_size) != (3, 3):
+        raise ValueError("Force constants must have shape (N, N, 3, 3).")
+
+    labels = [f"{atom}{coordinate}" for atom in range(natoms) for coordinate in CARTESIAN_LABELS]
+    matrix = components.transpose(0, 2, 1, 3).reshape((3 * natoms, 3 * natoms))
+    matrix_axes = [
+        {"name": "nuclear coordinate", "labels": labels},
+        {"name": "nuclear coordinate", "labels": labels},
+    ]
+    return matrix, matrix_axes
+
+
 def _axis_labels(axis, size):
+    labels = axis.get("labels")
+    if labels is not None:
+        if len(labels) != size:
+            raise ValueError("Explicit axis labels must match the component axis length.")
+        return list(labels)
     if axis.get("type") == "cartesian":
         return list(CARTESIAN_LABELS[:size])
     if axis.get("type") == "voigt":
@@ -301,8 +331,11 @@ def print_components(components, axes, title=None):
             *(len(str(value)) for value in components.flat),
             *(len(label) for label in labels),
         )
-        print("  [ " + "  ".join(f"{str(value):>{width}}" for value in components) + " ]")
+        # Keep one-dimensional tensors consistent with the tabular display
+        # used below: identify columns before showing their values.  This is
+        # especially useful for a stress tensor represented in Voigt notation.
         print("    " + "  ".join(f"{label:>{width}}" for label in labels))
+        print("  [ " + "  ".join(f"{str(value):>{width}}" for value in components) + " ]")
         return
 
     row_labels = _axis_labels(axes[-2], components.shape[-2])

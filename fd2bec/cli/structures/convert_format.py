@@ -1,8 +1,10 @@
 """Convert, standardize, or rotate one structure between ASE formats.
 
-The ``cif`` output route uses pymatgen to identify symmetry and write a CIF
-with its space group and symmetry operations.  ``espresso-in`` writes the QE
-geometry cards already used by the displacement workflow.
+The default ``cif`` output route writes spglib symmetry operations in the
+input-cell basis, preserving both the cell and atom count.  The optional
+``--conventional`` route uses pymatgen to produce a standardized conventional
+CIF.  ``espresso-in`` writes the QE geometry cards already used by the
+displacement workflow.
 """
 
 import argparse

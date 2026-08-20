@@ -113,7 +113,7 @@ def prepare_args(descr):
         help="disable crystal-symmetry constraints in the direct proper-tensor fit",
     )
     parser.add_argument(
-        "--conventional-axes",
+        "--conventional_axes",
         action="store_true",
         help=(
             "rotate reported and saved Cartesian tensors into spglib's "

@@ -134,7 +134,34 @@ def test_primitive_symmetry_cif_keeps_a_primitive_cell(tmp_path):
     io.write_primitive_symmetry_cif(output, atoms, symprec=1e-4)
 
     text = output.read_text(encoding="utf-8")
-    assert "Primitive-cell CIF" in text
+    assert "Input-cell symmetry CIF" in text
     assert "_symmetry_equiv_pos_as_xyz" in text
-    assert "_fd2bec_detected_space_group_number" in text
+    assert "_space_group_IT_number" in text
     assert len(ase_read(output)) == len(atoms)
+
+
+def test_input_symmetry_cif_preserves_a_supercell_and_expands_its_sites(tmp_path):
+    primitive = Atoms(
+        "BaTiO3",
+        cell=np.eye(3) * 4.0,
+        scaled_positions=[
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.5],
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5],
+            [0.5, 0.5, 0.0],
+        ],
+        pbc=True,
+    )
+    atoms = primitive.repeat((2, 1, 1))
+    output = tmp_path / "input-cell.cif"
+
+    io.write_symmetry_cif(output, atoms, symprec=1e-4, conventional=False)
+
+    restored = ase_read(output)
+    text = output.read_text(encoding="utf-8")
+    assert "Input-cell symmetry CIF" in text
+    assert "_space_group_name_H-M_alt" in text
+    assert "_symmetry_equiv_pos_as_xyz" in text
+    assert len(restored) == len(atoms)
+    np.testing.assert_allclose(restored.cell.array, atoms.cell.array)

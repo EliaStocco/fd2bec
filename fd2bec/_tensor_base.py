@@ -49,22 +49,31 @@ class Tensor:
             f"shape={self.shape}, basis={self.basis!r})"
         )
 
-    def print_components(self, components=None, *, voigt: bool = False):
+    def print_components(self, components=None):
         """Print this tensor's numeric or symbolic components with axis labels.
 
-        Set ``voigt=True`` to also print any explicitly named symmetric strain
-        axes in Voigt notation.
+        Explicitly named symmetric strain axes are displayed in Voigt notation.
         """
         if components is None:
             if self.data is None:
                 raise ValueError("Tensor components require data.")
             components = self.data
-        from .tensor_components import print_components, symmetric_pairs, voigt_components
+        from .tensor_components import (
+            flattened_nuclear_position_matrix,
+            print_components,
+            symmetric_pairs,
+            voigt_components,
+        )
 
+        if self.definition["name"] == "force_constants":
+            components, axes = flattened_nuclear_position_matrix(components, self.axes)
+            print("Flattened nuclear-coordinate matrix (atom-major):")
+            print_components(components, axes)
+            return
         pairs = symmetric_pairs(self.axes, np.shape(components))
-        if voigt and pairs:
+        if pairs:
             components, axes = voigt_components(np.asarray(components), self.axes, pairs)
-            print("Voigt notation (xx, yy, zz, yz, xz, xy):")
+            print("Voigt notation:")
             print_components(components, axes)
         else:
             print_components(components, self.axes)

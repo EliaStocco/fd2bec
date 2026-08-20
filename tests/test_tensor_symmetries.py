@@ -2,6 +2,7 @@ import numpy as np
 
 from fd2bec.tensor_components import (
     _symmetric_basis,
+    flattened_nuclear_position_matrix,
     print_components,
     print_independent_components,
     symmetric_pairs,
@@ -80,13 +81,13 @@ def test_tensor_print_components_accepts_symbolic_components(capsys):
     assert "[atom=0]" in capsys.readouterr().out
 
 
-def test_tensor_print_components_can_include_voigt_notation(capsys):
+def test_tensor_print_components_displays_symmetric_strain_axes_in_voigt_notation(capsys):
     from fd2bec.tensor import ProperPiezoelectricTensor
 
     tensor = ProperPiezoelectricTensor(data=np.zeros((3, 3, 3)))
-    tensor.print_components(np.full((3, 3, 3), "a", dtype=object), voigt=True)
+    tensor.print_components(np.full((3, 3, 3), "a", dtype=object))
 
-    assert "Voigt notation (xx, yy, zz, yz, xz, xy):" in capsys.readouterr().out
+    assert "Voigt notation:" in capsys.readouterr().out
 
 
 def test_print_components_aligns_labels_with_numeric_columns(capsys):
@@ -101,6 +102,32 @@ def test_print_components_aligns_labels_with_numeric_columns(capsys):
     header, first_row, *_ = capsys.readouterr().out.splitlines()
     assert header.index("xx") + len("xx") == first_row.index("0") + 1
     assert header.index("xy") + len("xy") == first_row.rindex("0") + 1
+
+
+def test_print_components_displays_vector_labels_above_values(capsys):
+    components = np.asarray(["a", "a", "b", "0", "0", "0"])
+    axes = [{"name": "voigt", "type": "voigt"}]
+
+    print_components(components, axes)
+
+    header, values = capsys.readouterr().out.splitlines()
+    assert header.index("xx") < values.index("a")
+    assert header.index("xy") < values.rindex("0")
+
+
+def test_force_constants_are_printed_as_a_flattened_nuclear_coordinate_matrix(capsys):
+    from fd2bec.tensor import ForceConstants
+
+    components = np.arange(36).reshape((2, 2, 3, 3))
+    matrix, axes = flattened_nuclear_position_matrix(components, ForceConstants.template(2).axes)
+
+    assert axes[0]["labels"] == ["0x", "0y", "0z", "1x", "1y", "1z"]
+    np.testing.assert_array_equal(matrix[0], [0, 1, 2, 9, 10, 11])
+
+    ForceConstants(data=np.zeros((2, 2, 3, 3))).print_components(components)
+    output = capsys.readouterr().out
+    assert "Flattened nuclear-coordinate matrix (atom-major):" in output
+    assert "0x" in output and "1z" in output
 
 
 def test_strain_pair_is_symmetrized_and_voigt_compressed():

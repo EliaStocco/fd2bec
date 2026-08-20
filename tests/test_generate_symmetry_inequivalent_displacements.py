@@ -3,14 +3,13 @@ import pytest
 from ase import Atoms
 
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli.displacements.generate_displacements import (
-    TENSOR_TARGETS,
-    _target_tensor,
+from fd2bec.displacements import (
     all_cartesian_displacements,
     all_cell_displacements,
     displacements2structures,
     random_cartesian_displacements,
     symmetry_inequivalent_displacements,
+    target_tensor,
 )
 from fd2bec.piezoelectric import proper_piezoelectric_symmetry_basis
 from fd2bec.tensor import BornCharges, ImproperPiezoelectricTensor
@@ -21,11 +20,10 @@ def test_all_registered_displacement_targets_build_from_definitions():
         "bec": ((4, 3, 3), (4, 3)),
         "piezo": ((3, 3, 3), (3, 3)),
         "elastic": ((3, 3, 3, 3), (3, 3)),
-        "force-constants": ((4, 4, 3, 3), (4, 3)),
+        "force_constants": ((4, 4, 3, 3), (4, 3)),
     }
     for name, (shape, input_shape) in expected.items():
-        tensor = _target_tensor(name, 4)
-        assert name in TENSOR_TARGETS
+        tensor = target_tensor(name, 4)
         assert tensor.shape == shape
         assert tensor.input_shape == input_shape
 
@@ -53,6 +51,21 @@ def test_atomic_tensor_modes_produce_atomic_displacements():
     expected[1] = 1.0
     np.testing.assert_allclose(displacements, [np.zeros(6), expected, -expected])
     np.testing.assert_allclose(unique, displacements)
+
+
+def test_precomputed_symmetry_modes_select_the_same_displacements():
+    tensor = BornCharges(data=np.zeros((2, 3, 3)))
+    modes = np.zeros((1, 18))
+    modes[0, 1] = 1.0
+
+    selected, candidates = symmetry_inequivalent_displacements(
+        object(), tensor, component_modes=modes
+    )
+
+    expected = np.zeros(6)
+    expected[1] = 1.0
+    np.testing.assert_allclose(selected, [np.zeros(6), expected, -expected])
+    np.testing.assert_allclose(candidates, selected)
 
 
 def test_global_tensor_modes_produce_covariant_perturbations():
@@ -190,7 +203,7 @@ def test_piezoelectric_displacements_span_every_symmetry_allowed_parameter(
     """Regression test using the BaTiO3 phases exercised by MACE-POLAR."""
     reference = _phase_structure(phase)
     unit_cell = AtomicStructure.from_ase(reference)
-    tensor = _target_tensor("piezo", len(reference))
+    tensor = target_tensor("piezo", len(reference))
 
     if number_of_parameters:
         selected, candidates = symmetry_inequivalent_displacements(unit_cell, tensor)

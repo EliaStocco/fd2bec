@@ -173,9 +173,7 @@ MAPPING: Dict[str, Type[Tensor]] = {
     "piezo": ProperPiezoelectricTensor,
     "forces": Forces,
     "bec": BornCharges,
-    "force-constants": ForceConstants,
     "force_constants": ForceConstants,
-    "hessian": ForceConstants,
 }
 
 __all__ = [

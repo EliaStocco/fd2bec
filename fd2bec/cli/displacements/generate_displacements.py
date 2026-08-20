@@ -1,40 +1,26 @@
 # Tested by pytest: tests/test_generate_symmetry_inequivalent_displacements.py, tests/test_prepare_qe.py, tests/test_aims_workflow_wrappers.py
 
 import argparse
-from typing import Tuple
-from warnings import warn
 
 import numpy as np
-from ase import Atoms
 
 from fd2bec import float_format
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import cli
+from fd2bec.displacements import (
+    all_cartesian_displacements,
+    all_cell_displacements,
+    displacements2structures,
+    random_cartesian_displacements,
+    symmetry_inequivalent_displacements,
+    target_tensor,
+    tensor_has_atomic_input,
+    tensor_perturbation_shape,
+)
 from fd2bec.io import read, write
-from fd2bec.tensor import Tensor
+from fd2bec.show import print_displacement_input_structure, print_symmetry_selection
 
 description = "Generate Cartesian atomic or cell displacements and displaced structures."
-CELL_COMPONENTS = (
-    (0, 0),
-    (1, 0),
-    (1, 1),
-    (2, 0),
-    (2, 1),
-    (2, 2),
-)
-TENSOR_TARGETS = {
-    "bec": "born_charges",
-    "piezo": "piezoelectric",
-    "forces": "forces",
-    "stress": "stress",
-    "elastic": "elastic",
-    "elastic-stiffness": "elastic",
-    "elastic_stiffness": "elastic",
-    "force-constant": "force_constants",
-    "force-constants": "force_constants",
-    "force_constants": "force_constants",
-    "hessian": "force_constants",
-}
 
 
 def prepare_args(descr):
@@ -66,7 +52,7 @@ def prepare_args(descr):
         required=False,
         help="target quantity (default: %(default)s)",
         default="bec",
-        choices=tuple(TENSOR_TARGETS),
+        choices=("bec", "piezo", "forces", "stress", "elastic", "force_constants"),
     )
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument(
@@ -107,258 +93,6 @@ def prepare_args(descr):
     return parser
 
 
-def _target_tensor(name: str, natoms: int) -> Tensor:
-    """Construct a template from the registered tensor target definition."""
-    from fd2bec.tensor import DEFINITIONS
-
-    try:
-        definition = DEFINITIONS[TENSOR_TARGETS[name]]
-    except KeyError as exc:
-        raise ValueError(f"Unsupported tensor target {name!r}.") from exc
-    shape = tuple(natoms if axis["type"] == "atomic" else 3 for axis in definition["axes"])
-    return Tensor(definition=definition, data=np.full(shape, np.nan))
-
-
-def tensor2perturbation_shape(tensor: Tensor) -> Tuple[int, ...]:
-    """Return the explicit shape of the tensor's input dimensions."""
-    if tensor.data is None:
-        raise ValueError("A tensor template with explicit data is required.")
-    return tensor.input_shape
-
-
-def tensor_has_atomic_input(tensor: Tensor) -> bool:
-    """Whether the selected perturbation space contains an atomic dimension."""
-    return any(tensor.axes[index]["type"] == "atomic" for index in tensor.input_axes)
-
-
-def _signed_directions(directions: np.ndarray) -> np.ndarray:
-    """Return reference, positive, and negative versions without duplicates."""
-    directions = np.asarray(directions, dtype=float).reshape((-1, directions.shape[-1]))
-    signed = np.concatenate([np.zeros((1, directions.shape[1])), directions, -directions], axis=0)
-    _, first = np.unique(signed, axis=0, return_index=True)
-    return signed[np.sort(first)]
-
-
-def _rank_increasing_generators(candidates: np.ndarray, design_blocks: np.ndarray) -> np.ndarray:
-    """Keep candidates whose response block adds an independent parameter direction."""
-    candidates = np.asarray(candidates, dtype=float)
-    design_blocks = np.asarray(design_blocks, dtype=float)
-    if design_blocks.ndim != 3 or len(design_blocks) != len(candidates):
-        raise ValueError(
-            "Response design blocks must have shape "
-            "(number_of_candidates, response_size, number_of_modes)."
-        )
-
-    covered = np.empty((0, design_blocks.shape[-1]))
-    selected = []
-    rank = 0
-    for candidate, block in zip(candidates, design_blocks):
-        block = block.reshape((-1, design_blocks.shape[-1]))
-        trial = np.vstack((covered, block))
-        trial_rank = np.linalg.matrix_rank(trial, tol=1e-10)
-        if trial_rank > rank:
-            selected.append(candidate)
-            covered = trial
-            rank = trial_rank
-    return np.asarray(selected, dtype=float).reshape((-1, candidates.shape[1]))
-
-
-def all_cartesian_displacements(number_of_components: int) -> np.ndarray:
-    """Return the reference and positive/negative Cartesian basis directions."""
-    if number_of_components <= 0:
-        raise ValueError("The number of displacement components must be positive.")
-    return _signed_directions(np.eye(number_of_components))
-
-
-def atomic_structure2all_displacements(unit_cell: AtomicStructure, amplitude: float) -> np.ndarray:
-    """Return all signed Cartesian atomic displacements and the reference."""
-    if amplitude <= 0:
-        raise ValueError("The displacement amplitude must be positive.")
-    return all_cartesian_displacements(3 * len(unit_cell)) * amplitude
-
-
-def cell_components2displacements(components: np.ndarray) -> np.ndarray:
-    """Expand six components into flattened lower-triangular 3x3 matrices."""
-    components = np.asarray(components, dtype=float)
-    if components.ndim != 2 or components.shape[1] != len(CELL_COMPONENTS):
-        raise ValueError("Cell components must have shape (N, 6).")
-
-    displacements = np.zeros((len(components), 3, 3))
-    for column, (row, component) in enumerate(CELL_COMPONENTS):
-        displacements[:, row, component] = components[:, column]
-    return displacements.reshape((len(components), 9))
-
-
-def all_cell_displacements() -> np.ndarray:
-    """Return the reference and positive/negative basis for six cell components."""
-    return _signed_directions(cell_components2displacements(np.eye(len(CELL_COMPONENTS))))
-
-
-def random_cartesian_displacements(
-    number: int, number_of_components: int, atomic: bool, seed: int = None
-) -> np.ndarray:
-    """Generate normally distributed atomic or lower-triangular cell displacements."""
-    if number <= 0:
-        raise ValueError("The number of random displacements must be positive.")
-
-    generator = np.random.default_rng(seed)
-    if atomic:
-        return generator.normal(size=(number, number_of_components))
-    if number_of_components != 9:
-        raise ValueError("Cell displacements must have nine flattened components.")
-    components = generator.normal(size=(number, len(CELL_COMPONENTS)))
-    return cell_components2displacements(components)
-
-
-def _physical_input_candidates(unit_cell: AtomicStructure, tensor: Tensor):
-    """Return physical perturbations and their coordinates in input space."""
-    input_shape = tensor2perturbation_shape(tensor)
-    number_of_components = int(np.prod(input_shape))
-    if tensor_has_atomic_input(tensor):
-        candidates = np.eye(number_of_components)
-        return candidates, candidates
-    if input_shape == (3, 3):
-        if not hasattr(unit_cell, "cell"):
-            candidates = np.eye(number_of_components)
-            return candidates, candidates
-        candidates = cell_components2displacements(np.eye(len(CELL_COMPONENTS)))
-        inverse_cell = np.linalg.inv(np.asarray(unit_cell.cell))
-        inputs = []
-        for candidate in candidates:
-            gradient = (inverse_cell @ candidate.reshape(3, 3)).T
-            inputs.append((0.5 * (gradient + gradient.T)).reshape(-1))
-        return candidates, np.asarray(inputs)
-    candidates = np.eye(number_of_components)
-    return candidates, candidates
-
-
-def symmetry_inequivalent_displacements(
-    unit_cell: AtomicStructure, tensor: Tensor
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Generate perturbations for any response tensor with explicit input roles.
-
-    Symmetry modes of the response are contracted with each physical input
-    candidate.  A candidate is retained when its orbit in the allowed-response
-    space increases the rank already covered.  This handles atomic responses,
-    strain responses, elastic tensors, and tensors with interleaved input axes
-    through the same path.
-    """
-    has_structure_representation = hasattr(unit_cell, "get_tensor_symmetry_operations")
-    candidates, input_candidates = _physical_input_candidates(unit_cell, tensor)
-    _, _, component_modes = unit_cell.get_symmetry_modes(tensor=tensor)
-    if len(component_modes) == 0:
-        warn("The provided tensor has no symmetry-allowed components.")
-        empty = np.empty((0, input_candidates.shape[1]))
-        return _signed_directions(empty), _signed_directions(
-            candidates if has_structure_representation else empty
-        )
-
-    modes = component_modes.reshape((-1, *tensor.data.shape))
-    input_axes = [index + 1 for index in tensor.input_axes]
-    modes = np.moveaxis(modes, input_axes, range(-len(input_axes), 0))
-    input_size = int(np.prod(tensor2perturbation_shape(tensor)))
-    response_size = modes.size // (len(modes) * input_size)
-    mode_matrix = modes.reshape((len(modes), response_size, input_size))
-    # Each candidate contributes a response-by-mode block to the eventual
-    # linear fit.  Stack response rows and test rank in the mode/parameter
-    # columns.  Keeping the mode axis last is essential: ranking the transposed
-    # (mode, response) blocks only measures the output-space dimension and can
-    # omit symmetry-allowed tensor parameters.
-    response_design = np.einsum("moi,ki->kom", mode_matrix, input_candidates)
-    selected = _rank_increasing_generators(candidates, response_design)
-    all_candidates = candidates if has_structure_representation else selected
-    return _signed_directions(selected), _signed_directions(all_candidates)
-
-
-def displacements2structures(atoms: Atoms, displacements: np.ndarray, atomic: bool) -> list[Atoms]:
-    """Apply flattened atomic or cell displacements to copies of ``atoms``."""
-    displacements = np.asarray(displacements, dtype=float)
-    if displacements.ndim != 2:
-        raise ValueError("Displacements must be a two-dimensional array.")
-
-    expected = 3 * len(atoms) if atomic else 9
-    if displacements.shape[1] != expected:
-        raise ValueError(
-            f"Expected {expected} displacement components, got {displacements.shape[1]}."
-        )
-    if not atomic and not np.all(atoms.get_pbc()):
-        raise ValueError("Cell displacements require a fully periodic structure.")
-
-    structures = []
-    reference_cell = atoms.cell.array
-    reference_handedness = np.sign(np.linalg.det(reference_cell))
-    for displacement in displacements:
-        displaced = atoms.copy()
-        if atomic:
-            atomic_displacement = displacement.reshape((len(atoms), 3))
-            displaced.set_positions(atoms.get_positions() + atomic_displacement)
-            displaced.set_array("displacements", atomic_displacement.copy())
-        else:
-            cell_displacement = displacement.reshape((3, 3))
-            displaced_cell = reference_cell + cell_displacement
-            if np.sign(np.linalg.det(displaced_cell)) != reference_handedness:
-                raise ValueError("A cell displacement produced a singular or inverted cell.")
-            displaced.set_cell(displaced_cell, scale_atoms=True)
-            displaced.info["cell_displacement"] = cell_displacement.copy()
-        structures.append(displaced)
-
-    return structures
-
-
-def print_input_structure(atoms: Atoms) -> None:
-    """Print a compact representation of the input cell and fractional positions."""
-    if not np.all(atoms.get_pbc()):
-        raise ValueError("This command requires a fully periodic input structure.")
-
-    print("Input cell [Angstrom]:")
-    print(np.array2string(atoms.cell.array, precision=8, suppress_small=True))
-    print("Fractional coordinates:")
-    for index, (symbol, position) in enumerate(
-        zip(atoms.get_chemical_symbols(), atoms.get_scaled_positions(wrap=False))
-    ):
-        coordinates = " ".join(f"{value: .8f}" for value in position)
-        print(f"  {index:4d} {symbol:>2s}  {coordinates}")
-
-
-def print_symmetry_selection(
-    unit_cell: AtomicStructure, displacements: np.ndarray, atomic: bool
-) -> None:
-    """Print concise space-group and selected-displacement information."""
-    dataset = unit_cell._spglib_dataset  # pylint: disable=protected-access
-    symbol = getattr(dataset, "international", "unknown")
-    if isinstance(symbol, bytes):
-        symbol = symbol.decode()
-    print(
-        f"Space group: {dataset.number} ({symbol}); {len(dataset.rotations)} symmetry operations."
-    )
-    kind = "atomic" if atomic else "cell"
-    number_of_displacements = np.count_nonzero(np.linalg.norm(displacements, axis=1) > 1e-14)
-    print(
-        f"Symmetry-selected {kind} displacements: {number_of_displacements}; "
-        f"{len(displacements)} structures including the reference."
-    )
-    shape = (len(unit_cell), 3) if atomic else (3, 3)
-    cartesian_axes = "xyz"
-    cell_vectors = "abc"
-    for index, displacement in enumerate(displacements):
-        matrix = displacement.reshape(shape)
-        nonzero = np.argwhere(np.abs(matrix) > 1e-14)
-        if len(nonzero) == 0:
-            formatted = "reference (zero)"
-        elif atomic:
-            formatted = ", ".join(
-                f"{unit_cell.symbols[row]}[{row}].{cartesian_axes[column]}="
-                f"{matrix[row, column]:.6g}"
-                for row, column in nonzero
-            )
-        else:
-            formatted = ", ".join(
-                f"{cell_vectors[row]}.{cartesian_axes[column]}={matrix[row, column]:.6g}"
-                for row, column in nonzero
-            )
-        print(f"  [{index}] {formatted}")
-
-
 @cli(prepare_args, description)
 def main(args):
     """Generate and save the selected displaced structures."""
@@ -372,16 +106,16 @@ def main(args):
     print(f"Reading input structure from {args.input} ... ", end="")
     atoms = read(args.input, index=0)
     print("done")
-    print_input_structure(atoms)
+    print_displacement_input_structure(atoms)
 
     unit_cell = AtomicStructure.from_ase(atoms)
     number_of_atoms = len(unit_cell)
 
     print(f"Constructing {args.what} tensor ... ", end="")
-    tensor = _target_tensor(args.what, number_of_atoms)
+    tensor = target_tensor(args.what, number_of_atoms)
     print("done")
 
-    number_of_components = int(np.prod(tensor2perturbation_shape(tensor)))
+    number_of_components = int(np.prod(tensor_perturbation_shape(tensor)))
     atomic_input = tensor_has_atomic_input(tensor)
     if args.number is not None:
         selected = random_cartesian_displacements(
