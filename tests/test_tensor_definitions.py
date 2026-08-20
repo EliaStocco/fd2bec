@@ -14,6 +14,7 @@ from fd2bec.tensor import (
     VOLUME,
     BornCharges,
     ForceConstants,
+    Position,
     Tensor,
     derivative,
     divide_by,
@@ -43,6 +44,12 @@ def test_repeated_derivative_has_two_atomic_dimensions():
     assert ForceConstants.template(3).shape == (3, 3, 3, 3)
 
 
+def test_template_accepts_an_explicit_basis():
+    tensor = BornCharges.template(2, basis="fractional")
+
+    assert tensor.basis == "fractional"
+
+
 def test_tensor_instance_round_trip_and_role_shapes():
     tensor = BornCharges(data=np.arange(36.0).reshape(4, 3, 3), cell=np.eye(3))
     restored = Tensor.from_json(tensor.to_json())
@@ -61,6 +68,40 @@ def test_tensor_repr_is_compact_and_identifies_its_definition():
     assert repr(tensor) == "BornCharges(definition='born_charges', shape=(4, 3, 3), basis='cartesian')"
 
 
+def test_tensor_symmetrize_applies_a_projection_without_mutating_the_tensor():
+    tensor = BornCharges(data=np.arange(9.0).reshape(1, 3, 3))
+    projection = np.diag([1.0, 0.0, 1.0] * 3)
+
+    symmetrized = tensor.symmetrize(projection)
+
+    np.testing.assert_allclose(symmetrized.flatten_full(), projection @ tensor.flatten_full())
+    np.testing.assert_allclose(tensor.data, np.arange(9.0).reshape(1, 3, 3))
+
+
+def test_tensor_symmetrize_uses_homogeneous_projection_for_affine_tensor():
+    tensor = Position(data=np.array([[4.0, 5.0, 6.0]]))
+    projection = np.array(
+        [
+            [0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 2.0],
+            [0.0, 0.0, 0.0, 3.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    )
+
+    symmetrized = tensor.symmetrize(projection)
+
+    np.testing.assert_allclose(symmetrized.data, [[1.0, 2.0, 3.0]])
+
+
+def test_tensor_symmetrize_treats_a_scalar_as_one_component():
+    tensor = Tensor(VOLUME, data=np.array(4.0))
+
+    symmetrized = tensor.symmetrize(np.ones((1, 1)))
+
+    assert symmetrized.data == 4.0
+
+
 def test_scalar_volume_and_invalid_scalar_operand():
     assert np.allclose(evaluate_scalar(VOLUME, np.diag([2.0, 3.0, -4.0])),24.0)
     with pytest.raises(ValueError):
@@ -68,8 +109,10 @@ def test_scalar_volume_and_invalid_scalar_operand():
 
 
 def test_invalid_axis_size_and_missing_atomic_template_size():
-    with pytest.raises(ValueError):
-        BornCharges(data=np.zeros((3, 3, 2)))
+    with pytest.warns(UserWarning, match=r"reshaped.*\(2, 3, 3\)"):
+        tensor = BornCharges(data=np.zeros((3, 3, 2)))
+
+    assert tensor.shape == (2, 3, 3)
     with pytest.raises(ValueError):
         BornCharges.template()
 

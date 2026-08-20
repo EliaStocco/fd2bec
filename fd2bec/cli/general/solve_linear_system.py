@@ -81,16 +81,13 @@ def main(args):
     # super_cell = AtomicStructure(**problem["supercell"])
     len(unit_cell)
 
-    # if "symmetrizer" in problem["symmetry"] and problem["symmetry"]["symmetrizer"] is not None:
-    S = np.asarray(problem["symmetry"]["symmetrizer"])
+    symmetry_mode_basis = np.asarray(problem["symmetry"]["symmetry_mode_basis"])
     if not problem["is_delta_dipole"]:
         x = x[3:]
-    # Su, _, _ = unit_cell.get_symmetrizer(rank=2,atomic=True,affine=False)
-    # bec = Su @ x # this does not work
     # this way to extract the Born Charges of the unit cell
     # from the symmetrized Born Charges of the super cell
     # works ... but I don't like it
-    bec = S @ x
+    bec = symmetry_mode_basis @ x
     bec = bec.reshape((-1, 3, 3))
     # factor = int(len(super_cell)/Natoms)
     # test = np.asarray( [ bec[n::factor,:,:] for n in range(factor) ] )

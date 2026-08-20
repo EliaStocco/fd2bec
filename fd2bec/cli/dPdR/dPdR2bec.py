@@ -97,19 +97,20 @@ def main(args):
 
     print("Preparing Born Charges and symmetrization ... ", end="")
     bec = BornCharges(data=np.zeros((Na, 3, 3)), cell=reference.cell)
-    S, theta, theta_real = reference.get_symmetrizer(bec)
+    _, _, component_modes = reference.get_symmetry_modes(bec)
+    mode_basis = component_modes.T
     A = np.kron(displacements.reshape((Ns, -1)), np.eye(3))
     b = dipole.flatten()
     print("done")
-    n_unknown = S.shape[1]
+    n_unknown = mode_basis.shape[1]
 
     print("\nMatrix shapes:")
     print(" - b.shape:", b.shape)
     print(" - A.shape:", A.shape)
-    print(" - S.shape:", S.shape)
+    print(" - mode_basis.shape:", mode_basis.shape)
 
     print("\nMatrix shapes with symmetrization:")
-    A = A @ S
+    A = A @ mode_basis
     print(" - b.shape:", b.shape)
     print(" - A.shape:", A.shape)
 
@@ -146,7 +147,7 @@ def main(args):
         ls.summary()
 
     print("Extracting Born Charges  ... ", end="")
-    bec = S @ ls.x[:n_unknown]
+    bec = mode_basis @ ls.x[:n_unknown]
     bec = bec.reshape((Na, 3, 3))
     print("done\n")
 

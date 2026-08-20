@@ -90,7 +90,6 @@ build_dataset4dPdR_nonperiodic = "fd2bec.cli.dPdR.build_dataset4dPdR_nonperiodic
 dPdR2bec = "fd2bec.cli.dPdR.dPdR2bec:main"
 
 # --- dPdS ---
-aims_geometries4dPdS = "fd2bec.cli.dPdS.aims_geometries4dPdS:main"
 build_dataset4dPdS_aims = "fd2bec.cli.dPdS.build_dataset4dPdS_aims:main"
 dPdS2piezo = "fd2bec.cli.dPdS.dPdS2piezo:main"
 
@@ -98,10 +97,8 @@ dPdS2piezo = "fd2bec.cli.dPdS.dPdS2piezo:main"
 split_extxyz = "fd2bec.cli.dataset.split_extxyz:main"
 
 # --- displacements ---
-apply_displacements = "fd2bec.cli.displacements.apply_displacements:main"
 extxyz2folder = "fd2bec.cli.displacements.extxyz2folder:main"
 generate_displacements = "fd2bec.cli.displacements.generate_displacements:main"
-generate_random_displacements = "fd2bec.cli.displacements.generate_random_displacements:main"
 
 # --- general ---
 bec2charges = "fd2bec.cli.general.bec2charges:main"
@@ -109,15 +106,9 @@ bec_extxyz2txt = "fd2bec.cli.general.bec_extxyz2txt:main"
 info_extxyz2txt = "fd2bec.cli.general.info_extxyz2txt:main"
 optimize = "fd2bec.cli.general.optimize:main"
 overview = "fd2bec.cli.general.overview:main"
-prepare_linear_system = "fd2bec.cli.general.prepare_linear_system:main"
-rotate_cell = "fd2bec.cli.general.rotate_cell:main"
 show_piezo = "fd2bec.cli.general.show_piezo:main"
 solution2bec_txt = "fd2bec.cli.general.solution2bec_txt:main"
 solve_linear_system = "fd2bec.cli.general.solve_linear_system:main"
-sort_structure = "fd2bec.cli.general.sort_structure:main"
-space_group = "fd2bec.cli.general.space_group:main"
-space_group_dataset = "fd2bec.cli.general.space_group_dataset:main"
-tensor_symmetries = "fd2bec.cli.general.tensor_symmetries:main"
 
 # --- ml ---
 add_oxidation_numbers = "fd2bec.cli.ml.add_oxidation_numbers:main"
@@ -134,6 +125,13 @@ prepare_qe = "fd2bec.cli.qe.prepare_qe:main"
 # --- root ---
 fd2bec-help = "fd2bec.cli.fd2bec_help:main"
 tools = "fd2bec.cli.tools:main"
+
+# --- structures ---
+convert_format = "fd2bec.cli.structures.convert_format:main"
+sort_structure = "fd2bec.cli.structures.sort_structure:main"
+space_group = "fd2bec.cli.structures.space_group:main"
+space_group_dataset = "fd2bec.cli.structures.space_group_dataset:main"
+tensor_symmetries = "fd2bec.cli.structures.tensor_symmetries:main"
 
 [tool.pylint.main]
 # Analyse import fallback blocks. This can be used to support both Python 2 and 3

@@ -1,7 +1,8 @@
 import numpy as np
 from ase import Atoms
 
-from fd2bec.cli.displacements.extxyz2folder import espresso_geometry, write_snapshots
+from fd2bec.cli.displacements.extxyz2folder import write_snapshots
+from fd2bec.io import espresso_geometry
 
 
 def periodic_atoms(shift=0.0):

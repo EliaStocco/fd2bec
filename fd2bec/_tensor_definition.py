@@ -266,5 +266,5 @@ DEFINITIONS = build_registry(
         FORCE_CONSTANTS,
     )
 )
-# Public/legacy names used by command-line interfaces and existing callers.
+# Public aliases used by command-line interfaces.
 DEFINITIONS.update({"bec": BORN_CHARGES, "piezo": PIEZOELECTRIC})

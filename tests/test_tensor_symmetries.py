@@ -5,9 +5,11 @@ from fd2bec.tensor_components import (
     print_components,
     print_independent_components,
     symmetric_pairs,
+    symbolic_affine_components,
     symbolic_components,
     voigt_components,
 )
+from fd2bec.cli.structures.tensor_symmetries import _physical_modes, _selected_basis
 
 
 def test_symbolic_components_use_independent_letters():
@@ -17,6 +19,54 @@ def test_symbolic_components_use_independent_letters():
 
     assert pivots == [0, 1]
     assert symbolic.tolist() == ["a", "b", "a + b"]
+
+
+def test_symbolic_components_with_no_modes_returns_zero_tensor():
+    symbolic, pivots = symbolic_components(np.empty((0, 2, 3)))
+
+    assert pivots == []
+    assert symbolic.tolist() == [["0", "0", "0"], ["0", "0", "0"]]
+
+
+def test_symbolic_affine_components_show_ideal_fractional_coordinates_and_displacements():
+    reference = np.array(
+        [
+            [0.0, 0.0, 0.4999137],
+            [0.5, 0.5, 0.01527403],
+            [0.0, 0.5, 0.98200336],
+            [0.5, 0.0, 0.98200336],
+            [0.5, 0.5, 0.47140009],
+        ]
+    )
+    modes = np.zeros((4, 5, 3))
+    modes[0, 0, 2] = 1.0
+    modes[1, 1, 2] = 1.0
+    modes[2, 2:4, 2] = 1.0
+    modes[3, 4, 2] = 1.0
+
+    components, _ = symbolic_affine_components(reference, modes, fractional=True)
+
+    assert components.tolist() == [
+        ["0.0", "0.0", "0.5 - a"],
+        ["0.5", "0.5", "b"],
+        ["0.0", "0.5", "-c"],
+        ["0.5", "0.0", "-c"],
+        ["0.5", "0.5", "0.5 - d"],
+    ]
+
+
+def test_physical_modes_discards_homogeneous_only_affine_mode():
+    component_modes = np.asarray([[0.0, 0.0, 0.0], [3.0, 4.0, 0.0]])
+
+    modes = _physical_modes(component_modes, (1, 3), affine=True)
+
+    np.testing.assert_allclose(modes, [[[3.0, 4.0, 0.0]]])
+
+
+def test_tensor_basis_defaults_to_fractional_only_for_positions():
+    assert _selected_basis("positions", None) == "fractional"
+    assert _selected_basis("forces", None) == "cartesian"
+    assert _selected_basis("positions", "cartesian") == "cartesian"
 
 
 def test_tensor_print_components_accepts_symbolic_components(capsys):
@@ -37,6 +87,20 @@ def test_tensor_print_components_can_include_voigt_notation(capsys):
     tensor.print_components(np.full((3, 3, 3), "a", dtype=object), voigt=True)
 
     assert "Voigt notation (xx, yy, zz, yz, xz, xy):" in capsys.readouterr().out
+
+
+def test_print_components_aligns_labels_with_numeric_columns(capsys):
+    components = np.zeros((3, 6), dtype=int)
+    axes = [
+        {"name": "row", "type": "cartesian"},
+        {"name": "voigt", "type": "voigt"},
+    ]
+
+    print_components(components, axes)
+
+    header, first_row, *_ = capsys.readouterr().out.splitlines()
+    assert header.index("xx") + len("xx") == first_row.index("0") + 1
+    assert header.index("xy") + len("xy") == first_row.rindex("0") + 1
 
 
 def test_strain_pair_is_symmetrized_and_voigt_compressed():

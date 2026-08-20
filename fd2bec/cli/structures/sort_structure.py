@@ -9,7 +9,7 @@ from ase import Atoms
 
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import cli
-from fd2bec.cli.general.rotate_cell import is_ase_standard_cell
+from fd2bec.cli.structures.convert_format import is_ase_standard_cell
 from fd2bec.io import read, write
 
 description = "Reorder a structure so its atom order matches a reference structure."

@@ -21,7 +21,7 @@ instructions: Dict[str, Tuple[str, type]] = {
 DATA_DIR = Path(__file__).parent / "molecules/point_group_dataset"
 xyz_files = sorted(DATA_DIR.glob("*.xyz"))
 @pytest.mark.parametrize("filepath", xyz_files)
-def test_symmetrizer_molecules(filepath):
+def test_symmetry_modes_for_molecules(filepath):
 
     atoms = read(filepath)
     Natoms = atoms.get_global_number_of_atoms()
@@ -34,7 +34,7 @@ def test_symmetrizer_molecules(filepath):
             tensor = classname(data=atoms.get_positions()) # I need the positions in this case
         else:
             tensor = classname.template(Natoms)
-        S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=tensor)
+        atomic_structure.get_symmetry_modes(tensor=tensor)
 
 def test_theta_length_periodic(sg_case):
     dataset, filepath, n = sg_case
@@ -57,15 +57,15 @@ def test_theta_length_periodic(sg_case):
             else:
                 tensor = classname.template(Natoms)
 
-            _, theta, _ = atomic_structure.get_symmetrizer(tensor=tensor)
-            lengths[basis][keyword] = len(theta)
+            _, mode_coefficients, _ = atomic_structure.get_symmetry_modes(tensor=tensor)
+            lengths[basis][keyword] = len(mode_coefficients)
 
     for key in lengths["fractional"]:
         assert lengths["fractional"][key] == lengths["cartesian"][key], \
             f"len(theta) depends on basis for {key}"
 
 @pytest.mark.parametrize("basis",["fractional","cartesian"])
-def test_symmetrizer_periodic(sg_case,basis):
+def test_symmetry_modes_for_periodic_structure(sg_case,basis):
 
     dataset, filepath, n = sg_case
     atoms = read(filepath)
@@ -81,7 +81,7 @@ def test_symmetrizer_periodic(sg_case,basis):
             tensor = classname(data=atoms.get_positions()) # I need the positions in this case
         else:
             tensor = classname.template(Natoms)
-        S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=tensor)
+        atomic_structure.get_symmetry_modes(tensor=tensor)
 
 
 

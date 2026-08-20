@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atoms
 
-from fd2bec.cli.general.rotate_cell import (
+from fd2bec.cli.structures.convert_format import (
     is_ase_standard_cell,
     rotate_to_ase_standard_cell,
 )

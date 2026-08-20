@@ -2,13 +2,13 @@ import numpy as np
 import pandas as pd
 from ase import Atoms
 
-from fd2bec.cli.general.space_group import (
+from fd2bec.cli.structures.space_group import (
     _print_space_group,
     print_cell,
     print_positions,
     print_symmetry_operations,
 )
-from fd2bec.cli.general.space_group_dataset import (
+from fd2bec.cli.structures.space_group_dataset import (
     CSV_COLUMNS,
     collect_space_group_information,
     plot_dataset_statistics,

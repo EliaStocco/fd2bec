@@ -74,5 +74,4 @@ dPdS2piezo -i aims-piezoelectric.extxyz -r reference.extxyz \
   -o piezoelectric
 ```
 
-`aims_geometries4dPdS` is retained for compatibility; new workflows should use
-`prepare_aims --what piezo`.
+Use `prepare_aims --what piezo` to prepare FHI-aims piezoelectric geometries.

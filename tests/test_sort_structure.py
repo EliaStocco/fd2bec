@@ -3,7 +3,7 @@ import pytest
 from ase import Atoms
 
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli.general.sort_structure import sort_atoms_like
+from fd2bec.cli.structures.sort_structure import sort_atoms_like
 
 
 def test_reordered_like_matches_reference_order_for_periodic_structure():

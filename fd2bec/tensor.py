@@ -1,4 +1,4 @@
-"""Public tensor definitions and compatibility constructors."""
+"""Public tensor definitions and constructors."""
 
 from typing import Dict, Type, Union
 
@@ -166,7 +166,7 @@ class PiezoelectricDerivative(_DefinedTensor):
 
 
 MAPPING: Dict[str, Type[Tensor]] = {
-    "positions" : Position,
+    "positions": Position,
     "dipole": Dipole,
     "stress": Stress,
     "elastic": ElasticStiffnessConstant,

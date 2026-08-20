@@ -6,14 +6,12 @@ import argparse
 from pathlib import Path
 from typing import Iterable, List
 
-import numpy as np
 from ase import Atoms
 from ase.io.formats import ioformats
 
 from fd2bec.cli import cli
-from fd2bec.io import read, write
+from fd2bec.io import ESPRESSO_GEOMETRY_FORMAT, read, write, write_espresso_geometry
 
-ESPRESSO_GEOMETRY_FORMAT = "espresso-in"
 ase_writable_formats = sorted(name for name, fmt in ioformats.items() if fmt.can_write)
 output_formats = sorted(set(ase_writable_formats) | {ESPRESSO_GEOMETRY_FORMAT})
 
@@ -47,31 +45,6 @@ def prepare_args(descr):
         help="output folder (default: %(default)s)",
     )
     return parser
-
-
-def espresso_geometry(atoms: Atoms) -> str:
-    """Return QE ``CELL_PARAMETERS`` and fractional ``ATOMIC_POSITIONS`` cards."""
-    if not np.all(atoms.get_pbc()):
-        raise ValueError("espresso-in geometry requires a fully periodic structure.")
-    if abs(np.linalg.det(atoms.cell.array)) < 1e-14:
-        raise ValueError("espresso-in geometry requires a non-singular cell.")
-
-    lines = ["CELL_PARAMETERS angstrom"]
-    for vector in atoms.cell.array:
-        lines.append("  " + "  ".join(f"{value:.12f}" for value in vector))
-
-    lines.extend(("", "ATOMIC_POSITIONS crystal"))
-    scaled_positions = atoms.get_scaled_positions(wrap=False)
-    for symbol, position in zip(atoms.get_chemical_symbols(), scaled_positions):
-        coordinates = "  ".join(f"{value:.12f}" for value in position)
-        lines.append(f"{symbol:<3s}  {coordinates}")
-
-    return "\n".join(lines) + "\n"
-
-
-def write_espresso_geometry(filename: Path, atoms: Atoms) -> None:
-    """Write the geometry portion of a Quantum Espresso input file."""
-    filename.write_text(espresso_geometry(atoms), encoding="utf-8")
 
 
 def write_snapshots(structures: Iterable[Atoms], output: Path, output_format: str) -> List[Path]:

@@ -8,10 +8,9 @@ from fd2bec.cli.displacements.generate_displacements import (
     _target_tensor,
     all_cartesian_displacements,
     all_cell_displacements,
-    atomic_structure2unique_displacements,
     displacements2structures,
-    proper_piezoelectric_cell_displacements,
     random_cartesian_displacements,
+    symmetry_inequivalent_displacements,
 )
 from fd2bec.piezoelectric import proper_piezoelectric_symmetry_basis
 from fd2bec.tensor import BornCharges, ImproperPiezoelectricTensor
@@ -31,13 +30,13 @@ def test_all_registered_displacement_targets_build_from_definitions():
         assert tensor.input_shape == input_shape
 
 
-class SymmetrizedStructure:
+class StructureWithSymmetryModes:
     """Minimal stand-in returning predefined symmetry modes."""
 
     def __init__(self, modes):
         self.modes = modes
 
-    def get_symmetrizer(self, tensor):
+    def get_symmetry_modes(self, tensor):
         return None, np.zeros(len(self.modes)), self.modes
 
 
@@ -46,8 +45,8 @@ def test_atomic_tensor_modes_produce_atomic_displacements():
     modes = np.zeros((1, 18))
     modes[0, 1] = 1.0
 
-    unique, displacements = atomic_structure2unique_displacements(
-        SymmetrizedStructure(modes), tensor
+    unique, displacements = symmetry_inequivalent_displacements(
+        StructureWithSymmetryModes(modes), tensor
     )
 
     expected = np.zeros(6)
@@ -61,8 +60,8 @@ def test_global_tensor_modes_produce_covariant_perturbations():
     modes = np.zeros((1, 27))
     modes[0, 3] = 1.0
 
-    unique, perturbations = atomic_structure2unique_displacements(
-        SymmetrizedStructure(modes), tensor
+    unique, perturbations = symmetry_inequivalent_displacements(
+        StructureWithSymmetryModes(modes), tensor
     )
 
     expected = np.zeros(9)
@@ -194,10 +193,10 @@ def test_piezoelectric_displacements_span_every_symmetry_allowed_parameter(
     tensor = _target_tensor("piezo", len(reference))
 
     if number_of_parameters:
-        selected, candidates = proper_piezoelectric_cell_displacements(unit_cell, tensor)
+        selected, candidates = symmetry_inequivalent_displacements(unit_cell, tensor)
     else:
         with pytest.warns(UserWarning, match="no symmetry-allowed components"):
-            selected, candidates = proper_piezoelectric_cell_displacements(unit_cell, tensor)
+            selected, candidates = symmetry_inequivalent_displacements(unit_cell, tensor)
     symmetry_basis = proper_piezoelectric_symmetry_basis(unit_cell)
     design = _proper_piezoelectric_design(selected, reference.cell.array, symmetry_basis)
 

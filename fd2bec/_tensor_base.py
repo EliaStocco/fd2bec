@@ -8,11 +8,11 @@ The mathematical metadata lives in ordinary dictionaries in
 import json
 import warnings
 from copy import copy, deepcopy
-from typing import List, Tuple
+from typing import Tuple
 
 import numpy as np
 
-from fd2bec import Basis
+from fd2bec import ATOL, Basis
 
 from ._tensor_definition import validate_definition
 
@@ -30,18 +30,9 @@ class Tensor:
         data=None,
         cell=None,
         basis: Basis = "cartesian",
-        *,
-        axes=None,
-        is_atomic=None,
-        is_affine=None,
     ):
-        if isinstance(definition, list) and axes is None:
-            axes = definition
-            definition = None
         if definition is None:
             definition = self.tensor_definition
-        if definition is None and axes is not None:
-            definition = _legacy_definition(axes, is_atomic=is_atomic, is_affine=is_affine)
         if definition is None:
             raise ValueError("Tensor requires a definition.")
         self.definition = validate_definition(definition)
@@ -58,7 +49,7 @@ class Tensor:
             f"shape={self.shape}, basis={self.basis!r})"
         )
 
-    def print_components(self, components=None, *, title=None, voigt=False):
+    def print_components(self, components=None, *, voigt: bool = False):
         """Print this tensor's numeric or symbolic components with axis labels.
 
         Set ``voigt=True`` to also print any explicitly named symmetric strain
@@ -68,20 +59,15 @@ class Tensor:
             if self.data is None:
                 raise ValueError("Tensor components require data.")
             components = self.data
-        from .tensor_components import (
-            VOIGT_LABELS,
-            print_components,
-            symmetric_pairs,
-            voigt_components,
-        )
+        from .tensor_components import print_components, symmetric_pairs, voigt_components
 
-        print_components(components, self.axes, title=title)
-        if voigt:
-            pairs = symmetric_pairs(self.axes, np.shape(components))
-            if pairs:
-                components, axes = voigt_components(np.asarray(components), self.axes, pairs)
-                print("\nVoigt notation (" + ", ".join(VOIGT_LABELS) + "):")
-                print_components(components, axes)
+        pairs = symmetric_pairs(self.axes, np.shape(components))
+        if voigt and pairs:
+            components, axes = voigt_components(np.asarray(components), self.axes, pairs)
+            print("Voigt notation (xx, yy, zz, yz, xz, xy):")
+            print_components(components, axes)
+        else:
+            print_components(components, self.axes)
 
     def _validate_data(self):
         if self.data is None:
@@ -126,9 +112,7 @@ class Tensor:
             natoms = round(atomic_size ** (1 / atomic_axes))
             if natoms**atomic_axes != atomic_size:
                 return False
-            shape = tuple(
-                natoms if axis["type"] == "atomic" else 3 for axis in axes
-            )
+            shape = tuple(natoms if axis["type"] == "atomic" else 3 for axis in axes)
         elif atomic_size == 1:
             shape = (3,) * cartesian_axes
         else:
@@ -150,29 +134,17 @@ class Tensor:
         return self.definition["axes"]
 
     @property
-    def variances(self) -> List[bool]:
-        """Legacy compact view of Cartesian variances (False means contra)."""
-        return [
-            axis["variance"] == "covariant" for axis in self.axes if axis["type"] == "cartesian"
-        ]
-
-    @property
-    def is_atomic(self) -> bool:
-        """Deprecated compatibility view; use axis ``type`` instead."""
-        return any(axis["type"] == "atomic" for axis in self.axes)
-
-    @property
-    def is_affine(self) -> bool:
-        """Deprecated compatibility view; use axis ``affine`` instead."""
-        return any(axis.get("affine", False) for axis in self.axes)
-
-    @property
     def atomic_axes(self):
         return [index for index, axis in enumerate(self.axes) if axis["type"] == "atomic"]
 
     @property
     def cartesian_axes(self):
         return [index for index, axis in enumerate(self.axes) if axis["type"] == "cartesian"]
+
+    @property
+    def has_affine_axis(self) -> bool:
+        """Whether any explicit axis transforms affinely."""
+        return any(axis.get("affine", False) for axis in self.axes)
 
     @property
     def input_axes(self):
@@ -202,7 +174,11 @@ class Tensor:
 
     @property
     def rank(self) -> Tuple[int, int]:
-        return axes_to_pq(self.variances)
+        cartesian_axes = [axis for axis in self.axes if axis["type"] == "cartesian"]
+        return (
+            sum(axis["variance"] == "contravariant" for axis in cartesian_axes),
+            sum(axis["variance"] == "covariant" for axis in cartesian_axes),
+        )
 
     def core_shape(self, natoms=None) -> tuple:
         """Return the shape represented by the explicit axes."""
@@ -215,7 +191,7 @@ class Tensor:
         return tuple(natoms if axis["type"] == "atomic" else 3 for axis in self.axes)
 
     @classmethod
-    def template(cls, natoms: int = None) -> "Tensor":
+    def template(cls, natoms: int = None, *, basis: Basis = "cartesian") -> "Tensor":
         definition = getattr(cls, "tensor_definition", None)
         if definition is None:
             raise ValueError("Tensor.template requires a class tensor definition.")
@@ -223,7 +199,7 @@ class Tensor:
         if any(axis["type"] == "atomic" for axis in axes) and natoms is None:
             raise ValueError("natoms is required for an atomic tensor template.")
         shape = tuple(natoms if axis["type"] == "atomic" else 3 for axis in axes)
-        return cls(data=np.full(shape, np.nan))
+        return cls(data=np.full(shape, np.nan), basis=basis)
 
     def _replace(self, **changes):
         result = copy(self)
@@ -348,13 +324,8 @@ class Tensor:
 
     __rmul__ = __mul__
 
-    def flatten(self, full: bool = False) -> np.ndarray:
-        """Flatten explicit dimensions while retaining leading batch dimensions.
-
-        The compatibility form (``full=False``) retains all atomic dimensions,
-        which keeps legacy ``(natoms, components)`` BEC/force workflows working.
-        ``full=True`` flattens every explicit dimension for symmetry operators.
-        """
+    def flatten(self) -> np.ndarray:
+        """Flatten Cartesian components while retaining atomic and batch axes."""
         if self.data is None:
             raise ValueError("Tensor flattening requires data.")
         number_axes = len(self.axes)
@@ -362,14 +333,84 @@ class Tensor:
             return self.data
         batch_shape = self.data.shape[:-number_axes]
         core_shape = self.data.shape[-number_axes:]
-        atomic_count = len(self.atomic_axes)
-        if full:
-            return self.data.reshape(batch_shape + (-1,))
-        if atomic_count:
-            preserved = core_shape[:atomic_count]
-            cartesian_size = int(np.prod(core_shape[atomic_count:]))
-            return self.data.reshape(batch_shape + preserved + (cartesian_size,))
+        atomic_shape = core_shape[: len(self.atomic_axes)]
+        return self.data.reshape(batch_shape + atomic_shape + (-1,))
+
+    def flatten_full(self) -> np.ndarray:
+        """Flatten all explicit dimensions while retaining leading batch dimensions."""
+        if self.data is None:
+            raise ValueError("Tensor flattening requires data.")
+        number_axes = len(self.axes)
+        if not number_axes:
+            return self.data
+        batch_shape = self.data.shape[:-number_axes]
         return self.data.reshape(batch_shape + (-1,))
+
+    def symmetrize(self, projection: np.ndarray, *, atol: float = ATOL) -> "Tensor":
+        """Apply a totally symmetric projection to this tensor.
+
+        ``projection`` must act on :meth:`flatten_full` components. It can be
+        a dense matrix or a matrix-free operator exposing ``shape`` and
+        matrix multiplication. For an ordinary tensor with ``D`` components
+        it therefore has shape ``(D, D)``. For a tensor with an affine axis,
+        such as positions, it must be the homogeneous ``(D + 1, D + 1)``
+        projection acting on ``[components, 1]``.
+
+        For tensors associated with an :class:`~fd2bec.atomic.AtomicStructure`,
+        compute this matrix with::
+
+            projection = structure.get_symmetry_projection(tensor)
+
+        That method averages the tensor representation of the structure's
+        symmetry operations.  The supplied matrix must be a projection: its
+        result is required to be invariant under a second application.
+        """
+        vector = self.flatten_full()
+        if not self.axes:
+            # A scalar has one implicit component; any data dimensions are
+            # leading batch dimensions.
+            vector = np.expand_dims(vector, axis=-1)
+        dimension = vector.shape[-1] + int(self.has_affine_axis)
+        if projection.shape != (dimension, dimension):
+            raise ValueError(
+                f"Projection for {self.definition['name']!r} must have shape "
+                f"({dimension}, {dimension}), got {projection.shape}."
+            )
+        matrix_free = hasattr(projection, "matvec")
+        if not matrix_free:
+            projection = np.asarray(projection)
+
+        if self.has_affine_axis:
+            from .mathematics import append_one
+
+            vector = append_one(vector, axis=-1)
+
+        if matrix_free:
+            flat_vectors = vector.reshape((-1, dimension))
+            symmetrized = np.stack([projection @ item for item in flat_vectors]).reshape(
+                vector.shape
+            )
+        else:
+            symmetrized = np.einsum("ij,...j->...i", projection, vector, optimize=True)
+        if self.has_affine_axis:
+            if not np.allclose(symmetrized[..., -1], 1.0, atol=atol):
+                raise ValueError("Affine projection must preserve the homogeneous coordinate.")
+            result = symmetrized[..., :-1]
+            check_vector = append_one(result, axis=-1)
+        else:
+            result = symmetrized
+            check_vector = result
+
+        if matrix_free:
+            flat_vectors = check_vector.reshape((-1, dimension))
+            repeated = np.stack([projection @ item for item in flat_vectors]).reshape(
+                check_vector.shape
+            )
+        else:
+            repeated = np.einsum("ij,...j->...i", projection, check_vector, optimize=True)
+        if not np.allclose(repeated, check_vector, atol=atol):
+            raise ValueError("Projection result is not invariant under repeated application.")
+        return self.copy_with(data=result.reshape(self.shape))
 
     def contract(self, R: np.ndarray) -> "Tensor":
         arr = self.flatten()
@@ -418,51 +459,6 @@ def _cell_array(cell):
     if cell.shape != (3, 3):
         raise ValueError("cell must have shape (3,3).")
     return cell
-
-
-def _legacy_definition(axes, *, is_atomic=None, is_affine=None):
-    """Convert the old Boolean-axis constructor to a temporary definition."""
-    if not all(isinstance(axis, bool) for axis in axes):
-        raise ValueError("Legacy axes must be a list of booleans.")
-    result = []
-    if is_atomic:
-        result.append({"name": "atom", "type": "atomic"})
-    for index, covariant in enumerate(axes):
-        axis = {
-            "name": f"axis_{index}",
-            "type": "cartesian",
-            "variance": "covariant" if covariant else "contravariant",
-        }
-        if is_affine:
-            axis["affine"] = True
-        result.append(axis)
-    return {"name": "legacy_tensor", "axes": result}
-
-
-class SpecialDict(dict):
-    """Compatibility helper retained for older public constructors."""
-
-    def __setitem__(self, key, value):
-        if key in self and self[key] != value:
-            raise ValueError(
-                f"Key '{key}' already exists with a different value:\n"
-                f"  existing: {self[key]}\n  new:      {value}"
-            )
-        super().__setitem__(key, value)
-
-
-def axes_to_pq(axes: list[bool]) -> tuple[int, int]:
-    if axes and isinstance(axes[0], dict):
-        axes = [axis["variance"] == "covariant" for axis in axes if axis["type"] == "cartesian"]
-    if not all(isinstance(axis, bool) for axis in axes):
-        raise ValueError("axes must be a list of booleans or axis dictionaries")
-    return axes.count(False), axes.count(True)
-
-
-def pq_to_axes(p: int, q: int) -> list[bool]:
-    if p < 0 or q < 0:
-        raise ValueError("p and q must be non-negative integers")
-    return [False] * p + [True] * q
 
 
 def contract(R: np.ndarray, x: np.ndarray) -> np.ndarray:

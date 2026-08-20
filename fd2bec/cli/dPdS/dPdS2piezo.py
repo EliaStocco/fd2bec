@@ -126,13 +126,6 @@ def prepare_args(descr):
         help="disable default polarization/dipole branch alignment",
     )
     parser.add_argument(
-        "--unwrap-dipoles",
-        action="store_true",
-        help=(
-            "deprecated compatibility option; periodic dipoles are now branch-aligned by default"
-        ),
-    )
-    parser.add_argument(
         "--polarization-unit",
         choices=("e/angstrom^2", "C/m^2"),
         default="e/angstrom^2",
@@ -203,8 +196,6 @@ def attach_polarizations(
 def main(args):
     if args.agreement_tolerance < 0:
         raise ValueError("--agreement-tolerance must be non-negative.")
-    if args.no_unwrap and args.unwrap_dipoles:
-        raise ValueError("--no-unwrap and --unwrap-dipoles cannot be used together.")
     structures = read(args.input, format="extxyz", index=":")
     if not structures:
         raise ValueError("The input dataset contains no structures.")

@@ -5,7 +5,7 @@ import pytest
 
 from fd2bec.atomic import AtomicStructure
 from fd2bec.io import read
-from fd2bec.tensor import Dipole, Vector
+from fd2bec.tensor import Dipole, Displacement, Position, Vector
 
 
 def test_centrosymmetric_periodic_dipole_needs_reference_configuration():
@@ -24,23 +24,44 @@ def test_centrosymmetric_periodic_dipole_needs_reference_configuration():
         basis="fractional",
         cell=unit_cell.cell,
     )
-    vector_symmetrizer, vector_theta, _ = unit_cell.get_symmetrizer(vector)
+    vector_projection, vector_mode_coefficients, vector_modes = unit_cell.get_symmetry_modes(
+        vector
+    )
 
     dipole = Dipole(
         data=vector_data,
         basis="fractional",
         cell=unit_cell.cell,
     )
-    dipole_symmetrizer, dipole_theta, _ = unit_cell.get_symmetrizer(dipole)
+    dipole_projection, dipole_mode_coefficients, dipole_modes = unit_cell.get_symmetry_modes(
+        dipole
+    )
 
     # In reduced coordinates, (1/2, 1/2, 1/2) represents Q/2 along every
     # periodic direction. Inversion removes every invariant mode from an
     # ordinary global vector, whereas a global affine dipole keeps one
     # homogeneous mode.
-    assert vector_symmetrizer.shape == (3, 0)
-    assert len(vector_theta) == 0
-    assert dipole_symmetrizer.shape == (4, 1)
-    assert len(dipole_theta) == 1
+    assert vector_projection.shape == (3, 3)
+    assert len(vector_mode_coefficients) == 0
+    assert vector_modes.shape == (0, 3)
+    assert dipole_projection.shape == (4, 4)
+    assert len(dipole_mode_coefficients) == 1
+    assert dipole_modes.shape == (1, 3)
+
+
+def test_position_modes_are_displacement_modes_about_the_reference_structure():
+    path = Path(__file__).parent / "data/BiFeO3-R-3c.geometry.in"
+    unit_cell = AtomicStructure.from_ase(read(path, format="aims"))
+    positions = Position(data=unit_cell.frac_pos, basis="fractional")
+    displacements = Displacement(data=np.zeros_like(unit_cell.frac_pos), basis="fractional")
+
+    position_projection, _, position_modes = unit_cell.get_symmetry_modes(positions)
+    displacement_projection, _, displacement_modes = unit_cell.get_symmetry_modes(
+        displacements
+    )
+
+    np.testing.assert_allclose(position_projection, displacement_projection)
+    np.testing.assert_allclose(position_modes, displacement_modes)
 
 if __name__ == "__main__":
     pytest.main([__file__])

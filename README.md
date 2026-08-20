@@ -96,7 +96,7 @@ See `fd2bec/cli/dPdS/README.md` for the strain convention, dipole input,
 Berry-phase branch handling, and clamped-ion workflow.
 
 For a simple mathematical explanation of the symmetry reduction used
-throughout the package, see [`docs/source/get_symmetrizer.rst`](docs/source/get_symmetrizer.rst).
+throughout the package, see the [symmetry-mode documentation](docs/source/symmetry_modes.rst).
 
 # Testing
 We would recommend running tests using

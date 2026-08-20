@@ -1,5 +1,4 @@
 # pylint: disable=invalid-name
-import warnings
 from dataclasses import InitVar, dataclass, field, replace
 from functools import cached_property
 from typing import Any, Dict, List, Tuple, Union
@@ -10,15 +9,18 @@ from ase import Atoms
 from ase.cell import Cell
 from pymatgen.core import Molecule
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
+from scipy.sparse.linalg import LinearOperator
 
-from fd2bec import ATOL, DEBUG, SYMPREC, Basis
+from fd2bec import ATOL, SYMPREC, Basis
 from fd2bec.mathematics import affine2homogeneous, append_one, find_mapping, wrap
-from fd2bec.tensor import Position, Rotation, Tensor, Translation
+from fd2bec.tensor import Displacement, Position, Rotation, Tensor, Translation
 from fd2bec.tools import numbers2symbols, symbols2numbers
 
-
-def _has_affine_axis(tensor: Tensor) -> bool:
-    return any(axis.get("affine", False) for axis in tensor.axes)
+# Above this number of explicit tensor components, storing one dense operator
+# per symmetry operation is needlessly expensive.  Symmetry modes are then
+# constructed by applying the group average directly to vectors.
+MATRIX_FREE_SYMMETRY_DIMENSION = 1024
+MAX_DENSE_SYMMETRY_OPERATOR_BYTES = 1024**3
 
 
 @dataclass
@@ -502,11 +504,11 @@ class AtomicStructure:
             Shape (Nops, dim) translation vectors in flattened form.
 
         """
-        affine = _has_affine_axis(tensor)
+        affine = tensor.has_affine_axis
         axes = tensor.axes
         has_atomic = any(axis["type"] == "atomic" for axis in axes)
 
-        x_flat = tensor.flatten(full=True)
+        x_flat = tensor.flatten_full()
         natoms = len(self)
         expected_shape = tensor.core_shape(natoms=natoms)
         expected_dim = int(np.prod(expected_shape, dtype=int)) if expected_shape else 1
@@ -539,6 +541,14 @@ class AtomicStructure:
             raise ValueError("Number of atomic mappings does not match symmetry operations.")
 
         atom_indices = np.arange(natoms)
+        dense_operator_bytes = nops * expected_dim**2 * np.dtype(float).itemsize
+        if dense_operator_bytes > MAX_DENSE_SYMMETRY_OPERATOR_BYTES:
+            raise MemoryError(
+                "Dense tensor symmetry operations would require "
+                f"{dense_operator_bytes / 1024**3:.1f} GiB. "
+                "Use get_symmetry_projection() or get_symmetry_modes(), which use a "
+                "matrix-free projection for large tensors."
+            )
         R_flat = np.zeros((nops, expected_dim, expected_dim))
         T_flat = np.zeros((nops, expected_dim))
 
@@ -577,6 +587,92 @@ class AtomicStructure:
             T_flat += affine_point - transformed
 
         return R_flat, T_flat
+
+    def _matrix_free_symmetry_projection(self, tensor: Tensor) -> tuple[LinearOperator, int]:
+        """Return a matrix-free group projection and the dimension of its image.
+
+        This representation applies every space-group operation directly to a
+        tensor-shaped vector.  It avoids materializing an array with shape
+        ``(number_of_operations, dimension, dimension)``.
+        """
+        if tensor.has_affine_axis:
+            raise ValueError("Matrix-free symmetry projections do not support affine tensors.")
+
+        shape = tensor.core_shape(natoms=len(self))
+        dimension = int(np.prod(shape, dtype=int)) if shape else 1
+        rotations, _ = self.get_symmetry_operations(basis=tensor.basis)
+        has_atomic_axis = any(axis["type"] == "atomic" for axis in tensor.axes)
+        mappings = self.__get_all_atoms_mapping() if has_atomic_axis else [None] * len(rotations)
+        atom_indices = np.arange(len(self))
+
+        def apply_operation(
+            vector: np.ndarray, rotation: np.ndarray, mapping: np.ndarray
+        ) -> np.ndarray:
+            components = np.asarray(vector, dtype=float).reshape(shape)
+            for axis_index, axis in enumerate(tensor.axes):
+                if axis["type"] == "atomic":
+                    components = np.take(components, mapping, axis=axis_index)
+                    continue
+                components = np.moveaxis(components, axis_index, -1)
+                components = np.einsum("...j,ij->...i", components, rotation.T, optimize=True)
+                components = np.moveaxis(components, -1, axis_index)
+            return components.reshape(-1)
+
+        def matvec(vector: np.ndarray) -> np.ndarray:
+            vector = np.asarray(vector, dtype=float)
+            if vector.shape != (dimension,):
+                raise ValueError(
+                    f"Expected a vector with shape ({dimension},), got {vector.shape}."
+                )
+            result = np.zeros(dimension, dtype=float)
+            for rotation, mapping in zip(rotations, mappings):
+                result += apply_operation(vector, rotation, mapping)
+            return result / len(rotations)
+
+        # The trace of the group-average projection is the number of
+        # symmetry-invariant components.  For a Kronecker-product operation,
+        # its trace is the product of the traces on the individual axes.
+        characters = []
+        for rotation, mapping in zip(rotations, mappings):
+            character = 1.0
+            for axis in tensor.axes:
+                if axis["type"] == "atomic":
+                    character *= np.count_nonzero(atom_indices == mapping)
+                else:
+                    character *= np.trace(rotation)
+            characters.append(character)
+        image_dimension = float(np.mean(characters))
+        number_of_modes = int(np.rint(image_dimension))
+        if not np.isclose(image_dimension, number_of_modes, atol=ATOL):
+            raise ValueError("The symmetry projection must have an integer trace.")
+
+        return LinearOperator((dimension, dimension), matvec=matvec, dtype=float), number_of_modes
+
+    def _matrix_free_symmetry_modes(
+        self, tensor: Tensor, tensor_components: np.ndarray, atol: float
+    ) -> tuple[LinearOperator, np.ndarray, np.ndarray]:
+        """Construct invariant modes without materializing dense group operators."""
+        projection, number_of_modes = self._matrix_free_symmetry_projection(tensor)
+        dimension = tensor_components.size
+        if number_of_modes:
+            # The projected random vectors span the invariant subspace with
+            # probability one. A fixed seed makes the displayed basis stable.
+            random_vectors = np.random.default_rng(0).standard_normal((dimension, number_of_modes))
+            projected_vectors = np.column_stack(
+                [projection @ random_vectors[:, index] for index in range(number_of_modes)]
+            )
+            mode_basis, singular_values, _ = np.linalg.svd(projected_vectors, full_matrices=False)
+            if np.count_nonzero(singular_values > atol) != number_of_modes:
+                raise ValueError("Could not construct a complete symmetry-mode basis.")
+            mode_basis = mode_basis[:, :number_of_modes]
+        else:
+            mode_basis = np.empty((dimension, 0))
+
+        if np.any(np.isnan(tensor_components)):
+            mode_coefficients = np.full(number_of_modes, np.nan)
+        else:
+            mode_coefficients = np.linalg.lstsq(mode_basis, tensor_components, rcond=None)[0]
+        return projection, mode_coefficients, mode_basis.T
 
     @cached_property
     def affine_symmetry_operations(self):
@@ -620,97 +716,126 @@ class AtomicStructure:
                     matrix_tolerance=self.symprec,
                 )
 
-                S = pga.get_symmetry_operations()
-                R = np.asarray([s.rotation_matrix for s in S])
-                T = np.asarray([s.translation_vector for s in S])
+                point_group_operations = pga.get_symmetry_operations()
+                rotations = np.asarray(
+                    [operation.rotation_matrix for operation in point_group_operations]
+                )
+                translations = np.asarray(
+                    [operation.translation_vector for operation in point_group_operations]
+                )
 
                 O = np.mean(self.positions, axis=0)
-                Teff = T + O[None, :] - np.asarray([O @ r.T for r in R])
+                effective_translations = (
+                    translations
+                    + O[None, :]
+                    - np.asarray([O @ rotation.T for rotation in rotations])
+                )
 
-                return R, Teff
+                return rotations, effective_translations
 
         else:
             raise NotImplementedError
 
-    def get_totally_symmetric_projection(self, tensor: Tensor):
-        """Construct the projection operator onto the totally symmetric representation."""
-        G, T = self.get_tensor_symmetry_operations(tensor=tensor)
-        if _has_affine_axis(tensor):
-            G = affine2homogeneous(G, T)
-        P = np.mean(G, axis=0)
-        return P
+    def get_symmetry_projection(self, tensor: Tensor) -> np.ndarray:
+        """Return the projection onto tensor components allowed by this structure's symmetries."""
+        if (
+            not tensor.has_affine_axis
+            and tensor.flatten_full().size > MATRIX_FREE_SYMMETRY_DIMENSION
+        ):
+            return self._matrix_free_symmetry_projection(tensor)[0]
+        operations, translations = self.get_tensor_symmetry_operations(tensor=tensor)
+        if tensor.has_affine_axis:
+            operations = affine2homogeneous(operations, translations)
+        return np.mean(operations, axis=0)
 
-    def symmetrize(self, tensor: Tensor, debug=True) -> Tensor:
-        P = self.get_totally_symmetric_projection(tensor=tensor)
-        vector = tensor.flatten(full=True)
-        if _has_affine_axis(tensor):
-            vector = append_one(vector)
-        out = P @ vector
-        if _has_affine_axis(tensor):
-            out = out[:-1]
-            assert np.allclose(out, (P @ append_one(out))[:-1], atol=ATOL), "error"
-        else:
-            assert np.allclose(out, P @ out, atol=ATOL), "error"
-        out = np.reshape(out, tensor.shape)
-        return tensor.copy_with(data=out)
+    def symmetrize(self, tensor: Tensor) -> Tensor:
+        """Symmetrize ``tensor`` with this structure's symmetry projection."""
+        projection = self.get_symmetry_projection(tensor=tensor)
+        return tensor.symmetrize(projection)
 
-    def get_symmetrizer(
+    def get_displacement_symmetry_modes(
+        self, positions: Position, atol: float = ATOL
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return linear displacement modes about the supplied affine positions."""
+        if positions.data is None:
+            raise ValueError("Displacement modes require reference position data.")
+        displacement = Displacement(
+            data=np.zeros_like(positions.data), basis=positions.basis, cell=positions.cell
+        )
+        return self.get_symmetry_modes(displacement, atol=atol)
+
+    def get_symmetry_modes(
         self,
         tensor: Tensor,
-        debug: bool = DEBUG,
         atol: float = ATOL,
-    ):
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return the symmetry projection, mode coefficients, and flattened invariant modes.
+
+        Positions are affine reference values, so this returns the linear
+        displacement modes about the supplied positions instead.
+        """
+        if isinstance(tensor, Position):
+            return self.get_displacement_symmetry_modes(tensor, atol=atol)
+
+        tensor_components = tensor.flatten_full()
+        if not tensor.has_affine_axis and tensor_components.size > MATRIX_FREE_SYMMETRY_DIMENSION:
+            return self._matrix_free_symmetry_modes(tensor, tensor_components, atol)
 
         # ------------------------
         # Projection construction
         # ------------------------
-        P = self.get_totally_symmetric_projection(tensor=tensor)
+        projection = self.get_symmetry_projection(tensor=tensor)
 
         # ------------------------
         # Vector construction
         # ------------------------
-        x = tensor.flatten(full=True)
-        if _has_affine_axis(tensor):
-            x = append_one(x)
+        if tensor.has_affine_axis:
+            tensor_components = append_one(tensor_components)
 
         # ------------------------
         # Eigen-decomposition
         # ------------------------
 
-        if np.linalg.norm((P - P.T)) < atol:
-            # P is symmetric, use eigh for better numerical stability
-            w, v = np.linalg.eigh(P)
+        symmetric_projection = np.linalg.norm(projection - projection.T) < atol
+        if symmetric_projection:
+            # A symmetric projection has a stable orthonormal eigendecomposition.
+            eigenvalues, eigenvectors = np.linalg.eigh(projection)
         else:
-            warnings.warn("Projection operator is not symmetric.", UserWarning)
-            w, v = np.linalg.eig(P)
+            if tensor.basis == "cartesian" and not tensor.has_affine_axis:
+                raise ValueError(
+                    f"The symmetry projection for {tensor} must be symmetric. "
+                    "Check the symmetry operations and atom mappings."
+                )
+            eigenvalues, eigenvectors = np.linalg.eig(projection)
 
-        if debug and not np.allclose(w.imag, 0, atol=atol):
+        if not np.allclose(eigenvalues.imag, 0, atol=atol):
             raise ValueError("Eigenvalues should be real")
-        w = w.real
+        eigenvalues = eigenvalues.real
 
-        if debug and not np.all((np.isclose(w, 0, atol=atol)) | (np.isclose(w, 1, atol=atol))):
+        if not np.all(
+            (np.isclose(eigenvalues, 0, atol=atol)) | (np.isclose(eigenvalues, 1, atol=atol))
+        ):
             raise ValueError("Eigenvalues should be 0 or 1.")
 
-        mask = np.where(w > 0.5)[0]
-        S = v[:, mask]
-        if debug and not np.allclose(S.imag, 0):
+        invariant_indices = np.where(eigenvalues > 0.5)[0]
+        mode_basis = eigenvectors[:, invariant_indices]
+        if not np.allclose(mode_basis.imag, 0):
             raise ValueError("Eigenvectors should be real")
-        S = np.real(S)
+        mode_basis = np.real(mode_basis)
 
-        # Solve for theta
-        if not np.any(np.isnan(x)):
-            theta = np.linalg.lstsq(S, x, rcond=None)[0]  # if x is not None else None
+        # Express the supplied tensor in the invariant-mode basis.
+        if not np.any(np.isnan(tensor_components)):
+            mode_coefficients = np.linalg.lstsq(mode_basis, tensor_components, rcond=None)[0]
         else:
-            theta = np.full(S.shape[1], np.nan)
+            mode_coefficients = np.full(mode_basis.shape[1], np.nan)
 
         # ------------------------
         # Real-space interpretation of modes
         # ------------------------
-        if _has_affine_axis(tensor):
-            theta_real = S[:-1, :].T  # .reshape((len(theta), -1, 3))
+        if tensor.has_affine_axis:
+            component_modes = mode_basis[:-1, :].T
         else:
-            theta_real = S.T  # .reshape((len(theta), -1, 3))
+            component_modes = mode_basis.T
 
-        # theta and theta_real are returned flattened because
-        # they work alssso for affine vectors
-        return S, theta, theta_real  # , shape
+        # ``component_modes`` is flattened to work for arbitrary tensor shapes.
+        return projection, mode_coefficients, component_modes

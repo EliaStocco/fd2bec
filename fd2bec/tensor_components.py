@@ -4,7 +4,6 @@ from itertools import product
 
 import numpy as np
 
-
 VOIGT_LABELS = ("xx", "yy", "zz", "yz", "xz", "xy")
 VOIGT_PAIRS = ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))
 CARTESIAN_LABELS = ("x", "y", "z")
@@ -83,7 +82,11 @@ def _format_expression(coefficients, atol: float) -> str:
         if abs(coefficient) <= atol:
             continue
         name = parameter_name(index)
-        term = name if np.isclose(abs(coefficient), 1.0, atol=atol) else f"{abs(coefficient):.4g}{name}"
+        term = (
+            name
+            if np.isclose(abs(coefficient), 1.0, atol=atol)
+            else f"{abs(coefficient):.4g}{name}"
+        )
         if not terms:
             terms.append(f"-{term}" if coefficient < 0 else term)
         else:
@@ -91,12 +94,12 @@ def _format_expression(coefficients, atol: float) -> str:
     return "".join(terms) if terms else "0"
 
 
-def symbolic_components(theta_real: np.ndarray, axes=None, atol: float = 1e-10):
+def symbolic_components(component_modes: np.ndarray, axes=None, atol: float = 1e-10):
     """Express tensor components in terms of independent symmetry-mode parameters.
 
     Parameters
     ----------
-    theta_real
+    component_modes
         Real-space symmetry modes with shape ``(number_of_modes, *tensor_shape)``.
         Each first-axis entry is one allowed mode.
     axes
@@ -109,27 +112,116 @@ def symbolic_components(theta_real: np.ndarray, axes=None, atol: float = 1e-10):
         An object array with shape ``tensor_shape`` and the flattened component
         indices chosen as the independent parameters.
     """
-    modes = np.asarray(theta_real, dtype=float)
+    modes = np.asarray(component_modes, dtype=float)
     if modes.ndim == 0:
-        raise ValueError("theta_real must have shape (number_of_modes, *tensor_shape).")
+        raise ValueError("component_modes must have shape (number_of_modes, *tensor_shape).")
     shape = modes.shape[1:]
     if axes is not None and len(axes) != len(shape):
-        raise ValueError("The number of axes must match theta_real tensor dimensions.")
+        raise ValueError("The number of axes must match component_modes tensor dimensions.")
 
+    coefficients, pivots = _symbolic_coefficients(modes, axes=axes, atol=atol)
+    if coefficients.size == 0:
+        return np.full(shape, "0", dtype=object), []
+
+    symbolic = [_format_expression(row, atol) for row in coefficients]
+    return np.asarray(symbolic, dtype=object).reshape(shape), pivots
+
+
+def _symbolic_coefficients(component_modes: np.ndarray, axes=None, atol: float = 1e-10):
+    """Return component coefficients and pivots for a real-space mode basis."""
+    modes = np.asarray(component_modes, dtype=float)
+    shape = modes.shape[1:]
     dimension = int(np.prod(shape, dtype=int)) if shape else 1
     basis = modes.reshape((modes.shape[0], dimension)).T
     if axes is not None:
         basis = _symmetric_basis(basis, shape, symmetric_pairs(axes, shape), atol=atol)
     if basis.shape[1] == 0:
-        return np.full(shape, "0", dtype=object), []
+        return np.empty((0, 0)), []
 
     pivots = _independent_rows(basis, atol)
     if len(pivots) != basis.shape[1]:
         basis = _independent_columns(basis, atol)
         pivots = _independent_rows(basis, atol)
-    coefficients = basis @ np.linalg.inv(basis[pivots, :])
-    symbolic = [_format_expression(row, atol) for row in coefficients]
-    return np.asarray(symbolic, dtype=object).reshape(shape), pivots
+    return basis @ np.linalg.inv(basis[pivots, :]), pivots
+
+
+def _format_affine_expression(constant: float, coefficients: np.ndarray, atol: float) -> str:
+    """Format a constant reference value plus a symbolic displacement."""
+    displacement = _format_expression(coefficients, atol)
+    if displacement == "0":
+        return str(constant)
+    if np.isclose(constant, 0.0, atol=atol):
+        return displacement
+    if displacement.startswith("-"):
+        return f"{constant} - {displacement[1:]}"
+    return f"{constant} + {displacement}"
+
+
+def symbolic_affine_components(
+    reference_components: np.ndarray,
+    component_modes: np.ndarray,
+    axes=None,
+    *,
+    fractional: bool = False,
+    atol: float = 1e-8,
+):
+    """Show affine reference components together with symbolic linear modes.
+
+    Components with no allowed linear displacement retain their reference
+    value. In a fractional basis, variable components are written as the
+    nearest ``0`` or ``1/2`` reference coordinate plus their displacement;
+    the nearest periodic image is selected modulo one. This makes small
+    distortions of a high-symmetry structure legible (for example,
+    ``0.982 -> -c``). Cartesian components retain the previous, purely
+    symbolic presentation.
+    """
+    reference_components = np.asarray(reference_components, dtype=float)
+    modes = np.asarray(component_modes, dtype=float)
+    if modes.shape[1:] != reference_components.shape:
+        raise ValueError("Reference components and component modes must have the same shape.")
+
+    coefficients, pivots = _symbolic_coefficients(modes, axes=axes, atol=atol)
+    if coefficients.size == 0:
+        symbolic = np.full(reference_components.shape, "0", dtype=object)
+    else:
+        symbolic = np.asarray(
+            [_format_expression(row, atol) for row in coefficients], dtype=object
+        ).reshape(reference_components.shape)
+
+    result = symbolic.copy()
+    fixed_components = symbolic == "0"
+    for index in zip(*np.where(fixed_components)):
+        value = reference_components[index]
+        if fractional:
+            value %= 1.0
+            if np.isclose(value, 0.0, atol=atol) or np.isclose(value, 1.0, atol=atol):
+                value = 0.0
+            elif np.isclose(value, 0.5, atol=atol):
+                value = 0.5
+        result[index] = str(value)
+
+    if not fractional or not len(pivots):
+        return result, pivots
+
+    values = reference_components.reshape(-1) % 1.0
+    # Fractional coordinates differ by an integer lattice vector.  The two
+    # closest high-symmetry representatives in this setting are therefore
+    # 0 and 1/2, chosen independently modulo one.
+    origins = (np.round(2.0 * values) / 2.0) % 1.0
+    displacements = (values - origins + 0.5) % 1.0 - 0.5
+
+    # Eigenvectors have arbitrary signs. Choose each parameter sign so that
+    # the selected pivot's displacement has the same sign as the input
+    # structure; all symmetry-related entries follow automatically.
+    oriented_coefficients = coefficients.copy()
+    for parameter, pivot in enumerate(pivots):
+        if displacements[pivot] < -atol:
+            oriented_coefficients[:, parameter] *= -1.0
+
+    for index, row in enumerate(oriented_coefficients):
+        if not fixed_components.reshape(-1)[index]:
+            result.reshape(-1)[index] = _format_affine_expression(origins[index], row, atol)
+    return result, pivots
 
 
 def voigt_components(symbolic, axes, pairs):
@@ -173,7 +265,9 @@ def _prefix_label(prefixes, axes):
             f"{axis.get('name', f'axis_{index}')}={_coordinate_label(axis, value)}"
             for index, (axis, value) in enumerate(zip(axes, prefixes[0]))
         )
-    varying = [index for index in range(len(axes)) if len({prefix[index] for prefix in prefixes}) > 1]
+    varying = [
+        index for index in range(len(axes)) if len({prefix[index] for prefix in prefixes}) > 1
+    ]
     if len(varying) == 1 and axes[varying[0]].get("type") == "atomic":
         varying_index = varying[0]
         values = ", ".join(str(prefix[varying_index]) for prefix in prefixes)
@@ -202,30 +296,47 @@ def print_components(components, axes, title=None):
         return
     if components.ndim == 1:
         labels = _axis_labels(axes[0], components.shape[0])
-        width = max(1, max(len(str(value)) for value in components.flat))
+        width = max(
+            1,
+            *(len(str(value)) for value in components.flat),
+            *(len(label) for label in labels),
+        )
         print("  [ " + "  ".join(f"{str(value):>{width}}" for value in components) + " ]")
         print("    " + "  ".join(f"{label:>{width}}" for label in labels))
         return
 
     row_labels = _axis_labels(axes[-2], components.shape[-2])
     column_labels = _axis_labels(axes[-1], components.shape[-1])
-    width = max(1, max(len(str(value)) for value in components.flat))
+    column_width = max(
+        1,
+        *(len(str(value)) for value in components.flat),
+        *(len(label) for label in column_labels),
+    )
+    row_width = max(len(label) for label in row_labels)
+    row_prefix = "  " + " " * row_width + "  "
     prefixes = list(product(*(range(size) for size in components.shape[:-2])))
     prefix_axes = axes[: components.ndim - 2]
     groups = {}
     for prefix in prefixes:
         key = tuple(str(value) for value in components[prefix].flat)
         groups.setdefault(key, []).append(prefix)
-    prefix_groups = groups.values() if any(axis.get("type") == "atomic" for axis in prefix_axes) else ([prefix] for prefix in prefixes)
+    prefix_groups = (
+        groups.values()
+        if any(axis.get("type") == "atomic" for axis in prefix_axes)
+        else ([prefix] for prefix in prefixes)
+    )
 
     for group in prefix_groups:
         group = list(group)
         if prefix_axes:
             print(f"  [{_prefix_label(group, prefix_axes)}]")
         block = components[group[0]]
-        print(" " * 8 + "  ".join(f"{label:>{width}}" for label in column_labels))
+        print(row_prefix + "  ".join(f"{label:>{column_width}}" for label in column_labels))
         for label, row in zip(row_labels, block):
-            print(f"  {label:>3}  " + "  ".join(f"{str(value):>{width}}" for value in row))
+            print(
+                f"  {label:>{row_width}}  "
+                + "  ".join(f"{str(value):>{column_width}}" for value in row)
+            )
 
 
 def _component_label(index, shape, axes):
@@ -240,7 +351,7 @@ def _component_label(index, shape, axes):
 def print_independent_components(pivots, shape, axes):
     """Print the tensor entries selected as independent parameters."""
     if not pivots:
-        print("No symmetry-inequivalent components.")
+        # print("No symmetry-inequivalent components.")
         return
     print("\nSymmetry-inequivalent components:")
     for index, pivot in enumerate(pivots):

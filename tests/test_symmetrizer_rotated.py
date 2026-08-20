@@ -24,7 +24,7 @@ instructions: Dict[str, Tuple[str, type]] = {
 
 @pytest.mark.parametrize("basis",["fractional","cartesian"])
 @pytest.mark.parametrize("n", range(10))
-def test_symmetrizer(n,basis):
+def test_symmetry_modes(n,basis):
 
     atoms = read(FILE, index=n)
     Natoms = atoms.get_global_number_of_atoms()
@@ -42,7 +42,7 @@ def test_symmetrizer(n,basis):
         classname:Type[Tensor]
         template = classname.template(Natoms)
         tensor: Tensor = classname(data=array, cell=atoms.cell, basis="cartesian").to(basis=basis)
-        atomic_structure.get_symmetrizer(tensor=tensor)
+        atomic_structure.get_symmetry_modes(tensor=tensor)
         pass
 
 

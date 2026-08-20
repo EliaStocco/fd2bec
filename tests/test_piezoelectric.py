@@ -74,8 +74,8 @@ def test_one_strained_structure_set_produces_both_tensors():
     assert result.residual_rms < 1e-14
     assert result.improper.rank == (1, 2)
     assert result.proper.rank == (1, 2)
-    assert not result.improper.is_atomic
-    assert not result.proper.is_atomic
+    assert not any(axis["type"] == "atomic" for axis in result.improper.axes)
+    assert not any(axis["type"] == "atomic" for axis in result.proper.axes)
     np.testing.assert_allclose(result.reference_polarization, reference_polarization, atol=1e-12)
     np.testing.assert_allclose(result.improper.data, improper, atol=1e-12)
     np.testing.assert_allclose(result.proper.data, proper, atol=1e-12)

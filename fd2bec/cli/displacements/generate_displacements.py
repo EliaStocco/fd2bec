@@ -245,15 +245,15 @@ def symmetry_inequivalent_displacements(
     """
     has_structure_representation = hasattr(unit_cell, "get_tensor_symmetry_operations")
     candidates, input_candidates = _physical_input_candidates(unit_cell, tensor)
-    _, _, theta_real = unit_cell.get_symmetrizer(tensor=tensor)
-    if len(theta_real) == 0:
+    _, _, component_modes = unit_cell.get_symmetry_modes(tensor=tensor)
+    if len(component_modes) == 0:
         warn("The provided tensor has no symmetry-allowed components.")
         empty = np.empty((0, input_candidates.shape[1]))
         return _signed_directions(empty), _signed_directions(
             candidates if has_structure_representation else empty
         )
 
-    modes = theta_real.reshape((-1, *tensor.data.shape))
+    modes = component_modes.reshape((-1, *tensor.data.shape))
     input_axes = [index + 1 for index in tensor.input_axes]
     modes = np.moveaxis(modes, input_axes, range(-len(input_axes), 0))
     input_size = int(np.prod(tensor2perturbation_shape(tensor)))
@@ -268,11 +268,6 @@ def symmetry_inequivalent_displacements(
     selected = _rank_increasing_generators(candidates, response_design)
     all_candidates = candidates if has_structure_representation else selected
     return _signed_directions(selected), _signed_directions(all_candidates)
-
-
-# Compatibility names for callers of the former specialized selectors.
-atomic_structure2unique_displacements = symmetry_inequivalent_displacements
-proper_piezoelectric_cell_displacements = symmetry_inequivalent_displacements
 
 
 def displacements2structures(atoms: Atoms, displacements: np.ndarray, atomic: bool) -> list[Atoms]:

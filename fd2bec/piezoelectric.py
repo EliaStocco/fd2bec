@@ -413,8 +413,8 @@ def proper_piezoelectric_symmetry_basis(
     template = ProperPiezoelectricTensor(
         data=np.zeros((3, 3, 3)), cell=unit_cell.cell, basis="cartesian"
     )
-    symmetrizer, _, _ = unit_cell.get_symmetrizer(template)
-    modes = symmetrizer.reshape((3, 3, 3, -1))
+    _, _, component_modes = unit_cell.get_symmetry_modes(template)
+    modes = component_modes.T.reshape((3, 3, 3, -1))
     modes = 0.5 * (modes + modes.swapaxes(1, 2))
     modes = modes.reshape((27, -1))
     if modes.shape[1] == 0:

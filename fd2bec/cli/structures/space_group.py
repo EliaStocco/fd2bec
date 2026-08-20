@@ -58,10 +58,10 @@ def print_cell(atoms):
         print(f"  a{index}: " + "  ".join(f"{value:14.8f}" for value in vector))
 
     a, b, c, alpha, beta, gamma = atoms.cell.cellpar()
-    print("Lattice parameters:")
-    print(f"  a, b, c [Angstrom] = {a:.8f}  {b:.8f}  {c:.8f}")
-    print(f"  alpha, beta, gamma [deg] = {alpha:.8f}  {beta:.8f}  {gamma:.8f}")
-    print(f"  volume [Angstrom^3] = {atoms.get_volume():.8f}")
+    print("\nLattice parameters:")
+    print(f"  a, b, c [Angstrom]       = {a:.8f}  {b:.8f}  {c:.8f}")
+    print(f"  alpha, beta, gamma [deg] = {alpha:.8f} {beta:.8f} {gamma:.8f}")
+    print(f"  volume [Angstrom^3]      = {atoms.get_volume():.8f}")
 
 
 def print_positions(atoms):
@@ -69,7 +69,9 @@ def print_positions(atoms):
     cartesian = np.asarray(atoms.get_positions(), dtype=float)
     fractional = np.asarray(atoms.get_scaled_positions(wrap=False), dtype=float)
     print("Positions (Cartesian [Angstrom] and fractional):")
-    print("  index  atom       Rx           Ry           Rz           fx           fy           fz")
+    print(
+        "  index  atom           Rx           Ry           Rz           fx           fy           fz"
+    )
     for index, (symbol, position, scaled) in enumerate(
         zip(atoms.get_chemical_symbols(), cartesian, fractional), start=1
     ):
@@ -80,8 +82,8 @@ def print_positions(atoms):
 def _print_space_group(dataset, atoms, threshold):
     """Print a readable summary and details from a spglib symmetry dataset."""
     international = _text(dataset.international)
-    hall = _text(dataset.hall)
-    choice = _text(dataset.choice)
+    # hall = _text(dataset.hall)
+    # choice = _text(dataset.choice)
     pointgroup = _text(dataset.pointgroup)
     try:
         bravais = atoms.cell.get_bravais_lattice(eps=threshold)
@@ -94,25 +96,26 @@ def _print_space_group(dataset, atoms, threshold):
     )
 
     print("Space-group summary:")
-    print(f"  International symbol       : {international}")
-    print(f"  Crystal class              : {pointgroup}")
-    print(f"  Bravais lattice type       : {bravais_type}")
+    print(f"  International symbol         : {international}")
+    print(f"  number                       : {dataset.number}")
+    print(f"  Crystal class                : {pointgroup}")
+    print(f"  Bravais lattice type         : {bravais_type}")
     print(f"  Number of symmetry operations: {len(dataset.rotations)}")
     print(f"  Centrosymmetric            : {'yes' if centrosymmetric else 'no'}")
-    print()
-    print("Space-group details:")
-    print(f"  symmetry threshold = {threshold:.6g}")
-    print(f"  number = {dataset.number}")
-    print(f"  Hall number = {dataset.hall_number}")
-    print(f"  Hall symbol = {hall}")
-    if choice:
-        print(f"  setting choice = {choice}")
-    print(f"  point group = {pointgroup}")
-    primitive_count = len(np.unique(dataset.mapping_to_primitive))
-    conventional_count = len(dataset.std_positions)
-    print(f"  primitive cell atoms = {primitive_count}")
-    print(f"  standardized conventional cell atoms = {conventional_count}")
-    print(f"  input cell is primitive = {len(atoms) == primitive_count}")
+    # print()
+    # print("Space-group details:")
+    # print(f"  symmetry threshold : {threshold:.6g}")
+    # print(f"  number             : {dataset.number}")
+    # print(f"  Hall number        : {dataset.hall_number}")
+    # print(f"  Hall symbol        : {hall}")
+    # if choice:
+    #     print(f"  setting choice = {choice}")
+    # print(f"  point group = {pointgroup}")
+    # primitive_count = len(np.unique(dataset.mapping_to_primitive))
+    # conventional_count = len(dataset.std_positions)
+    # print(f"  primitive cell atoms = {primitive_count}")
+    # print(f"  standardized conventional cell atoms = {conventional_count}")
+    # print(f"  input cell is primitive = {len(atoms) == primitive_count}")
 
 
 def print_symmetry_operations(dataset):

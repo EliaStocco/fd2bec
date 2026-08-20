@@ -29,13 +29,13 @@ def test_tensor_symmetry_operation_variants(bifeo3, kind):
         tensor = Dipole(data=np.full(3, 0.5), basis="fractional")
 
     rotations, translations = bifeo3.get_tensor_symmetry_operations(tensor)
-    flattened = tensor.flatten(full=True)
+    flattened = tensor.flatten_full()
     expected_shape = (len(rotations), len(flattened))
 
     assert rotations.shape == (*expected_shape, len(flattened))
     assert translations.shape == expected_shape
 
-    if tensor.is_affine:
+    if any(axis.get("affine", False) for axis in tensor.axes):
         transformed = rotations @ flattened + translations
         expected = np.broadcast_to(flattened, transformed.shape)
         np.testing.assert_allclose(transformed, expected, atol=ATOL)

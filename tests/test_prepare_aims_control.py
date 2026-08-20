@@ -64,9 +64,9 @@ species H
     assert control.read_text(encoding="utf-8") == (
         "# settings\n"
         "k_grid 4 6 8\n"
-        "output polarization 1 40 6 8\n"
-        "output polarization 2 4 60 8\n"
-        "output polarization 3 4 6 80\n"
+        "output polarization 1 5 6 8\n"
+        "output polarization 2 4 7 8\n"
+        "output polarization 3 4 6 9\n"
         "species H\n"
     )
 
