@@ -1,9 +1,9 @@
-The mathematics of ``get_symmetrizer``
-======================================
+The mathematics of symmetry projections and modes
+=================================================
 
 The method
 
-.. py:method:: fd2bec.atomic.AtomicStructure.get_symmetrizer(tensor, debug=True, atol=ATOL)
+.. py:method:: fd2bec.atomic.AtomicStructure.get_symmetry_modes(tensor, atol=ATOL)
 
 finds all tensor patterns that are unchanged by the symmetries of an atomic
 structure. These patterns are later used to reduce a fitting problem: instead
@@ -192,11 +192,11 @@ In the source, this conversion is performed by
 :func:`fd2bec.mathematics.affine2homogeneous`.
 
 The code uses this construction for tensors with an affine axis. In
-``get_symmetrizer``, the extra row is removed again when ``theta_real`` is
-returned.
+``get_symmetry_modes``, the extra row is removed again from the returned
+``component_modes``.
 
-What ``get_symmetrizer`` returns
---------------------------------
+What ``get_symmetry_modes`` returns
+-----------------------------------
 
 After constructing ``P``, the method solves an eigenvalue problem:
 
@@ -210,17 +210,17 @@ For an exact projection, the only eigenvalues are:
 * ``0`` for forbidden directions.
 
 The method keeps the eigenvectors with eigenvalue close to ``1``. Put these
-vectors into the columns of ``S``:
+vectors into the columns of the internal ``mode_basis``:
 
 .. math::
 
-   S = (\mathbf{s}_1, \mathbf{s}_2, \ldots, \mathbf{s}_K).
+   B = (\mathbf{b}_1, \mathbf{b}_2, \ldots, \mathbf{b}_K).
 
 Then every symmetry-allowed tensor can be written as
 
 .. math::
 
-   \mathbf{x}_{\mathrm{allowed}} = S\boldsymbol{\theta}.
+   \mathbf{x}_{\mathrm{allowed}} = B\mathbf{c}.
 
 The number ``K`` is the number of independent symmetry-allowed modes.
 
@@ -228,19 +228,26 @@ If a tensor value is supplied, the method finds its coefficients by solving
 
 .. math::
 
-   S\boldsymbol{\theta} \approx \mathbf{x}
+   B\mathbf{c} \approx \mathbf{x}
 
 with a least-squares solve. Thus the return values are:
 
-``S``
-   A basis for the allowed tensor patterns. Its columns are the modes.
+``projection``
+   The ``P`` matrix that projects arbitrary tensor components onto the
+   symmetry-allowed subspace.
 
-``theta``
+``mode_coefficients``
    The coefficients of the supplied tensor in that basis.
 
-``theta_real``
+``component_modes``
    The same modes as rows, without the affine bookkeeping row. This is a
    convenient real-space view of the allowed modes.
+
+For ``Position``, the affine coordinates themselves are a particular
+symmetry-preserving reference configuration, not linear modes. Therefore,
+``get_symmetry_modes(position)`` returns the normalized modes of
+``Displacement`` about that reference. Use :meth:`fd2bec.atomic.AtomicStructure.symmetrize`
+to obtain the symmetry-preserving position values themselves.
 
 The method uses an eigenvalue tolerance ``atol`` because floating-point
 arithmetic produces values such as ``0.999999999999`` instead of exactly
@@ -255,10 +262,10 @@ The calculation in the source follows this order:
    structure-preserving moves.
 2. :meth:`fd2bec.atomic.AtomicStructure.get_tensor_symmetry_operations` adds
    tensor rotations, atom permutations, and affine shifts.
-3. :meth:`fd2bec.atomic.AtomicStructure.get_totally_symmetric_projection`
+3. :meth:`fd2bec.atomic.AtomicStructure.get_symmetry_projection`
    averages the resulting matrices to form ``P``.
-4. :meth:`fd2bec.atomic.AtomicStructure.get_symmetrizer` finds the eigenvectors
-   with eigenvalue ``1`` and solves for ``theta``.
+4. :meth:`fd2bec.atomic.AtomicStructure.get_symmetry_modes` finds the
+   eigenvectors with eigenvalue ``1`` and solves for ``mode_coefficients``.
 
 In short:
 
@@ -267,7 +274,7 @@ In short:
    \boxed{
    \text{geometry} \;\longrightarrow\; G_g
    \;\longrightarrow\; P=\operatorname{average}(G_g)
-   \;\longrightarrow\; S
+   \;\longrightarrow\; B
    }
 
 The result is a smaller coordinate system in which every coordinate already
@@ -282,7 +289,7 @@ The same idea is used by several parts of the code:
   uses the allowed modes to avoid redundant displacement calculations;
 * :func:`fd2bec.piezoelectric.proper_piezoelectric_symmetry_basis` uses the
   modes as the allowed proper-piezoelectric tensor basis;
-* :func:`fd2bec.system.LinearSystem` uses the symmetrizer to reduce a Born
+* :func:`fd2bec.system.LinearSystem` uses the symmetry-mode basis to reduce a Born
   effective-charge problem.
 
 Useful tests are:

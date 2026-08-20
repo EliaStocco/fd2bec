@@ -34,11 +34,14 @@ def test_package_tree_lists_python_sources_only(tmp_path):
     assert "empty" not in tree
 
 
-def test_new_cli_script_is_automatically_marked_undocumented(tmp_path):
+def test_command_inventory_includes_source_description_and_related_tests(tmp_path):
     package = tmp_path / "fd2bec"
     write(package / "__init__.py")
     write(package / "cli" / "__init__.py")
-    write(package / "cli" / "new_script.py", "def main():\n    pass\n")
+    write(
+        package / "cli" / "new_script.py",
+        'description = "Create the new data."\n\ndef main():\n    pass\n',
+    )
     write(
         tmp_path / "pyproject.toml",
         '[project.scripts]\nnew-command = "fd2bec.cli.new_script:main"\n',
@@ -47,20 +50,17 @@ def test_new_cli_script_is_automatically_marked_undocumented(tmp_path):
     generated.mkdir(parents=True)
     modules, _ = code_map.source_index(package)
 
-    rst = code_map.package_structure_rst(tmp_path, package, modules, {}, generated)
+    related = {"fd2bec.cli.new_script.main": {"tests/test_new_script.py::test_main"}}
+    write(tmp_path / "tests" / "test_new_script.py", "def test_main():\n    pass\n")
+
+    rst = code_map.package_structure_rst(tmp_path, package, modules, related, generated)
 
     assert "new-command" in rst
-    assert "fd2bec.cli.new_script" in rst
-    assert "**No explicit documentation found**" in rst
-
-    write(
-        tmp_path / "docs" / "source" / "new_script.rst",
-        "Run ``new-command`` to create the new data.\n",
-    )
-    documented_rst = code_map.package_structure_rst(tmp_path, package, modules, {}, generated)
-
-    assert "Yes:" in documented_rst
-    assert "docs/source/new_script.rst" in documented_rst
+    assert "fd2bec/cli/new_script.py" in rst
+    assert "Create the new data." in rst
+    assert "Related pytest files" in rst
+    assert "tests/test_new_script.py" in rst
+    assert ":download:" in rst
 
 
 def test_pytest_map_links_direct_function_class_and_method_uses(tmp_path):

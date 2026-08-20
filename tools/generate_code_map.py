@@ -7,6 +7,7 @@ import argparse
 import ast
 import html
 import importlib.util
+import os
 import re
 from collections import defaultdict
 from collections.abc import Iterable
@@ -324,17 +325,45 @@ def dependency_dot(dependencies: dict[str, set[str]], rankdir: str = "TB") -> st
     return "\n".join(lines) + "\n"
 
 
-def _module_test_summary(module: str, related: dict[str, set[str]]) -> str:
+def _module_test_files(module: str, related: dict[str, set[str]]) -> list[Path]:
+    """Return pytest files that directly reference a module's public symbols."""
     tests = {
         test
         for symbol, symbol_tests in related.items()
         if symbol.startswith(f"{module}.")
         for test in symbol_tests
     }
-    files = sorted({test.split("::", maxsplit=1)[0].removeprefix("tests/") for test in tests})
-    if not files:
-        return "No direct pytest reference"
-    return ", ".join(breakable_code(path) for path in files)
+    return sorted({Path(test.split("::", maxsplit=1)[0]) for test in tests})
+
+
+def _script_description(path: Path) -> str:
+    """Return the short description declared by a CLI script."""
+    def first_sentence(text: str) -> str:
+        text = " ".join(text.split())
+        return re.split(r"(?<=[.!?])\s", text, maxsplit=1)[0]
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "description" for target in node.targets)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            return first_sentence(node.value.value)
+    docstring = ast.get_docstring(tree)
+    if docstring:
+        return first_sentence(docstring)
+    return path.stem.replace("_", " ").capitalize() + "."
+
+
+def _download_link(path: Path, generated_root: Path, root: Path) -> str:
+    """Link to a repository file from a generated Sphinx include fragment."""
+    # Sphinx resolves a role inside an ``include`` relative to the including
+    # document (``docs/source/package_structure.rst``), not the fragment.
+    target = Path(os.path.relpath(path, generated_root.parent)).as_posix()
+    label = path.relative_to(root).as_posix()
+    return f":download:`{label} <{target}>`"
 
 
 def package_structure_rst(
@@ -345,68 +374,52 @@ def package_structure_rst(
     generated_root: Path,
 ) -> str:
     scripts = project_scripts(root / "pyproject.toml")
-    command_by_module = {module: command for command, module in scripts.items()}
-    docs = documentation_texts(root, generated_root)
+    inventory = sorted(
+        (command, module, modules[module])
+        for command, module in scripts.items()
+        if module in modules and module.startswith("fd2bec.cli.")
+    )
 
     lines = [
         GENERATED_NOTICE.rstrip(),
         "",
-        "Package tree",
-        "------------",
-        "",
-        "Only Python files below ``fd2bec/`` are shown.",
-        "",
-        ".. raw:: latex",
-        "",
-        "   \\begingroup\\scriptsize",
-        "",
-        ".. code-block:: text",
-        "",
-        *[f"   {line}" for line in package_tree(package_root).splitlines()],
-        "",
-        ".. raw:: latex",
-        "",
-        "   \\endgroup",
-        "",
         "Command inventory",
         "-----------------",
         "",
-        "Every Python module below ``fd2bec.cli`` is included. A module is marked as",
-        "undocumented when its command, module name, or script filename is not mentioned",
-        "in manually maintained README/RST documentation.",
+        "Each entry links to its source file. The inventory is generated from",
+        "``[project.scripts]`` and therefore follows the installed command names.",
         "",
         ".. list-table::",
         "   :header-rows: 1",
-        "   :widths: 50 50",
+        "   :widths: 38 20 42",
         "",
-        "   * - Command and module",
-        "     - Documentation and direct pytest files",
+        "   * - File path",
+        "     - Script",
+        "     - Description",
     ]
-    for module in cli_modules(package_root):
-        command = command_by_module.get(module)
-        location = documented_at(command, module, docs)
-        documentation = (
-            f"Yes: {breakable_code(str(location.relative_to(root)))}"
-            if location
-            else "**No explicit documentation found**"
-        )
+    for command, _module, path in inventory:
         lines.extend(
             [
-                f"   * - **Command:** {breakable_code(command)}; "
-                f"**module:** {breakable_code(module)}"
-                if command
-                else "   * - **Command:** Not exposed as a command; "
-                f"**module:** {breakable_code(module)}",
-                f"     - **Documentation:** {documentation}; "
-                "**direct pytest files:** "
-                f"{_module_test_summary(module, related)}",
+                f"   * - {_download_link(path, generated_root, root)}",
+                f"     - {breakable_code(command)}",
+                f"     - {_script_description(path)}",
             ]
         )
 
-    unrepresented = sorted(set(scripts.values()) - set(modules))
-    if unrepresented:
-        lines.extend(["", "Entry-point targets outside the indexed package:", ""])
-        lines.extend(f"* {breakable_code(module)}" for module in unrepresented)
+    lines.extend(["", "Related pytest files", "--------------------", ""])
+    for command, module, path in inventory:
+        tests = set(_module_test_files(module, related))
+        conventional_test = root / "tests" / f"test_{path.stem}.py"
+        if conventional_test.is_file():
+            tests.add(conventional_test.relative_to(root))
+        test_links = (
+            ", ".join(
+                _download_link(root / test, generated_root, root) for test in sorted(tests)
+            )
+            if tests
+            else "No direct pytest reference"
+        )
+        lines.append(f"* {breakable_code(command)}: {test_links}")
     return "\n".join(lines) + "\n"
 
 

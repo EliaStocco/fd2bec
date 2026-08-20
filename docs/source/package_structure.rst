@@ -1,10 +1,9 @@
 Package structure and command inventory
 =======================================
 
-This chapter is generated from the current ``fd2bec/`` package and the
-``[project.scripts]`` entry points. Rebuilding the documentation adds newly
-created modules and commands automatically. Commands without an explicit
-README/RST reference remain visible and are marked as undocumented.
+This chapter is generated from the current ``[project.scripts]`` entry points.
+It lists the source path, installed command, and short script description in
+one place, followed by the directly related pytest files. Rebuilding the
+documentation keeps both lists current.
 
 .. include:: generated/package_structure.inc
-

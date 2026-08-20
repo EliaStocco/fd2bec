@@ -209,7 +209,7 @@ embedded in homogeneous coordinates:
    \end{pmatrix}
    \begin{pmatrix}\mathbf{x}\\1\end{pmatrix}.
 
-This is the representation averaged by ``get_totally_symmetric_projection``
+This is the representation averaged by ``get_symmetry_projection``
 for affine tensors.
 
 Validation of the unified representation
@@ -245,5 +245,5 @@ The complete common path is
    \longrightarrow (G_g,\mathbf{q}_g)
    }.
 
-The next chapter explains how ``get_symmetrizer`` averages these common
+The next chapter explains how ``get_symmetry_modes`` averages these common
 tensor operations and extracts the symmetry-allowed degrees of freedom.

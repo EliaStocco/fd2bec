@@ -16,7 +16,7 @@ fd2bec documentation
 
    atomic_structures
    symmetries
-   get_symmetrizer
+   symmetry_modes
 
 .. raw:: latex
 
