@@ -3,6 +3,7 @@
 # Tested by pytest: tests/test_tensor_symmetries.py
 
 import argparse
+from pathlib import Path
 
 import numpy as np
 
@@ -15,6 +16,9 @@ from fd2bec.io import read
 from fd2bec.show import print_reference_structure
 from fd2bec.tensor import MAPPING
 from fd2bec.tensor_components import (
+    add_affine_reference,
+    common_symbolic_components,
+    parameter_name,
     print_independent_components,
     symbolic_affine_components,
     symbolic_components,
@@ -32,8 +36,9 @@ def prepare_args(descr: str):
         "--input",
         **argv,
         type=str,
+        nargs="+",
         required=True,
-        help="path to input structure (e.g. supercell.extxyz)",
+        help="path(s) to input structure(s) (e.g. supercell.extxyz)",
     )
     parser.add_argument(
         "-n",
@@ -90,8 +95,105 @@ def _physical_modes(
     return modes
 
 
+def _common_tensor_symmetries(args: argparse.Namespace, input_paths: list[str]):
+    """Print several tensor spaces in one shared component parameterization."""
+    if args.conventional_axes:
+        raise ValueError(
+            "--conventional_axes cannot define one shared frame for multiple structures; "
+            "align the input structures in the desired common Cartesian frame instead."
+        )
+
+    basis = _selected_basis(args.name, args.basis)
+    tensors = []
+    modes_collection = []
+    reference_symbols = None
+    reference_shape = None
+
+    for input_path in input_paths:
+        print(f"Reading input structure from {input_path} ... ", end="")
+        reference = read(input_path, index=0)
+        print("done")
+        unit_cell = AtomicStructure.from_ase(reference)
+        symbols = tuple(unit_cell.symbols)
+        if reference_symbols is None:
+            reference_symbols = symbols
+        elif symbols != reference_symbols:
+            raise ValueError(
+                "All structures must contain the same atoms in the same order. "
+                f"Atom ordering differs in '{input_path}'."
+            )
+        if basis == "fractional" and not unit_cell.pbc:
+            raise ValueError("Fractional tensor components require periodic structures.")
+
+        tensor_class = MAPPING[args.name]
+        if args.name == "positions":
+            data = unit_cell.frac_pos if basis == "fractional" else unit_cell.positions
+            tensor = tensor_class(data=data, basis=basis)
+            _, _, component_modes = unit_cell.get_displacement_symmetry_modes(tensor)
+            modes = component_modes.reshape((-1, *tensor.core_shape()))
+        else:
+            tensor = tensor_class.template(len(unit_cell), basis=basis)
+            _, _, component_modes = unit_cell.get_symmetry_modes(tensor=tensor)
+            modes = _physical_modes(
+                component_modes,
+                tensor.core_shape(),
+                affine=tensor.has_affine_axis,
+            )
+
+        if reference_shape is None:
+            reference_shape = tensor.core_shape()
+        elif tensor.core_shape() != reference_shape:
+            raise ValueError("All structures must produce tensors with the same shape.")
+
+        tensors.append(tensor)
+        modes_collection.append(modes)
+
+    print(
+        f"\nComputing a common parameterization for {len(input_paths)} "
+        f"{tensors[0].definition['name']} tensors in {basis} basis ... ",
+        end="",
+    )
+    symbolic_collection, common_pivots, parameter_indices = common_symbolic_components(
+        modes_collection,
+        axes=tensors[0].axes,
+        symmetric_axis_pairs=tensors[0].symmetric_axes,
+    )
+    print("done")
+    print(
+        "The common space is the span of the symmetry-allowed spaces; "
+        "symbols denote the same tensor entries in every structure."
+    )
+    print("The atom ordering and input coordinate axes are assumed to correspond.")
+    print("n. common parameter(s): ", len(common_pivots))
+    print_independent_components(common_pivots, reference_shape, tensors[0].axes)
+
+    for input_path, tensor, modes, symbolic, indices in zip(
+        input_paths,
+        tensors,
+        modes_collection,
+        symbolic_collection,
+        parameter_indices,
+    ):
+        if args.name == "positions":
+            symbolic = add_affine_reference(
+                tensor.data,
+                symbolic,
+                fractional=basis == "fractional",
+            )
+        names = ", ".join(parameter_name(index) for index in indices) or "none"
+        print(f"\nStructure: {Path(input_path).stem} ({input_path})")
+        print(f"n. symmetry-inequivalent component(s): {len(modes)}")
+        print(f"independent common symbol(s): {names}")
+        tensor.print_components(symbolic)
+
+
 @cli(prepare_args, description)
 def main(args: argparse.Namespace):
+    input_paths = [args.input] if isinstance(args.input, str) else list(args.input)
+    if len(input_paths) > 1:
+        return _common_tensor_symmetries(args, input_paths)
+    args.input = input_paths[0]
+
     print(f"Reading input structure from {args.input} ... ", end="")
     reference = read(args.input, index=0)
     print("done")
