@@ -61,6 +61,33 @@ def validate_definition(definition: Dict[str, Any]) -> Dict[str, Any]:
         if seen_cartesian and axis_type == "atomic":
             raise ValueError("Atomic axes must precede Cartesian axes in storage order.")
 
+    symmetric_axes = definition.get("symmetric_axes", [])
+    if not isinstance(symmetric_axes, list):
+        raise TypeError("'symmetric_axes' must be a list of axis-index pairs.")
+    used_symmetric_axes = set()
+    for pair in symmetric_axes:
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or not all(isinstance(index, int) and not isinstance(index, bool) for index in pair)
+        ):
+            raise TypeError("Each symmetric axis pair must contain exactly two integer indices.")
+        left, right = pair
+        if left == right or not (0 <= left < len(axes)) or not (0 <= right < len(axes)):
+            raise ValueError(f"Invalid symmetric axis pair {pair!r} for {len(axes)} axes.")
+        if left in used_symmetric_axes or right in used_symmetric_axes:
+            raise ValueError("An axis cannot belong to more than one symmetric axis pair.")
+        left_axis, right_axis = axes[left], axes[right]
+        if left_axis["type"] != "cartesian" or right_axis["type"] != "cartesian":
+            raise ValueError("Only Cartesian axes can form a symmetric axis pair.")
+        if left_axis["variance"] != right_axis["variance"]:
+            raise ValueError("Symmetric Cartesian axes must have the same variance.")
+        if left_axis.get("role") != right_axis.get("role"):
+            raise ValueError("Symmetric axes must have the same tensor role.")
+        if left_axis.get("affine", False) or right_axis.get("affine", False):
+            raise ValueError("Affine axes cannot form a symmetric axis pair.")
+        used_symmetric_axes.update(pair)
+
     result = deepcopy(definition)
     # This is intentionally a plain JSON check.  It catches accidental NumPy
     # scalars/arrays in definitions at the boundary where they are introduced.
@@ -121,32 +148,44 @@ def derivative(
     """Build metadata for a derivative, without evaluating it."""
     numerator = validate_definition(numerator)
     denominator = validate_definition(denominator)
-    axes = []
-    for axis in numerator["axes"]:
+    tagged_axes = []
+    for index, axis in enumerate(numerator["axes"]):
         new_axis = deepcopy(axis)
         new_axis["role"] = "output"
         new_axis.pop("affine", None)
-        axes.append(new_axis)
-    for axis in denominator["axes"]:
+        tagged_axes.append(("numerator", index, new_axis))
+    for index, axis in enumerate(denominator["axes"]):
         new_axis = deepcopy(axis)
         new_axis["role"] = "input"
         new_axis.pop("affine", None)
         if new_axis["type"] == "cartesian":
             new_axis["variance"] = DUAL_VARIANCE[new_axis["variance"]]
-        axes.append(new_axis)
+        tagged_axes.append(("denominator", index, new_axis))
 
     # Keep the storage convention explicit: atomic axes first, then Cartesian
     # axes, with numerator axes before denominator axes in each group.
-    axes = [axis for axis in axes if axis["type"] == "atomic"] + [
-        axis for axis in axes if axis["type"] == "cartesian"
+    tagged_axes = [item for item in tagged_axes if item[2]["type"] == "atomic"] + [
+        item for item in tagged_axes if item[2]["type"] == "cartesian"
     ]
+    axes = [axis for _, _, axis in tagged_axes]
+    index_map = {
+        (origin, original_index): new_index
+        for new_index, (origin, original_index, _) in enumerate(tagged_axes)
+    }
+    symmetric_axes = []
+    for origin, definition in (("numerator", numerator), ("denominator", denominator)):
+        for left, right in definition.get("symmetric_axes", []):
+            symmetric_axes.append([index_map[(origin, left)], index_map[(origin, right)]])
     formula = {
         "operation": "derivative",
         "numerator": _expression(numerator),
         "denominator": _expression(denominator),
         "factor": factor,
     }
-    return validate_definition({"name": name, "axes": axes, "formula": formula})
+    result = {"name": name, "axes": axes, "formula": formula}
+    if symmetric_axes:
+        result["symmetric_axes"] = symmetric_axes
+    return validate_definition(result)
 
 
 def _require_scalar(definition: Dict[str, Any]) -> Dict[str, Any]:
@@ -164,35 +203,37 @@ def multiply_by(
     scalar = _require_scalar(scalar)
     if not isinstance(power, int):
         raise TypeError("The scalar power must be an integer.")
-    return validate_definition(
-        {
-            "name": name,
-            "axes": deepcopy(definition["axes"]),
-            "formula": {
-                "operation": "multiply",
-                "numerator": _expression(definition),
-                "scalar": _expression(scalar),
-                "power": power,
-            },
-        }
-    )
+    result = {
+        "name": name,
+        "axes": deepcopy(definition["axes"]),
+        "formula": {
+            "operation": "multiply",
+            "numerator": _expression(definition),
+            "scalar": _expression(scalar),
+            "power": power,
+        },
+    }
+    if definition.get("symmetric_axes"):
+        result["symmetric_axes"] = deepcopy(definition["symmetric_axes"])
+    return validate_definition(result)
 
 
 def divide_by(definition: Dict[str, Any], scalar: Dict[str, Any], *, name: str) -> Dict[str, Any]:
     """Build metadata for dividing a definition by a scalar quantity."""
     definition = validate_definition(definition)
     scalar = _require_scalar(scalar)
-    return validate_definition(
-        {
-            "name": name,
-            "axes": deepcopy(definition["axes"]),
-            "formula": {
-                "operation": "divide",
-                "numerator": _expression(definition),
-                "denominator": _expression(scalar),
-            },
-        }
-    )
+    result = {
+        "name": name,
+        "axes": deepcopy(definition["axes"]),
+        "formula": {
+            "operation": "divide",
+            "numerator": _expression(definition),
+            "denominator": _expression(scalar),
+        },
+    }
+    if definition.get("symmetric_axes"):
+        result["symmetric_axes"] = deepcopy(definition["symmetric_axes"])
+    return validate_definition(result)
 
 
 def evaluate_scalar(definition: Dict[str, Any], cell: Any) -> float:
@@ -235,6 +276,7 @@ STRAIN = {
         {"name": "strain_i", "type": "cartesian", "variance": "contravariant"},
         {"name": "strain_j", "type": "cartesian", "variance": "contravariant"},
     ],
+    "symmetric_axes": [[0, 1]],
 }
 VOLUME = {"name": "volume", "axes": [], "source": "cell"}
 

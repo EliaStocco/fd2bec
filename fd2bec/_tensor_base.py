@@ -70,7 +70,7 @@ class Tensor:
             print("Flattened nuclear-coordinate matrix (atom-major):")
             print_components(components, axes)
             return
-        pairs = symmetric_pairs(self.axes, np.shape(components))
+        pairs = symmetric_pairs(self.axes, np.shape(components), declared_pairs=self.symmetric_axes)
         if pairs:
             components, axes = voigt_components(np.asarray(components), self.axes, pairs)
             print("Voigt notation:")
@@ -141,6 +141,11 @@ class Tensor:
     def axes(self):
         """Explicit axis definitions in trailing storage order."""
         return self.definition["axes"]
+
+    @property
+    def symmetric_axes(self) -> list[tuple[int, int]]:
+        """Pairs of explicit axes related by intrinsic permutation symmetry."""
+        return [tuple(pair) for pair in self.definition.get("symmetric_axes", [])]
 
     @property
     def atomic_axes(self):
@@ -354,6 +359,29 @@ class Tensor:
             return self.data
         batch_shape = self.data.shape[:-number_axes]
         return self.data.reshape(batch_shape + (-1,))
+
+    def apply_intrinsic_symmetry(self, vector: np.ndarray) -> np.ndarray:
+        """Project flattened components onto declared symmetric-axis subspaces."""
+        vector = np.asarray(vector)
+        shape = self.core_shape()
+        dimension = int(np.prod(shape, dtype=int)) if shape else 1
+        if vector.shape[-1:] != (dimension,):
+            raise ValueError(
+                f"Intrinsic symmetry for {self.definition['name']!r} requires a trailing "
+                f"dimension of {dimension}, got shape {vector.shape}."
+            )
+        components = vector.reshape(vector.shape[:-1] + shape)
+        batch_ndim = vector.ndim - 1
+        for left, right in self.symmetric_axes:
+            components = 0.5 * (
+                components + np.swapaxes(components, batch_ndim + left, batch_ndim + right)
+            )
+        return components.reshape(vector.shape)
+
+    def intrinsic_symmetry_projection(self) -> np.ndarray:
+        """Return the projector enforcing declared symmetric-axis relationships."""
+        dimension = self.flatten_full().shape[-1]
+        return self.apply_intrinsic_symmetry(np.eye(dimension)).T
 
     def symmetrize(self, projection: np.ndarray, *, atol: float = ATOL) -> "Tensor":
         """Apply a totally symmetric projection to this tensor.

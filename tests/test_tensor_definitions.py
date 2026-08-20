@@ -4,22 +4,24 @@ import numpy as np
 import pytest
 
 from fd2bec.tensor import (
-    BORN_CHARGES,
     DIPOLE,
     ELASTIC_STIFFNESS,
     FORCE_CONSTANTS,
+    MAPPING,
+    PIEZOELECTRIC,
     POSITIONS,
     STRAIN,
     STRESS,
     VOLUME,
     BornCharges,
     ForceConstants,
-    MAPPING,
     Position,
+    ProperPiezoelectricTensor,
     Tensor,
     derivative,
     divide_by,
     evaluate_scalar,
+    validate_definition,
 )
 
 
@@ -143,3 +145,34 @@ def test_stress_and_elastic_definitions_have_explicit_roles():
         "input",
         "input",
     ]
+
+
+def test_strain_axis_symmetry_is_propagated_through_tensor_definitions():
+    assert STRAIN["symmetric_axes"] == [[0, 1]]
+    assert STRESS["symmetric_axes"] == [[0, 1]]
+    assert PIEZOELECTRIC["symmetric_axes"] == [[1, 2]]
+    assert ELASTIC_STIFFNESS["symmetric_axes"] == [[0, 1], [2, 3]]
+
+
+def test_intrinsic_symmetry_projection_symmetrizes_piezoelectric_strain_indices():
+    tensor = ProperPiezoelectricTensor(data=np.arange(27.0).reshape((3, 3, 3)))
+    projection = tensor.intrinsic_symmetry_projection()
+    projected = (projection @ tensor.flatten_full()).reshape((3, 3, 3))
+
+    np.testing.assert_allclose(projected, 0.5 * (tensor.data + tensor.data.swapaxes(1, 2)))
+    np.testing.assert_allclose(projection @ projection, projection)
+    assert np.linalg.matrix_rank(projection) == 18
+
+
+def test_invalid_symmetric_axis_metadata_is_rejected():
+    definition = {
+        "name": "invalid",
+        "axes": [
+            {"name": "x", "type": "cartesian", "variance": "covariant"},
+            {"name": "y", "type": "cartesian", "variance": "contravariant"},
+        ],
+        "symmetric_axes": [[0, 1]],
+    }
+
+    with pytest.raises(ValueError, match="same variance"):
+        validate_definition(definition)

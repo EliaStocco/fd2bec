@@ -152,7 +152,11 @@ def main(args: argparse.Namespace):
         print("Cartesian coordinate rotation (conventional <- input):")
         print(np.array2string(coordinate_rotation, precision=8, suppress_small=True))
 
-    symbolic, pivots = symbolic_components(modes, axes=tensor.axes)
+    symbolic, pivots = symbolic_components(
+        modes,
+        axes=tensor.axes,
+        symmetric_axis_pairs=tensor.symmetric_axes,
+    )
     print_independent_components(pivots, shape, tensor.axes)
     print(f"\nSymmetry-allowed tensor components ({frame_label} axes):")
     tensor.print_components(symbolic)

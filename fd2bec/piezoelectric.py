@@ -407,24 +407,14 @@ def proper_piezoelectric_symmetry_basis(
 ) -> np.ndarray:
     """Return an orthonormal basis for symmetry-allowed proper piezo tensors.
 
-    The final two covariant indices are symmetrized before extracting the
-    independent column space, consistently with infinitesimal strain.
+    Intrinsic strain-index symmetry and crystallographic symmetry are both
+    enforced by :meth:`AtomicStructure.get_symmetry_modes`.
     """
     template = ProperPiezoelectricTensor(
         data=np.zeros((3, 3, 3)), cell=unit_cell.cell, basis="cartesian"
     )
     _, _, component_modes = unit_cell.get_symmetry_modes(template)
-    modes = component_modes.T.reshape((3, 3, 3, -1))
-    modes = 0.5 * (modes + modes.swapaxes(1, 2))
-    modes = modes.reshape((27, -1))
-    if modes.shape[1] == 0:
-        return np.empty((27, 0))
-
-    left, singular_values, _ = np.linalg.svd(modes, full_matrices=False)
-    if not len(singular_values):
-        return np.empty((27, 0))
-    threshold = atol * max(modes.shape) * singular_values[0]
-    return left[:, singular_values > threshold]
+    return component_modes.T
 
 
 def piezoelectric_symbolic_matrix(symmetry_basis: np.ndarray, atol: float = ATOL) -> np.ndarray:

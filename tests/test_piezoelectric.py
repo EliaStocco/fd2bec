@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from ase import Atoms
 
+from fd2bec.atomic import AtomicStructure
 from fd2bec.piezoelectric import (
     E_PER_ANGSTROM2_TO_C_PER_M2,
     VOIGT_PAIRS,
@@ -21,6 +22,7 @@ from fd2bec.piezoelectric import (
     voigt_to_piezoelectric,
     voigt_to_strain,
 )
+from fd2bec.tensor import ProperPiezoelectricTensor
 
 
 def periodic_reference():
@@ -137,6 +139,28 @@ def test_proper_symmetry_basis_removes_forbidden_cubic_modes():
 
     assert basis.shape == (27, 0)
     np.testing.assert_array_equal(piezoelectric_symbolic_matrix(basis), np.full((3, 6), "0"))
+
+
+def test_symmetry_modes_include_intrinsic_piezoelectric_index_symmetry():
+    water = Atoms(
+        "OH2",
+        positions=[[0.0, 0.0, 0.0], [0.75, 0.0, 0.58], [-0.75, 0.0, 0.58]],
+    )
+    structure = AtomicStructure.from_ase(water)
+    tensor = ProperPiezoelectricTensor.template()
+
+    projection, coefficients, modes = structure.get_symmetry_modes(tensor)
+
+    assert projection.shape == (27, 27)
+    assert coefficients.shape == (5,)
+    assert modes.shape == (5, 27)
+    np.testing.assert_allclose(projection @ projection, projection, atol=1e-12)
+    np.testing.assert_allclose(
+        modes.reshape((5, 3, 3, 3)),
+        modes.reshape((5, 3, 3, 3)).swapaxes(2, 3),
+        atol=1e-12,
+    )
+    assert proper_piezoelectric_symmetry_basis(structure).shape == (27, 5)
 
 
 def test_symbolic_pattern_labels_unrestricted_components_in_voigt_order():

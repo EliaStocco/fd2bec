@@ -27,8 +27,18 @@ def _independent_columns(basis: np.ndarray, atol: float) -> np.ndarray:
     return basis[:, selected]
 
 
-def symmetric_pairs(axes, shape):
-    """Return explicitly named Cartesian strain-axis pairs eligible for Voigt notation."""
+def symmetric_pairs(axes, shape, declared_pairs=None):
+    """Return Cartesian symmetric-axis pairs eligible for Voigt notation.
+
+    Explicit definition metadata takes precedence. The axis-name convention is
+    retained as a compatibility fallback for callers that only provide axes.
+    """
+    if declared_pairs is not None:
+        return [
+            (left, right)
+            for left, right in declared_pairs
+            if shape[left] == 3 and shape[right] == 3
+        ]
     pairs = []
     used = set()
     for index in range(len(axes) - 1):
@@ -94,7 +104,12 @@ def _format_expression(coefficients, atol: float) -> str:
     return "".join(terms) if terms else "0"
 
 
-def symbolic_components(component_modes: np.ndarray, axes=None, atol: float = 1e-10):
+def symbolic_components(
+    component_modes: np.ndarray,
+    axes=None,
+    atol: float = 1e-10,
+    symmetric_axis_pairs=None,
+):
     """Express tensor components in terms of independent symmetry-mode parameters.
 
     Parameters
@@ -105,6 +120,9 @@ def symbolic_components(component_modes: np.ndarray, axes=None, atol: float = 1e
     axes
         Optional tensor-axis definitions. When supplied, named strain pairs are
         symmetrized before independent parameters are selected.
+    symmetric_axis_pairs
+        Optional explicitly declared symmetric-axis pairs. When supplied, these
+        take precedence over axis-name inference.
 
     Returns
     -------
@@ -119,7 +137,12 @@ def symbolic_components(component_modes: np.ndarray, axes=None, atol: float = 1e
     if axes is not None and len(axes) != len(shape):
         raise ValueError("The number of axes must match component_modes tensor dimensions.")
 
-    coefficients, pivots = _symbolic_coefficients(modes, axes=axes, atol=atol)
+    coefficients, pivots = _symbolic_coefficients(
+        modes,
+        axes=axes,
+        atol=atol,
+        symmetric_axis_pairs=symmetric_axis_pairs,
+    )
     if coefficients.size == 0:
         return np.full(shape, "0", dtype=object), []
 
@@ -127,14 +150,20 @@ def symbolic_components(component_modes: np.ndarray, axes=None, atol: float = 1e
     return np.asarray(symbolic, dtype=object).reshape(shape), pivots
 
 
-def _symbolic_coefficients(component_modes: np.ndarray, axes=None, atol: float = 1e-10):
+def _symbolic_coefficients(
+    component_modes: np.ndarray,
+    axes=None,
+    atol: float = 1e-10,
+    symmetric_axis_pairs=None,
+):
     """Return component coefficients and pivots for a real-space mode basis."""
     modes = np.asarray(component_modes, dtype=float)
     shape = modes.shape[1:]
     dimension = int(np.prod(shape, dtype=int)) if shape else 1
     basis = modes.reshape((modes.shape[0], dimension)).T
     if axes is not None:
-        basis = _symmetric_basis(basis, shape, symmetric_pairs(axes, shape), atol=atol)
+        pairs = symmetric_pairs(axes, shape, declared_pairs=symmetric_axis_pairs)
+        basis = _symmetric_basis(basis, shape, pairs, atol=atol)
     if basis.shape[1] == 0:
         return np.empty((0, 0)), []
 

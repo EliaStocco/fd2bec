@@ -588,6 +588,34 @@ class AtomicStructure:
 
         return R_flat, T_flat
 
+    def _combine_intrinsic_symmetry_projection(self, tensor: Tensor, projection):
+        """Intersect a structural symmetry projector with intrinsic tensor symmetry."""
+        if not tensor.symmetric_axes:
+            return projection
+
+        component_dimension = tensor.flatten_full().size
+
+        def apply_intrinsic(vector):
+            vector = np.asarray(vector, dtype=float)
+            if tensor.has_affine_axis:
+                components = tensor.apply_intrinsic_symmetry(vector[:-1])
+                return np.concatenate((components, vector[-1:]))
+            return tensor.apply_intrinsic_symmetry(vector)
+
+        if hasattr(projection, "matvec"):
+            return LinearOperator(
+                projection.shape,
+                matvec=lambda vector: apply_intrinsic(projection @ vector),
+                dtype=float,
+            )
+
+        intrinsic = tensor.intrinsic_symmetry_projection()
+        if tensor.has_affine_axis:
+            homogeneous = np.eye(component_dimension + 1)
+            homogeneous[:component_dimension, :component_dimension] = intrinsic
+            intrinsic = homogeneous
+        return intrinsic @ projection
+
     def _matrix_free_symmetry_projection(self, tensor: Tensor) -> tuple[LinearOperator, int]:
         """Return a matrix-free group projection and the dimension of its image.
 
@@ -646,26 +674,32 @@ class AtomicStructure:
         if not np.isclose(image_dimension, number_of_modes, atol=ATOL):
             raise ValueError("The symmetry projection must have an integer trace.")
 
-        return LinearOperator((dimension, dimension), matvec=matvec, dtype=float), number_of_modes
+        projection = LinearOperator((dimension, dimension), matvec=matvec, dtype=float)
+        projection = self._combine_intrinsic_symmetry_projection(tensor, projection)
+        return projection, number_of_modes
 
     def _matrix_free_symmetry_modes(
         self, tensor: Tensor, tensor_components: np.ndarray, atol: float
     ) -> tuple[LinearOperator, np.ndarray, np.ndarray]:
         """Construct invariant modes without materializing dense group operators."""
-        projection, number_of_modes = self._matrix_free_symmetry_projection(tensor)
+        projection, maximum_number_of_modes = self._matrix_free_symmetry_projection(tensor)
         dimension = tensor_components.size
-        if number_of_modes:
+        if maximum_number_of_modes:
             # The projected random vectors span the invariant subspace with
             # probability one. A fixed seed makes the displayed basis stable.
-            random_vectors = np.random.default_rng(0).standard_normal((dimension, number_of_modes))
+            random_vectors = np.random.default_rng(0).standard_normal(
+                (dimension, maximum_number_of_modes)
+            )
             projected_vectors = np.column_stack(
-                [projection @ random_vectors[:, index] for index in range(number_of_modes)]
+                [projection @ random_vectors[:, index] for index in range(maximum_number_of_modes)]
             )
             mode_basis, singular_values, _ = np.linalg.svd(projected_vectors, full_matrices=False)
-            if np.count_nonzero(singular_values > atol) != number_of_modes:
+            number_of_modes = np.count_nonzero(singular_values > atol)
+            if not tensor.symmetric_axes and number_of_modes != maximum_number_of_modes:
                 raise ValueError("Could not construct a complete symmetry-mode basis.")
             mode_basis = mode_basis[:, :number_of_modes]
         else:
+            number_of_modes = 0
             mode_basis = np.empty((dimension, 0))
 
         if np.any(np.isnan(tensor_components)):
@@ -737,7 +771,7 @@ class AtomicStructure:
             raise NotImplementedError
 
     def get_symmetry_projection(self, tensor: Tensor) -> np.ndarray:
-        """Return the projection onto tensor components allowed by this structure's symmetries."""
+        """Return the projector onto structurally and intrinsically allowed components."""
         if (
             not tensor.has_affine_axis
             and tensor.flatten_full().size > MATRIX_FREE_SYMMETRY_DIMENSION
@@ -746,7 +780,8 @@ class AtomicStructure:
         operations, translations = self.get_tensor_symmetry_operations(tensor=tensor)
         if tensor.has_affine_axis:
             operations = affine2homogeneous(operations, translations)
-        return np.mean(operations, axis=0)
+        projection = np.mean(operations, axis=0)
+        return self._combine_intrinsic_symmetry_projection(tensor, projection)
 
     def symmetrize(self, tensor: Tensor) -> Tensor:
         """Symmetrize ``tensor`` with this structure's symmetry projection."""
