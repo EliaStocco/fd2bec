@@ -854,7 +854,7 @@ class AtomicStructure:
 
         invariant_indices = np.where(eigenvalues > 0.5)[0]
         mode_basis = eigenvectors[:, invariant_indices]
-        if not np.allclose(mode_basis.imag, 0):
+        if not np.allclose(mode_basis.imag, 0, atol=atol):
             raise ValueError("Eigenvectors should be real")
         mode_basis = np.real(mode_basis)
 

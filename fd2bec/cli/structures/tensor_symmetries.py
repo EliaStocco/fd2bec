@@ -71,6 +71,11 @@ def _selected_basis(name: str, requested_basis: Basis | None):
     return requested_basis or ("fractional" if name == "positions" else "cartesian")
 
 
+def _count_with_percentage(count: int, total: int) -> str:
+    """Format a count relative to a non-zero total."""
+    return f"{count} out of {total} ({100 * count / total:.1f}%)"
+
+
 def _physical_modes(
     component_modes: np.ndarray,
     shape: tuple[int, ...],
@@ -126,7 +131,10 @@ def main(args: argparse.Namespace):
             axes=tensor.axes,
             fractional=basis == "fractional",
         )
-        print("n. symmetry-inequivalent component(s): ", len(pivots))
+        print(
+            "n. symmetry-inequivalent component(s):",
+            _count_with_percentage(len(pivots), int(np.prod(shape))),
+        )
         tensor.print_components(components)
         return
 
@@ -134,11 +142,22 @@ def main(args: argparse.Namespace):
     _, _, component_modes = unit_cell.get_symmetry_modes(tensor=tensor)
     print("done")
     modes = _physical_modes(component_modes, shape, affine=tensor.has_affine_axis)
-    print("n. symmetry-inequivalent component(s): ", len(modes))
-    finite_difference_displacements, _ = symmetry_inequivalent_displacements(
-        unit_cell, tensor, component_modes=component_modes
+    print(
+        "n. symmetry-inequivalent component(s):",
+        _count_with_percentage(len(modes), int(np.prod(shape))),
     )
-    print("n. finite-difference displacements required: ", len(finite_difference_displacements) - 1)
+    finite_difference_displacements, all_finite_difference_displacements = (
+        symmetry_inequivalent_displacements(
+            unit_cell, tensor, component_modes=component_modes
+        )
+    )
+    print(
+        "n. finite-difference displacements required:",
+        _count_with_percentage(
+            len(finite_difference_displacements) - 1,
+            len(all_finite_difference_displacements) - 1,
+        ),
+    )
 
     frame_label = "input"
     if args.conventional_axes:

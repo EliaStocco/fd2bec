@@ -10,7 +10,15 @@ from fd2bec.tensor_components import (
     symbolic_components,
     voigt_components,
 )
-from fd2bec.cli.structures.tensor_symmetries import _physical_modes, _selected_basis
+from fd2bec.cli.structures.tensor_symmetries import (
+    _count_with_percentage,
+    _physical_modes,
+    _selected_basis,
+)
+
+
+def test_count_with_percentage_reports_selected_and_total_counts():
+    assert _count_with_percentage(2, 9) == "2 out of 9 (22.2%)"
 
 
 def test_symbolic_components_use_independent_letters():

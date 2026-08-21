@@ -101,7 +101,7 @@ def _print_space_group(dataset, atoms, threshold):
     print(f"  Crystal class                : {pointgroup}")
     print(f"  Bravais lattice type         : {bravais_type}")
     print(f"  Number of symmetry operations: {len(dataset.rotations)}")
-    print(f"  Centrosymmetric            : {'yes' if centrosymmetric else 'no'}")
+    print(f"  Centrosymmetric              : {'yes' if centrosymmetric else 'no'}")
     # print()
     # print("Space-group details:")
     # print(f"  symmetry threshold : {threshold:.6g}")
