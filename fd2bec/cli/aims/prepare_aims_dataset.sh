@@ -13,7 +13,7 @@ input_file="${1:-dataset.extxyz}"
 output_dir="${2:-calculations}"
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 control_template="${AIMS_CONTROL_TEMPLATE:-$script_dir/aims.in}"
-aims_folder="${AIMS_FOLDER:-/home/stoccoel/codes/FHIaims-polarization/FHIaims-scalapack}"
+aims_folder="${AIMS_FOLDER:-fhi_aims_folder}"
 rerun_template="$script_dir/prepare_aims_dataset_rerun.sh.template"
 
 if [[ ! -f "$input_file" ]]; then
