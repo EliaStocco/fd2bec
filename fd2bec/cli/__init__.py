@@ -1,7 +1,11 @@
 import argparse
+import os
 import re
+import subprocess
 import sys
+import textwrap
 import time
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
 from typing import Union
@@ -14,6 +18,8 @@ KEYWORDS = {
     "displacements": "displacements",
     "strain": "strain",
 }
+
+PACKAGE_DIRECTORY = Path(__file__).resolve().parent
 
 
 def extract_n(file_path: Path):
@@ -70,6 +76,59 @@ def print_input_arguments(args: argparse.Namespace):
     print()
 
 
+def git_metadata(directory: Path) -> tuple[str, str]:
+    """Return the current Git branch and latest commit."""
+    try:
+        branch = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=directory,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if not branch:
+            branch = "detached HEAD"
+        commit = subprocess.run(
+            ["git", "log", "-1", "--format=%H %s"],
+            cwd=directory,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        return branch, commit or "no commits"
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return "unavailable", "unavailable"
+
+
+def python_environment() -> str:
+    """Describe the active Python environment using standard markers."""
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        name = os.environ.get("CONDA_DEFAULT_ENV", Path(conda_prefix).name)
+        return f"conda: {name} ({conda_prefix})"
+
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    if virtual_env:
+        return f"virtualenv: {Path(virtual_env).name} ({virtual_env})"
+
+    pyenv_version = os.environ.get("PYENV_VERSION")
+    if pyenv_version:
+        return f"pyenv: {pyenv_version} ({sys.prefix})"
+
+    for location in (Path(sys.executable), Path(sys.prefix)):
+        if ".pyenv" in location.parts:
+            index = location.parts.index(".pyenv")
+            if (
+                location.parts[index + 1 : index + 2] == ("versions",)
+                and len(location.parts) > index + 2
+            ):
+                return f"pyenv: {location.parts[index + 2]} ({sys.prefix})"
+
+    if sys.prefix != sys.base_prefix:
+        return f"virtual environment ({sys.prefix})"
+    return f"system Python ({sys.prefix})"
+
+
 def cli(prepare_parser=None, description=None):
     """
     Minimal decorator for CLI scripts.
@@ -86,6 +145,7 @@ def cli(prepare_parser=None, description=None):
         @wraps(main_func)
         def wrapper():
             start = time.time()
+            started_at = datetime.now().astimezone().strftime("%A, %d %B %Y at %H:%M:%S %Z")
 
             # --- build parser ---
             if prepare_parser is not None:
@@ -97,15 +157,25 @@ def cli(prepare_parser=None, description=None):
             # # --- header ---
             print()
             print("@-------------------------------------------")
-            if description:
-                print("@ Description: ")
-                print(description)
-
             print("@ Running: ", end="")
             print(f"{' '.join(sys.argv)}")
+            print(f"@ Started: {started_at}")
+            working_directory = Path.cwd()
+            branch, commit = git_metadata(PACKAGE_DIRECTORY)
+            print(f"@ Working directory: {working_directory}")
+            print(f"@ Git branch: {branch}")
+            print(f"@ Last commit: {commit}")
+            print(f"@ Python: {sys.version.split()[0]} ({sys.executable})")
+            print(f"@ Python environment: {python_environment()}")
 
             # --- run main ---
-            print("@ Let's start!\n")
+            print("@ Let's start!")
+            if description:
+                print("\n\tDescription:")
+                print(textwrap.indent(description, "\t"))
+            else:
+                print()
+            print()
             print_input_arguments(args)
             with RedirectStdout():
                 result = main_func(args)

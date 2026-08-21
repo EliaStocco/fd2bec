@@ -3,6 +3,7 @@ import numpy as np
 from fd2bec.tensor_components import (
     _symmetric_basis,
     flattened_nuclear_position_matrix,
+    parameter_name,
     print_components,
     print_independent_components,
     symmetric_pairs,
@@ -28,6 +29,17 @@ def test_symbolic_components_use_independent_letters():
 
     assert pivots == [0, 1]
     assert symbolic.tolist() == ["a", "b", "a + b"]
+
+
+def test_symbolic_parameter_names_continue_with_numbered_alphabets():
+    assert [parameter_name(index) for index in (0, 25, 26, 51, 52, 77)] == [
+        "a",
+        "z",
+        "a1",
+        "z1",
+        "a2",
+        "z2",
+    ]
 
 
 def test_symbolic_components_with_no_modes_returns_zero_tensor():

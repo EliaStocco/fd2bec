@@ -147,9 +147,7 @@ def main(args: argparse.Namespace):
         _count_with_percentage(len(modes), int(np.prod(shape))),
     )
     finite_difference_displacements, all_finite_difference_displacements = (
-        symmetry_inequivalent_displacements(
-            unit_cell, tensor, component_modes=component_modes
-        )
+        symmetry_inequivalent_displacements(unit_cell, tensor, component_modes=component_modes)
     )
     print(
         "n. finite-difference displacements required:",

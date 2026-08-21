@@ -507,6 +507,7 @@ def main(args):
     structures = fd2bec_read(args.structures_output, index=":")
     if not structures:
         raise ValueError("Displacement generation produced no structures.")
+    print(f"EXPECTED_GEOMETRY_FILES={len(structures)}")
     requested_csc = args.use_csc
     if len(structures) == 1:
         args.use_csc = False

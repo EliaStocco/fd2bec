@@ -1,14 +1,12 @@
-
-import pytest
-from fd2bec.io import read
 from pathlib import Path
-
-from fd2bec.atomic import AtomicStructure
 from typing import Dict, Tuple, Type
 
-# # from fd2bec.conftest import structure # noqa: F401
-from fd2bec.tensor import BornCharges, Forces, Position, Dipole, Stress, Tensor
+import numpy as np
+import pytest
 
+from fd2bec.atomic import AtomicStructure
+from fd2bec.io import read
+from fd2bec.tensor import BornCharges, Dipole, Forces, Position, Stress, Tensor
 
 instructions: Dict[str, Tuple[str, type]] = {
     "positions": ("array", Position),
@@ -63,6 +61,37 @@ def test_theta_length_periodic(sg_case):
     for key in lengths["fractional"]:
         assert lengths["fractional"][key] == lengths["cartesian"][key], \
             f"len(theta) depends on basis for {key}"
+
+
+def test_nonorthogonal_projection_uses_a_real_mode_basis(monkeypatch):
+    """A degenerate real eigenspace may be returned with complex eigenvectors."""
+    projection = np.array(
+        [
+            [1.0, 0.5, 0.0],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+        ]
+    )
+    tensor = Forces(data=np.zeros((1, 3)), basis="fractional")
+    structure = object.__new__(AtomicStructure)
+    monkeypatch.setattr(
+        AtomicStructure, "get_symmetry_projection", lambda _self, tensor: projection
+    )
+
+    original_eig = np.linalg.eig
+
+    def eig_with_complex_invariant_vector(matrix):
+        eigenvalues, eigenvectors = original_eig(matrix)
+        eigenvectors = eigenvectors.astype(complex)
+        eigenvectors[:, eigenvalues > 0.5] *= 1j
+        return eigenvalues, eigenvectors
+
+    monkeypatch.setattr(np.linalg, "eig", eig_with_complex_invariant_vector)
+
+    _, _, modes = structure.get_symmetry_modes(tensor)
+
+    assert np.isrealobj(modes)
+    np.testing.assert_allclose(projection @ modes.T, modes.T)
 
 @pytest.mark.parametrize("basis",["fractional","cartesian"])
 def test_symmetry_modes_for_periodic_structure(sg_case,basis):

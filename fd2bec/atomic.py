@@ -853,9 +853,20 @@ class AtomicStructure:
             raise ValueError("Eigenvalues should be 0 or 1.")
 
         invariant_indices = np.where(eigenvalues > 0.5)[0]
-        mode_basis = eigenvectors[:, invariant_indices]
+        if symmetric_projection:
+            mode_basis = eigenvectors[:, invariant_indices]
+        else:
+            # A real, non-orthogonal projection can have a degenerate
+            # invariant eigenspace.  ``eig`` is then free to return a complex
+            # basis for that otherwise real space.  The left singular vectors
+            # span the image of the projection and provide a real,
+            # orthonormal basis instead.
+            mode_basis = np.linalg.svd(projection, full_matrices=False)[0][
+                :, : len(invariant_indices)
+            ]
+
         if not np.allclose(mode_basis.imag, 0, atol=atol):
-            raise ValueError("Eigenvectors should be real")
+            raise ValueError("Symmetry-mode basis should be real.")
         mode_basis = np.real(mode_basis)
 
         # Express the supplied tensor in the invariant-mode basis.

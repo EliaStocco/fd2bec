@@ -11,7 +11,9 @@ CARTESIAN_LABELS = ("x", "y", "z")
 
 def parameter_name(index: int) -> str:
     """Return a readable name for an independent tensor parameter."""
-    return chr(ord("a") + index) if index < 26 else f"a{index + 1}"
+    letter = chr(ord("a") + index % 26)
+    suffix = index // 26
+    return letter if suffix == 0 else f"{letter}{suffix}"
 
 
 def _independent_columns(basis: np.ndarray, atol: float) -> np.ndarray:
