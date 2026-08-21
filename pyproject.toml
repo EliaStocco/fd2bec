@@ -55,7 +55,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
-fd2bec = ["structures/*.extxyz", "*.mplstyle"]
+fd2bec = ["structures/*.extxyz", "*.mplstyle", "cli/aims/*.sh", "cli/aims/*.template"]
 
 [tool.setuptools.packages.find]
 include = ["fd2bec*"]
@@ -79,6 +79,8 @@ line-length = 100
 get_basis_functions_fhi_aims = "fd2bec.cli.aims.get_basis_functions_fhi_aims:main"
 post_process_aims = "fd2bec.cli.aims.post_process_aims:main"
 prepare_aims = "fd2bec.cli.aims.prepare_aims:main"
+prepare_aims_dataset = "fd2bec.cli.aims.prepare_aims_dataset:main"
+rerun_prepare_aims = "fd2bec.cli.aims.rerun_prepare_aims:main"
 
 # --- dFdE ---
 build_dataset4dFdE = "fd2bec.cli.dFdE.build_dataset4dFdE:main"

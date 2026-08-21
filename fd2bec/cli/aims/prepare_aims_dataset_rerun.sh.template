@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Recreate this folder's prepare_aims outputs from start.extxyz.
+set -Eeuo pipefail
+
+control_template='__CONTROL_TEMPLATE__'
+aims_folder='__AIMS_FOLDER__'
+
+cd -- "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+# The remaining files are all produced by the preparation workflow.
+rm -rf -- geometries
+rm -f -- \
+    symmetries.txt \
+    control.in control.first.in control.general.in control.other.in \
+    species.tight.in \
+    displaced-structures.extxyz displacements.txt \
+    fd2bec-log.txt sourceme.sh summary.txt
+
+: > summary.txt
+space_group -i start.extxyz > symmetries.txt 2>> summary.txt
+tensor_symmetries -i start.extxyz -n bec --basis fractional >> symmetries.txt 2>> summary.txt
+cp -- "$control_template" control.in 2>> summary.txt
+prepare_aims \
+    -i start.extxyz \
+    --basis tight \
+    --aims-folder "$aims_folder" \
+    2>&1 | tee -a summary.txt
+
+rm -f -- fd2bec-log.txt
