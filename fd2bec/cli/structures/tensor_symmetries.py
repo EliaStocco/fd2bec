@@ -3,6 +3,7 @@
 # Tested by pytest: tests/test_tensor_symmetries.py
 
 import argparse
+from typing import Optional
 
 import numpy as np
 
@@ -67,7 +68,7 @@ def _rotated_modes(tensor: Tensor, modes: np.ndarray, coordinate_rotation: np.nd
     )
 
 
-def _selected_basis(name: str, requested_basis: Basis | None):
+def _selected_basis(name: str, requested_basis: Optional[Basis]):
     return requested_basis or ("fractional" if name == "positions" else "cartesian")
 
 
