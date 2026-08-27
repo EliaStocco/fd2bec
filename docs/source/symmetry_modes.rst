@@ -73,6 +73,27 @@ Suppose the structure has ``M`` allowed operations, represented by
 This matrix ``P`` is called a projection because it removes the forbidden
 parts of a vector and keeps the allowed parts.
 
+Formally, ``P`` is a projection: it is idempotent, meaning that
+``P^2 = P``. The allowed operations form a finite group, so the product of
+any two operations is another operation in the same list. Hence
+
+.. math::
+
+   \begin{aligned}
+   P^2
+   &= \left(\frac{1}{M}\sum_{g=1}^{M}G_g\right)
+      \left(\frac{1}{M}\sum_{h=1}^{M}G_h\right) \\
+   &= \frac{1}{M^2}\sum_{h=1}^{M}\sum_{g=1}^{M}G_gG_h \\
+   &= \frac{1}{M^2}\sum_{h=1}^{M}\sum_{\ell=1}^{M}G_\ell
+    = \frac{1}{M}\sum_{\ell=1}^{M}G_\ell
+    = P.
+   \end{aligned}
+
+In the third line, for each fixed ``G_h``, right multiplication by ``G_h``
+only permutes the group elements, so ``\{G_gG_h\}`` is the same set as
+``\{G_\ell\}``. Thus applying the average twice has exactly the same effect
+as applying it once.
+
 For the reflection example,
 
 .. math::
@@ -100,20 +121,77 @@ Why does averaging work?
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Applying one more allowed operation only rearranges the terms in the average.
-The average therefore does not change:
+For every operation ``G_k``,
 
 .. math::
 
-   G_k P = P.
+   G_k P
+   = \frac{1}{M}\sum_{g=1}^{M}G_kG_g
+   = \frac{1}{M}\sum_{g=1}^{M}G_g
+   = P.
 
 Consequently, every vector produced by ``P`` is unchanged by every symmetry.
-The vectors that satisfy
+
+Why not solve each constraint separately?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+That is a valid and equivalent approach. Imposing every symmetry condition
+``G_g x = x`` separately gives the stacked linear system
+
+.. math::
+
+   A\mathbf{x}=0,
+   \qquad
+   A=
+   \begin{pmatrix}
+   G_1-I \\
+   G_2-I \\
+   \vdots \\
+   G_M-I
+   \end{pmatrix}.
+
+Its null space is the set of vectors unchanged by every operation. Let this
+set be ``V_fixed``. The eigenvalue-one space of ``P`` is exactly the same
+space. First, if ``\mathbf{x} \in V_{\mathrm{fixed}}``, each term in the
+average is ``\mathbf{x}``, and therefore
+
+.. math::
+
+   P\mathbf{x}
+   = \frac{1}{M}\sum_{g=1}^{M}G_g\mathbf{x}
+   = \frac{1}{M}\sum_{g=1}^{M}\mathbf{x}
+   = \mathbf{x}.
+
+Conversely, suppose
 
 .. math::
 
    P\mathbf{x} = \mathbf{x}
 
-are exactly the symmetry-allowed vectors.
+for some vector ``\mathbf{x}``. For any ``G_k``, the identity ``G_kP=P``
+above gives
+
+.. math::
+
+   G_k\mathbf{x}
+   = G_kP\mathbf{x}
+   = P\mathbf{x}
+   = \mathbf{x}.
+
+Thus ``\mathbf{x}`` is unchanged by every symmetry and belongs to
+``V_fixed``. In other words,
+
+.. math::
+
+   \ker(P-I) = \ker A = V_{\mathrm{fixed}}.
+
+The direct method finds this space, usually through the null space of ``A``
+(or the zero-eigenvalue space of ``A^T A``). Averaging is useful because it
+also supplies the operator that symmetrizes an arbitrary vector:
+``P\mathbf{x}`` is already in ``V_fixed``. For exact operations, its
+idempotence also gives a particularly simple spectrum: eigenvalue ``1`` on
+the allowed space and ``0`` on the rest. In contrast, finding the null space
+through ``A^T A`` squares its numerical conditioning.
 
 How a tensor becomes a vector
 -----------------------------
