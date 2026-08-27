@@ -407,7 +407,7 @@ def main(args):
     write_tensor_extxyz(
         file,
         reference,
-        rotate_rank3(result.proper.data, coordinate_rotation),
+        reported_proper_voigt,
         key,
         per_atom=False,
     )

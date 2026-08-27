@@ -88,7 +88,13 @@ def tensor_data_from_atoms(atoms: Atoms, keyword: str, tensor_name: str):
 
 
 def tensor_from_atoms(atoms: Atoms, keyword: str, tensor_name: str, tensor_class, template, basis):
-    """Construct an fd2bec tensor from an ASE field in the requested basis."""
+    """Construct an fd2bec tensor from an ASE field in the requested basis.
+
+    Standard Voigt data are expanded to the tensor's explicit Cartesian axes.
+    Consequently, piezoelectric tensors can be read from either the current
+    ``(3, 6)`` representation or the legacy ``(3, 3, 3)`` representation used
+    internally by the tensor-symmetry machinery.
+    """
     data, location = tensor_data_from_atoms(atoms, keyword, tensor_name)
     data = expand_voigt_data(data, template)
     tensor = tensor_class(data=np.asarray(data, dtype=float), cell=atoms.cell, basis="cartesian")

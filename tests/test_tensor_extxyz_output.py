@@ -16,9 +16,9 @@ def test_per_atom_tensor_extxyz_uses_the_default_bec_key(tmp_path):
     np.testing.assert_allclose(saved.arrays[KEYWORDS["bec"]], bec.reshape((2, 9)))
 
 
-def test_global_tensor_extxyz_uses_the_default_piezoelectric_key(tmp_path):
+def test_global_tensor_extxyz_preserves_voigt_piezoelectric_shape(tmp_path):
     atoms = Atoms("H", cell=[2, 2, 2], pbc=True)
-    piezoelectric = np.arange(27.0).reshape((3, 3, 3))
+    piezoelectric = np.arange(18.0).reshape((3, 6))
     output = tmp_path / "piezoelectric.extxyz"
 
     write_tensor_extxyz(

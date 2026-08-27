@@ -23,7 +23,7 @@ from fd2bec.tensor_components import (
     symmetric_pairs,
     voigt_components,
 )
-from fd2bec.tools import tensor_data_from_atoms
+from fd2bec.tools import tensor_data_from_atoms, tensor_from_atoms
 
 
 def test_count_with_percentage_reports_selected_and_total_counts():
@@ -98,6 +98,32 @@ def test_standard_ase_stress_voigt_value_is_expanded():
         expanded,
         [[1.0, 6.0, 5.0], [6.0, 2.0, 4.0], [5.0, 4.0, 3.0]],
     )
+
+
+@pytest.mark.parametrize("shape", [(3, 6), (3, 3, 3)])
+def test_piezoelectric_tensor_supports_voigt_and_legacy_cartesian_data(shape):
+    from ase import Atoms
+
+    from fd2bec.piezoelectric import voigt_to_piezoelectric
+    from fd2bec.tensor import ProperPiezoelectricTensor
+
+    voigt = np.arange(18.0).reshape((3, 6))
+    stored_data = voigt if shape == (3, 6) else voigt_to_piezoelectric(voigt)
+    atoms = Atoms("H", cell=np.eye(3), pbc=True)
+    atoms.info["piezoelectric"] = stored_data
+    template = ProperPiezoelectricTensor.template()
+
+    tensor, location = tensor_from_atoms(
+        atoms,
+        "piezoelectric",
+        "piezo",
+        ProperPiezoelectricTensor,
+        template,
+        "cartesian",
+    )
+
+    assert location == "atoms.info"
+    np.testing.assert_allclose(tensor.data, voigt_to_piezoelectric(voigt))
 
 
 def test_numeric_tensor_prints_independent_values_and_checks_zeros(capsys):

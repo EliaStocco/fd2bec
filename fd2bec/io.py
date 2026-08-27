@@ -1,7 +1,7 @@
 from fractions import Fraction
 from math import gcd
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 from warnings import warn
 
 import numpy as np
@@ -19,6 +19,166 @@ def inferred_output_format(output: Path):
 
 def write(*argv, **kwargs):
     return ase_write(*argv, **kwargs)
+
+
+def read_numeric_data(filename: Union[str, Path]) -> np.ndarray:
+    """Read numeric whitespace- or comma-delimited data from ``filename``.
+
+    The returned array always has at least one dimension, so a file containing
+    one number can be used as a structure-level scalar property.
+    """
+    filename = Path(filename)
+    delimiter = "," if filename.suffix.lower() == ".csv" else None
+    return np.loadtxt(filename, delimiter=delimiter, ndmin=1)
+
+
+def add_extxyz_data(
+    structures: Iterable[Atoms],
+    data,
+    name: str,
+    what: str,
+    *,
+    replicate: bool = False,
+) -> List[Atoms]:
+    """Return copies of structures with numeric data added under ``name``.
+
+    ``what`` selects ``"info"`` for one value per structure or ``"arrays"``
+    for one value per atom. Per-atom data is reshaped to
+    ``(n_structures, n_atoms, -1)``; therefore every structure must contain
+    the same number of atoms.
+    """
+    structures = list(structures)
+    if not structures:
+        raise ValueError("The input extxyz contains no structures.")
+    if not name:
+        raise ValueError("The data name cannot be empty.")
+
+    location = {
+        "i": "info",
+        "info": "info",
+        "a": "arrays",
+        "array": "arrays",
+        "arrays": "arrays",
+    }
+    try:
+        what = location[what.lower()]
+    except (AttributeError, KeyError) as error:
+        raise ValueError("'what' must be 'i'/'info' or 'a'/'array'/'arrays'.") from error
+
+    data = np.asarray(data)
+    if replicate:
+        data = np.repeat(data[np.newaxis, ...], len(structures), axis=0)
+
+    if what == "info":
+        if data.ndim == 0:
+            if len(structures) != 1:
+                raise ValueError(
+                    "Scalar data can only be assigned to one structure; use replicate=True "
+                    "to assign it to every structure."
+                )
+            values = data.reshape(1)
+        else:
+            if data.shape[0] != len(structures):
+                raise ValueError(
+                    f"Info data has {data.shape[0]} entries but the input has "
+                    f"{len(structures)} structures."
+                )
+            values = data
+    else:
+        atom_counts = {len(atoms) for atoms in structures}
+        if len(atom_counts) != 1:
+            raise ValueError(
+                "Per-atom data requires every input structure to have the same atom count."
+            )
+        n_atoms = atom_counts.pop()
+        expected = len(structures) * n_atoms
+        if data.size % expected:
+            raise ValueError(
+                f"Per-atom data contains {data.size} values, which cannot be reshaped "
+                f"for {len(structures)} structures with {n_atoms} atoms each."
+            )
+        values = data.reshape((len(structures), n_atoms, -1))
+
+    output = []
+    for index, atoms in enumerate(structures):
+        updated = atoms.copy()
+        if what == "info":
+            updated.info[name] = values[index]
+        else:
+            updated.set_array(name, values[index])
+        output.append(updated)
+    return output
+
+
+def add_born_effective_charges(
+    structures: Iterable[Atoms], data, *, key: str = "REF_BEC", replicate: bool = False
+) -> List[Atoms]:
+    """Attach flattened 3-by-3 Born effective charge tensors to structures.
+
+    ``data`` must contain nine components for every atom in every structure.
+    Set ``replicate`` to use one structure's BECs for every structure in a
+    trajectory.
+    """
+    structures = list(structures)
+    if not structures:
+        raise ValueError("The input extxyz contains no structures.")
+    atom_counts = {len(atoms) for atoms in structures}
+    if len(atom_counts) != 1:
+        raise ValueError("BEC data requires every input structure to have the same atom count.")
+    n_atoms = atom_counts.pop()
+    per_structure = n_atoms * 9
+    values = np.asarray(data, dtype=float)
+    expected = per_structure if replicate else len(structures) * per_structure
+    if values.size != expected:
+        raise ValueError(
+            f"BEC data has {values.size} values; expected {expected} "
+            f"({n_atoms} atoms × 9 components" + (")." if replicate else " per structure).")
+        )
+    values = values.reshape((1 if replicate else len(structures), n_atoms, 9))
+    if replicate:
+        values = np.repeat(values, len(structures), axis=0)
+
+    output = []
+    for index, atoms in enumerate(structures):
+        updated = atoms.copy()
+        updated.set_array(key, values[index])
+        output.append(updated)
+    return output
+
+
+def add_proper_piezoelectric_tensors(
+    structures: Iterable[Atoms],
+    data,
+    *,
+    key: str = "REF_piezoelectric",
+    replicate: bool = False,
+) -> List[Atoms]:
+    """Attach 3-by-6 proper piezoelectric tensors to structure metadata.
+
+    The input uses the project's Voigt order: ``xx, yy, zz, yz, xz, xy``.
+    Set ``replicate`` to apply one tensor to every structure in a trajectory.
+    """
+    structures = list(structures)
+    if not structures:
+        raise ValueError("The input extxyz contains no structures.")
+    values = np.asarray(data, dtype=float)
+    per_structure = 18
+    expected = per_structure if replicate else len(structures) * per_structure
+    if values.size != expected:
+        raise ValueError(
+            f"Proper piezoelectric data has {values.size} values; expected {expected} "
+            "(3 × 6 components per structure)."
+        )
+    values = values.reshape((1 if replicate else len(structures), 3, 6))
+    if replicate:
+        values = np.repeat(values, len(structures), axis=0)
+
+    output = []
+    for index, atoms in enumerate(structures):
+        updated = atoms.copy()
+        updated.info[key] = values[index]
+        output.append(updated)
+    return output
 
 
 def write_tensor_extxyz(output: Path, atoms: Atoms, data, keyword: str, *, per_atom: bool) -> None:
