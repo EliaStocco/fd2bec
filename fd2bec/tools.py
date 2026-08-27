@@ -4,6 +4,8 @@ from ase import Atoms
 from ase.data import atomic_numbers
 from ase.utils import atoms_to_spglib_cell
 
+from fd2bec.tensor_components import expand_voigt_data
+
 
 def symbols2numbers(symbols):
     return [atomic_numbers[s] for s in symbols]
@@ -62,6 +64,59 @@ def atoms2bec(atoms: Atoms, keyword: str) -> np.ndarray:
     bec[:, :, 1] = ref_becy
     bec[:, :, 2] = ref_becz
     return bec  # .reshape((len(atoms), 3, 3))
+
+
+def tensor_data_from_atoms(atoms: Atoms, keyword: str, tensor_name: str):
+    """Return tensor data stored under an ASE info or array key."""
+    if keyword in atoms.arrays:
+        return np.asarray(atoms.arrays[keyword]), "atoms.arrays"
+    if keyword in atoms.info:
+        return np.asarray(atoms.info[keyword]), "atoms.info"
+
+    # Some extended-XYZ writers store a Born-charge matrix as three
+    # per-atom vector columns because ASE cannot represent a rank-three
+    # per-atom array directly.
+    split_keys = tuple(f"{keyword}{axis}" for axis in "xyz")
+    if tensor_name == "bec" and all(key in atoms.arrays for key in split_keys):
+        return atoms2bec(atoms, keyword), "atoms.arrays (split x/y/z fields)"
+
+    available = sorted(set(atoms.arrays) | set(atoms.info))
+    raise ValueError(
+        f"Tensor keyword {keyword!r} was not found in atoms.arrays or atoms.info. "
+        f"Available keys: {available}"
+    )
+
+
+def tensor_from_atoms(atoms: Atoms, keyword: str, tensor_name: str, tensor_class, template, basis):
+    """Construct an fd2bec tensor from an ASE field in the requested basis."""
+    data, location = tensor_data_from_atoms(atoms, keyword, tensor_name)
+    data = expand_voigt_data(data, template)
+    tensor = tensor_class(data=np.asarray(data, dtype=float), cell=atoms.cell, basis="cartesian")
+    if tensor.data.shape != template.core_shape():
+        raise ValueError(
+            f"Tensor keyword {keyword!r} has shape {tensor.data.shape}; "
+            f"expected {template.core_shape()}."
+        )
+    if basis != "cartesian":
+        tensor = tensor.to(basis=basis)
+    return tensor, location
+
+
+def shift_first_atom_to_origin(atoms: Atoms) -> Atoms:
+    """Return a periodically equivalent copy with atom 0 at the fractional origin."""
+    if len(atoms) == 0:
+        raise ValueError("Cannot shift an empty structure.")
+    if not np.all(atoms.get_pbc()):
+        raise ValueError("Shifting to a fractional origin requires a fully periodic structure.")
+
+    shifted = atoms.copy()
+    fractional_positions = atoms.get_scaled_positions(wrap=False)
+    fractional_positions -= fractional_positions[0]
+    fractional_positions %= 1.0
+    fractional_positions[np.isclose(fractional_positions, 1.0, atol=1e-12, rtol=0.0)] = 0.0
+    fractional_positions[0] = 0.0
+    shifted.set_scaled_positions(fractional_positions)
+    return shifted
 
 
 def symmetrize_bec(structure: Atoms, bec: np.ndarray) -> np.ndarray:

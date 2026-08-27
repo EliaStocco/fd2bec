@@ -3,23 +3,27 @@
 # Tested by pytest: tests/test_tensor_symmetries.py
 
 import argparse
-from typing import Optional
 
 import numpy as np
 
-from fd2bec import ATOL, Basis
-from fd2bec._tensor_base import Tensor
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import cli
+from fd2bec.cli import cli, count_with_percentage, positive_int
 from fd2bec.displacements import symmetry_inequivalent_displacements
 from fd2bec.io import read
 from fd2bec.show import print_reference_structure
 from fd2bec.tensor import MAPPING
 from fd2bec.tensor_components import (
+    affine_parameter_values,
+    physical_modes,
     print_independent_components,
+    print_numeric_tensor,
+    rotate_modes,
+    selected_tensor_basis,
+    selected_tensor_precision,
     symbolic_affine_components,
     symbolic_components,
 )
+from fd2bec.tools import tensor_from_atoms
 
 description = "Show the symmetry-allowed components of a tensor."
 choices = list(MAPPING.keys())
@@ -46,6 +50,17 @@ def prepare_args(descr: str):
         choices=choices,
     )
     parser.add_argument(
+        "-k",
+        "--keyword",
+        **argv,
+        type=str,
+        default=None,
+        help=(
+            "optional ASE atoms.info or atoms.arrays key containing the numeric tensor; "
+            "values are interpreted as Cartesian"
+        ),
+    )
+    parser.add_argument(
         "--conventional_axes",
         action="store_true",
         help="rotate Cartesian tensor components into spglib's conventional axes",
@@ -56,44 +71,16 @@ def prepare_args(descr: str):
         default=None,
         help="component basis; defaults to fractional for positions and Cartesian otherwise",
     )
-    return parser
-
-
-def _rotated_modes(tensor: Tensor, modes: np.ndarray, coordinate_rotation: np.ndarray):
-    """Rotate each tensor mode into a new Cartesian coordinate frame."""
-    if not len(modes):
-        return modes.copy()
-    return np.asarray(
-        [tensor.copy_with(data=mode).rotate(coordinate_rotation).data for mode in modes]
+    parser.add_argument(
+        "--precision",
+        type=positive_int,
+        default=None,
+        help=(
+            "significant digits used to display numeric tensor components; "
+            "defaults to 4 for positions and unrestricted otherwise"
+        ),
     )
-
-
-def _selected_basis(name: str, requested_basis: Optional[Basis]):
-    return requested_basis or ("fractional" if name == "positions" else "cartesian")
-
-
-def _count_with_percentage(count: int, total: int) -> str:
-    """Format a count relative to a non-zero total."""
-    return f"{count} out of {total} ({100 * count / total:.1f}%)"
-
-
-def _physical_modes(
-    component_modes: np.ndarray,
-    shape: tuple[int, ...],
-    *,
-    affine: bool,
-    atol: float = ATOL,
-):
-    """Reshape modes and discard homogeneous-only affine coordinates."""
-    modes = component_modes.reshape((component_modes.shape[0], *shape))
-    if not len(modes):
-        return modes
-    norms = np.linalg.norm(modes.reshape((len(modes), -1)), axis=1)
-    if affine:
-        return modes[norms > atol]
-    if not np.allclose(norms, 1, atol=atol):
-        raise ValueError("Symmetry modes must be normalized.")
-    return modes
+    return parser
 
 
 @cli(prepare_args, description)
@@ -104,7 +91,8 @@ def main(args: argparse.Namespace):
 
     print_reference_structure(reference)
     unit_cell = AtomicStructure.from_ase(reference)
-    basis = _selected_basis(args.name, args.basis)
+    basis = selected_tensor_basis(args.name, args.basis)
+    precision = selected_tensor_precision(args.name, getattr(args, "precision", None))
     if basis == "fractional" and not unit_cell.pbc:
         raise ValueError("Fractional tensor components require a periodic structure.")
     if basis == "fractional" and args.conventional_axes:
@@ -121,6 +109,21 @@ def main(args: argparse.Namespace):
     shape = tensor.core_shape()
     print(f"Constructed {tensor.definition['name']} tensor with shape {shape} in {basis} basis.")
 
+    numeric_tensor = None
+    tensor_location = None
+    keyword = getattr(args, "keyword", None)
+    if keyword is not None:
+        print(f"Extracting numeric tensor {keyword!r} from the structure ... ", end="")
+        numeric_tensor, tensor_location = tensor_from_atoms(
+            reference,
+            keyword,
+            args.name,
+            tensor_class,
+            tensor,
+            basis,
+        )
+        print("done")
+
     if args.name == "positions":
         print("\nComputing symmetry-allowed displacement modes ... ", end="")
         _, _, displacement_modes = unit_cell.get_displacement_symmetry_modes(tensor)
@@ -134,25 +137,43 @@ def main(args: argparse.Namespace):
         )
         print(
             "n. symmetry-inequivalent component(s):",
-            _count_with_percentage(len(pivots), int(np.prod(shape))),
+            count_with_percentage(len(pivots), int(np.prod(shape))),
         )
         tensor.print_components(components)
+        if numeric_tensor is not None:
+            parameter_values = affine_parameter_values(
+                tensor.data,
+                numeric_tensor.data,
+                displacement_modes,
+                axes=tensor.axes,
+                fractional=basis == "fractional",
+            )
+            print_numeric_tensor(
+                numeric_tensor,
+                keyword,
+                tensor_location,
+                pivots,
+                components,
+                frame_label="input",
+                parameter_values=parameter_values,
+                precision=precision,
+            )
         return
 
     print("\nComputing symmetry-allowed components ... ", end="")
     _, _, component_modes = unit_cell.get_symmetry_modes(tensor=tensor)
     print("done")
-    modes = _physical_modes(component_modes, shape, affine=tensor.has_affine_axis)
+    modes = physical_modes(component_modes, shape, affine=tensor.has_affine_axis)
     print(
         "n. symmetry-inequivalent component(s):",
-        _count_with_percentage(len(modes), int(np.prod(shape))),
+        count_with_percentage(len(modes), int(np.prod(shape))),
     )
     finite_difference_displacements, all_finite_difference_displacements = (
         symmetry_inequivalent_displacements(unit_cell, tensor, component_modes=component_modes)
     )
     print(
         "n. finite-difference displacements required:",
-        _count_with_percentage(
+        count_with_percentage(
             len(finite_difference_displacements) - 1,
             len(all_finite_difference_displacements) - 1,
         ),
@@ -164,7 +185,9 @@ def main(args: argparse.Namespace):
             unit_cell._spglib_dataset.std_rotation_matrix,
             dtype=float,  # pylint: disable=protected-access
         )
-        modes = _rotated_modes(tensor, modes, coordinate_rotation)
+        modes = rotate_modes(tensor, modes, coordinate_rotation)
+        if numeric_tensor is not None:
+            numeric_tensor = numeric_tensor.rotate(coordinate_rotation)
         frame_label = "conventional"
         print("Rotating Cartesian components into conventional crystallographic axes.")
         print("Cartesian coordinate rotation (conventional <- input):")
@@ -178,6 +201,16 @@ def main(args: argparse.Namespace):
     print_independent_components(pivots, shape, tensor.axes)
     print(f"\nSymmetry-allowed tensor components ({frame_label} axes):")
     tensor.print_components(symbolic)
+    if numeric_tensor is not None:
+        print_numeric_tensor(
+            numeric_tensor,
+            keyword,
+            tensor_location,
+            pivots,
+            symbolic,
+            frame_label=frame_label,
+            precision=precision,
+        )
 
 
 if __name__ == "__main__":

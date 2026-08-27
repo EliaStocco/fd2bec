@@ -130,6 +130,7 @@ tools = "fd2bec.cli.tools:main"
 
 # --- structures ---
 convert_format = "fd2bec.cli.structures.convert_format:main"
+shift_origin = "fd2bec.cli.structures.shift_origin:main"
 sort_structure = "fd2bec.cli.structures.sort_structure:main"
 space_group = "fd2bec.cli.structures.space_group:main"
 space_group_dataset = "fd2bec.cli.structures.space_group_dataset:main"

@@ -22,6 +22,19 @@ KEYWORDS = {
 PACKAGE_DIRECTORY = Path(__file__).resolve().parent
 
 
+def positive_int(value: str) -> int:
+    """Parse a strictly positive integer for an argparse option."""
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("value must be a positive integer")
+    return parsed
+
+
+def count_with_percentage(count: int, total: int) -> str:
+    """Format a count relative to a non-zero total."""
+    return f"{count} out of {total} ({100 * count / total:.1f}%)"
+
+
 def extract_n(file_path: Path):
     m = re.search(r"n=(\d+)", file_path.name)
     return int(m.group(1)) if m else float("inf")

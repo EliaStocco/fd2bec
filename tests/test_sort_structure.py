@@ -1,9 +1,11 @@
 import numpy as np
 import pytest
 from ase import Atoms
+from ase.io import read, write
 
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli.structures.sort_structure import sort_atoms_like
+from fd2bec.cli.structures import sort_structure
+from fd2bec.structure_alignment import sort_atoms_like
 
 
 def test_reordered_like_matches_reference_order_for_periodic_structure():
@@ -45,7 +47,7 @@ def test_sort_atoms_like_reorders_ase_arrays_with_the_atoms():
     assert ordered.info == {"source": "candidate"}
 
 
-def test_sort_atoms_like_uses_nearest_periodic_image_of_reference():
+def test_sort_atoms_like_aligns_before_using_nearest_periodic_images():
     reference = Atoms(
         symbols=["O", "Si"],
         cell=np.eye(3) * 5.0,
@@ -63,8 +65,54 @@ def test_sort_atoms_like_uses_nearest_periodic_image_of_reference():
 
     np.testing.assert_allclose(
         ordered.get_scaled_positions(wrap=False),
-        [[0.0, 0.0, -0.1], [0.2, 0.3, 0.4]],
+        [[0.0, 0.0, 0.0], [0.2, 0.3, 0.5]],
     )
+
+
+def test_sort_atoms_like_finds_anchor_after_translation_and_shuffle():
+    reference_positions = np.array(
+        [
+            [0.10, 0.20, 0.30],
+            [0.32, 0.43, 0.54],
+            [0.71, 0.64, 0.82],
+            [0.88, 0.13, 0.47],
+        ]
+    )
+    reference = Atoms(
+        symbols=["O", "Si", "O", "C"],
+        cell=np.eye(3) * 5.0,
+        scaled_positions=reference_positions,
+        pbc=True,
+    )
+    order = np.array([2, 3, 0, 1])
+    shift = np.array([0.27, -0.31, 0.19])
+    candidate = Atoms(
+        symbols=np.asarray(reference.get_chemical_symbols())[order],
+        cell=reference.cell,
+        scaled_positions=(reference_positions[order] + shift) % 1.0,
+        pbc=True,
+    )
+    candidate.set_array("original_index", order)
+
+    ordered = sort_atoms_like(reference, candidate, atol=1e-8)
+
+    np.testing.assert_allclose(ordered.get_scaled_positions(wrap=False), reference_positions)
+    np.testing.assert_array_equal(ordered.arrays["original_index"], np.arange(4))
+
+
+def test_sort_atoms_like_aligns_translated_molecule_before_sorting():
+    reference = Atoms(
+        symbols=["H", "O", "H"],
+        positions=[[0.0, 0.0, 0.0], [0.8, 0.0, 0.0], [-0.2, 0.7, 0.0]],
+    )
+    order = np.array([2, 0, 1])
+    candidate = reference[order]
+    candidate.translate([12.5, -8.0, 3.0])
+
+    ordered = sort_atoms_like(reference, candidate, atol=1e-8)
+
+    assert ordered.get_chemical_symbols() == reference.get_chemical_symbols()
+    np.testing.assert_allclose(ordered.positions, reference.positions)
 
 
 def test_sort_atoms_like_requires_an_ase_standard_reference_cell():
@@ -77,4 +125,46 @@ def test_sort_atoms_like_requires_an_ase_standard_reference_cell():
     candidate = reference.copy()
 
     with pytest.raises(ValueError, match="rotate_cell"):
-        sort_atoms_like(reference, candidate)
+        sort_atoms_like(reference, candidate, atol=1e-8)
+
+
+def test_sort_structure_cli_aligns_then_sorts(tmp_path):
+    reference_path = tmp_path / "reference.extxyz"
+    candidate_path = tmp_path / "candidate.extxyz"
+    output_path = tmp_path / "sorted.extxyz"
+    reference = Atoms(
+        symbols=["Na", "Cl"],
+        cell=np.eye(3) * 4.0,
+        scaled_positions=[[0.1, 0.2, 0.3], [0.6, 0.7, 0.8]],
+        pbc=True,
+    )
+    candidate = Atoms(
+        symbols=["Cl", "Na"],
+        cell=reference.cell,
+        scaled_positions=[[0.83, 0.51, 0.99], [0.33, 0.01, 0.49]],
+        pbc=True,
+    )
+    write(reference_path, reference)
+    write(candidate_path, candidate)
+    args = sort_structure.prepare_args(sort_structure.description).parse_args(
+        [
+            "-r",
+            str(reference_path),
+            "-i",
+            str(candidate_path),
+            "-o",
+            str(output_path),
+            "--atol",
+            "1e-8",
+        ]
+    )
+
+    sort_structure.main.__wrapped__(args)
+
+    ordered = read(output_path)
+    assert ordered.get_chemical_symbols() == reference.get_chemical_symbols()
+    np.testing.assert_allclose(
+        ordered.get_scaled_positions(wrap=False),
+        reference.get_scaled_positions(wrap=False),
+        atol=1e-8,
+    )

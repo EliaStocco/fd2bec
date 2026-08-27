@@ -18,11 +18,11 @@ from ase.io.formats import ioformats
 from fd2bec import SYMPREC
 from fd2bec.cli import cli
 from fd2bec.io import ESPRESSO_GEOMETRY_FORMAT, inferred_output_format, read, write_structure
+from fd2bec.structure_alignment import is_ase_standard_cell as is_ase_standard_cell
 
 description = "Convert, standardize, or rotate one structure between ASE-supported formats."
 ase_writable_formats = sorted(name for name, ioformat in ioformats.items() if ioformat.can_write)
 output_formats = sorted(set(ase_writable_formats) | {ESPRESSO_GEOMETRY_FORMAT})
-CELL_ATOL = 1e-10
 
 
 def prepare_args(descr):
@@ -81,15 +81,6 @@ def prepare_args(descr):
         help="rotate a periodic input cell into ASE's lower-triangular standard form",
     )
     return parser
-
-
-def is_ase_standard_cell(atoms: Atoms, atol: float = CELL_ATOL) -> bool:
-    """Return whether a periodic cell is in ASE's lower-triangular standard form."""
-    if not np.all(atoms.pbc):
-        return True
-
-    standard_cell, _ = atoms.cell.standard_form()
-    return np.allclose(atoms.cell.array, standard_cell.array, rtol=0.0, atol=atol)
 
 
 def rotate_to_ase_standard_cell(atoms: Atoms) -> Atoms:
