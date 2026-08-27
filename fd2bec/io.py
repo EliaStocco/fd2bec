@@ -21,6 +21,26 @@ def write(*argv, **kwargs):
     return ase_write(*argv, **kwargs)
 
 
+def write_tensor_extxyz(output: Path, atoms: Atoms, data, keyword: str, *, per_atom: bool) -> None:
+    """Write an extxyz structure with a tensor stored under ``keyword``.
+
+    Per-atom tensors are flattened into extxyz vector properties; global
+    tensors are stored in the structure's ``info`` dictionary.
+    """
+    structure = atoms.copy()
+    tensor = np.asarray(data, dtype=float)
+    if per_atom:
+        if tensor.ndim < 2 or tensor.shape[0] != len(structure):
+            raise ValueError(
+                "A per-atom tensor must have one leading entry for each atom; "
+                f"got shape {tensor.shape} for {len(structure)} atoms."
+            )
+        structure.new_array(keyword, tensor.reshape((len(structure), -1)))
+    else:
+        structure.info[keyword] = tensor
+    write(output, structure, format="extxyz")
+
+
 def espresso_geometry(atoms: Atoms) -> str:
     """Return QE ``CELL_PARAMETERS`` and fractional ``ATOMIC_POSITIONS`` cards."""
     if not np.all(atoms.get_pbc()):

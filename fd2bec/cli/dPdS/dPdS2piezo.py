@@ -10,7 +10,7 @@ import numpy as np
 from fd2bec import float_format
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import KEYWORDS, cli
-from fd2bec.io import read
+from fd2bec.io import read, write_tensor_extxyz
 from fd2bec.mathematics import rotate_rank3
 from fd2bec.piezoelectric import (
     E_PER_ANGSTROM2_TO_C_PER_M2,
@@ -401,6 +401,17 @@ def main(args):
         reported_reference_polarization[None, :],
         fmt=float_format,
     )
+    file = output / "piezoelectric.extxyz"
+    key = KEYWORDS["piezoelectric"]
+    print(f"Writing proper piezoelectric tensor to {file} under '{key}' ... ", end="")
+    write_tensor_extxyz(
+        file,
+        reference,
+        rotate_rank3(result.proper.data, coordinate_rotation),
+        key,
+        per_atom=False,
+    )
+    print("done")
     with (output / "fit.json").open("w", encoding="utf-8") as handle:
         json.dump(
             {

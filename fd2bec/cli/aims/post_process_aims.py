@@ -7,11 +7,7 @@ from pathlib import Path
 
 from fd2bec.cli import cli
 
-description = "Post process calculations from FHI-aims."
-
-# This wrapper is intentionally limited to Born effective charges (dP/dR).
-# Piezoelectric AIMS calculations must instead use the dPdS post-processing
-# workflow: build_dataset4dPdS_aims followed by dPdS2piezo.
+description = "Post process Born-charge or piezoelectric calculations from FHI-aims."
 
 
 def prepare_args(descr):
@@ -27,6 +23,14 @@ def prepare_args(descr):
         help="input structure",
     )
     parser.add_argument(
+        "-w",
+        "--what",
+        **argv,
+        choices=("bec", "piezo"),
+        default="bec",
+        help="quantity to post process (default: %(default)s)",
+    )
+    parser.add_argument(
         "--results",
         **argv,
         default="results",
@@ -36,7 +40,16 @@ def prepare_args(descr):
         "--format",
         **argv,
         default="aims_polarization",
-        help="build_dataset4dPdR format key or JSON file (default: %(default)s)",
+        help=(
+            "build_dataset4dPdR format key or JSON file used for BEC "
+            "calculations (default: %(default)s)"
+        ),
+    )
+    parser.add_argument(
+        "--pattern",
+        **argv,
+        default="aims.n=*.out",
+        help=("output filename glob used for piezoelectric calculations (default: %(default)s)"),
     )
     parser.add_argument(
         "--dataset",
@@ -49,7 +62,7 @@ def prepare_args(descr):
         "--output",
         **argv,
         default=".",
-        help="folder for BEC and charge files (default: %(default)s)",
+        help="folder for fitted tensor files (default: %(default)s)",
     )
     parser.add_argument(
         "--log",
@@ -61,9 +74,36 @@ def prepare_args(descr):
 
 
 def postprocess_commands(args):
-    """Build the dataset, BEC fitting, and charge conversion commands."""
+    """Build the mode-specific dataset and tensor fitting commands."""
     dataset = Path(args.dataset)
     output = Path(args.output)
+
+    if getattr(args, "what", "bec") == "piezo":
+        return (
+            [
+                sys.executable,
+                "-m",
+                "fd2bec.cli.dPdS.build_dataset4dPdS_aims",
+                "-i",
+                str(args.results),
+                "--pattern",
+                str(getattr(args, "pattern", "aims.n=*.out")),
+                "-o",
+                str(dataset),
+            ],
+            [
+                sys.executable,
+                "-m",
+                "fd2bec.cli.dPdS.dPdS2piezo",
+                "-i",
+                str(dataset),
+                "-r",
+                str(args.input),
+                "-o",
+                str(output),
+            ],
+        )
+
     bec = output / "bec.txt"
     charges = output / "charges.txt"
     return (
@@ -103,7 +143,7 @@ def postprocess_commands(args):
 
 @cli(prepare_args, description)
 def main(args):
-    """Build an AIMS displacement dataset and evaluate its Born charges."""
+    """Build an AIMS finite-difference dataset and evaluate its response tensor."""
     results = Path(args.results)
     if not results.is_dir():
         raise FileNotFoundError(f"AIMS results folder not found: '{results}'.")
@@ -128,8 +168,18 @@ def main(args):
             )
 
     print(f"Dataset: '{dataset}'")
-    print(f"Born Effective Charges: '{output / 'bec.txt'}'")
-    print(f"Scalar charges: '{output / 'charges.txt'}'")
+    if args.what == "piezo":
+        print(f"Piezoelectric tensor: '{output / 'piezoelectric.extxyz'}'")
+        print(f"Improper piezoelectric tensor: '{output / 'improper-piezoelectric.txt'}'")
+        print(f"Proper piezoelectric tensor: '{output / 'proper-piezoelectric.txt'}'")
+        print(
+            "Direct-fit proper piezoelectric tensor: "
+            f"'{output / 'proper-piezoelectric-direct.txt'}'"
+        )
+    else:
+        print(f"Born Effective Charges: '{output / 'bec.extxyz'}'")
+        print(f"Born Effective Charges: '{output / 'bec.txt'}'")
+        print(f"Scalar charges: '{output / 'charges.txt'}'")
     print(f"Subcommand details: '{log_file}'")
 
 

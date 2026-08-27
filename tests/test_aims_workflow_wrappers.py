@@ -49,3 +49,36 @@ def test_postprocess_commands_share_configured_paths():
         "-o",
         str(Path("work/bec/charges.txt")),
     ]
+
+
+def test_postprocess_commands_support_piezoelectric_workflow():
+    args = Namespace(
+        input="reference.extxyz",
+        what="piezo",
+        results="aims-results",
+        pattern="aims.n=*.out",
+        format="aims_polarization",
+        dataset="work/piezo.extxyz",
+        output="work/piezoelectric",
+    )
+
+    build, fit = postprocess_commands(args)
+
+    assert "fd2bec.cli.dPdS.build_dataset4dPdS_aims" in build
+    assert build[-6:] == [
+        "-i",
+        "aims-results",
+        "--pattern",
+        "aims.n=*.out",
+        "-o",
+        "work/piezo.extxyz",
+    ]
+    assert "fd2bec.cli.dPdS.dPdS2piezo" in fit
+    assert fit[-6:] == [
+        "-i",
+        "work/piezo.extxyz",
+        "-r",
+        "reference.extxyz",
+        "-o",
+        "work/piezoelectric",
+    ]

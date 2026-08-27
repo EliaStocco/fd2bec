@@ -15,6 +15,8 @@ KEYWORDS = {
     "efield": "REF_efield",
     "dipole": "REF_dipole",
     "polarization": "REF_polarization",
+    "bec": "REF_BEC",
+    "piezoelectric": "REF_piezoelectric",
     "displacements": "displacements",
     "strain": "strain",
 }
