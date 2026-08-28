@@ -1,4 +1,5 @@
 # pylint: disable=invalid-name
+import warnings
 from dataclasses import InitVar, dataclass, field, replace
 from functools import cached_property
 from typing import Any, Dict, List, Tuple, Union
@@ -834,16 +835,24 @@ class AtomicStructure:
         # Use an elementwise tolerance: the Frobenius norm accumulates harmless
         # round-off over every matrix entry and therefore depends on the tensor
         # dimension (and, for atomic tensors, the number of atoms).
-        symmetric_projection = np.max(np.abs(projection - projection.T)) < atol
+        projection_asymmetry = projection - projection.T
+        largest_asymmetry = np.max(np.abs(projection_asymmetry))
+        symmetric_projection = largest_asymmetry < atol
+        if not symmetric_projection and tensor.basis == "cartesian" and not tensor.has_affine_axis:
+            warnings.warn(
+                f"\n\tThe symmetry projection for {tensor} is not symmetric."
+                "\tSymmetrizing it before constructing symmetry modes.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            print(f"Largest component of projection - projection.T: {largest_asymmetry}")
+            projection = (projection + projection.T) / 2
+            symmetric_projection = True
+
         if symmetric_projection:
             # A symmetric projection has a stable orthonormal eigendecomposition.
             eigenvalues, eigenvectors = np.linalg.eigh(projection)
         else:
-            if tensor.basis == "cartesian" and not tensor.has_affine_axis:
-                raise ValueError(
-                    f"The symmetry projection for {tensor} must be symmetric. "
-                    "Check the symmetry operations and atom mappings."
-                )
             eigenvalues, eigenvectors = np.linalg.eig(projection)
 
         if not np.allclose(eigenvalues.imag, 0, atol=atol):
