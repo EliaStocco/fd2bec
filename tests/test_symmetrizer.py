@@ -93,6 +93,38 @@ def test_nonorthogonal_projection_uses_a_real_mode_basis(monkeypatch):
     assert np.isrealobj(modes)
     np.testing.assert_allclose(projection @ modes.T, modes.T)
 
+
+def test_symmetry_check_uses_an_elementwise_tolerance(monkeypatch):
+    """Small entrywise round-off must not accumulate with matrix dimension."""
+    atol = 1e-6
+    roundoff = 0.75 * atol
+    projection = np.array(
+        [
+            [1.0, roundoff, roundoff],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+        ]
+    )
+    tensor = Forces(data=np.zeros((1, 3)), basis="cartesian")
+    structure = object.__new__(AtomicStructure)
+    monkeypatch.setattr(
+        AtomicStructure, "get_symmetry_projection", lambda _self, tensor: projection
+    )
+
+    original_eigh = np.linalg.eigh
+    eigh_called = False
+
+    def record_eigh(matrix):
+        nonlocal eigh_called
+        eigh_called = True
+        return original_eigh(matrix)
+
+    monkeypatch.setattr(np.linalg, "eigh", record_eigh)
+
+    structure.get_symmetry_modes(tensor, atol=atol)
+
+    assert eigh_called
+
 @pytest.mark.parametrize("basis",["fractional","cartesian"])
 def test_symmetry_modes_for_periodic_structure(sg_case,basis):
 

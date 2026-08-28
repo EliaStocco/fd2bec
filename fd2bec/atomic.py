@@ -831,7 +831,10 @@ class AtomicStructure:
         # Eigen-decomposition
         # ------------------------
 
-        symmetric_projection = np.linalg.norm(projection - projection.T) < atol
+        # Use an elementwise tolerance: the Frobenius norm accumulates harmless
+        # round-off over every matrix entry and therefore depends on the tensor
+        # dimension (and, for atomic tensors, the number of atoms).
+        symmetric_projection = np.max(np.abs(projection - projection.T)) < atol
         if symmetric_projection:
             # A symmetric projection has a stable orthonormal eigendecomposition.
             eigenvalues, eigenvectors = np.linalg.eigh(projection)
