@@ -9,9 +9,10 @@ from typing import Callable, List, Optional
 import numpy as np
 from ase import Atoms
 
-from fd2bec.cli import KEYWORDS, cli
+from fd2bec.cli import KEYWORDS, cli, read_input_structures
 from fd2bec.cli.ml.mace_polar_dPdR import _electronic_state, _load_mace_polar
-from fd2bec.io import read, write
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.io import write
 from fd2bec.piezoelectric import build_strained_structures
 
 description = (
@@ -23,7 +24,7 @@ description = (
 def prepare_args(descr):
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument("-i", "--input", **argv, required=True, help="periodic input structure")
+    add_shared_argument(parser, "input_structure")
     parser.add_argument(
         "-m",
         "--model",
@@ -31,15 +32,7 @@ def prepare_args(descr):
         default="polar-1-m",
         help="MACE-POLAR model name, checkpoint, or URL (default: %(default)s)",
     )
-    parser.add_argument(
-        "-a",
-        "--amplitude",
-        **argv,
-        type=float,
-        required=False,
-        help="amplitude of the cell displacement (default: %(default)s)",
-        default=1e-3,
-    )
+    add_shared_argument(parser, "strain_amplitude")
     parser.add_argument("-d", "--device", **argv, default="cpu", help="torch device")
     parser.add_argument(
         "--default-dtype",
@@ -110,7 +103,7 @@ def main(args):
     if output.suffix != ".extxyz":
         raise ValueError("The MACE-POLAR piezoelectric dataset must be an extxyz file.")
 
-    reference = read(args.input, index=0)
+    reference = read_input_structures(args.input, label="reference structure")
     structures = build_strained_structures(reference, args.amplitude)
     structures = evaluate_polarizations(
         reference,

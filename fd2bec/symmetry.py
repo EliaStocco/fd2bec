@@ -1,3 +1,8 @@
+import numpy as np
+from ase import Atoms
+
+from fd2bec import SYMPREC
+
 SOHNCKE_GROUPS = {
     1,
     3,
@@ -69,3 +74,12 @@ SOHNCKE_GROUPS = {
 def is_sohncke(sg_number):
     """Check if the space group number corresponds to a Sohncke group."""
     return sg_number in SOHNCKE_GROUPS
+
+
+def symmetrize_bec(structure: Atoms, bec: np.ndarray, symprec: float = SYMPREC) -> np.ndarray:
+    from fd2bec.atomic import AtomicStructure
+    from fd2bec.tensor import BornCharges
+
+    tensor = BornCharges(data=bec)
+    atomic_structure = AtomicStructure.from_ase(structure, symprec=symprec)
+    return atomic_structure.symmetrize(tensor=tensor).data

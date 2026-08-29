@@ -10,6 +10,7 @@ from importlib import resources
 from pathlib import Path
 
 from fd2bec.cli import cli
+from fd2bec.cli.parser import add_shared_argument
 from fd2bec.io import read
 
 description = "Prepare Quantum ESPRESSO polarization calculations."
@@ -19,7 +20,7 @@ GEOMETRY_MARKER = "! FD2BEC"
 def prepare_args(descr):
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument("-i", "--input", **argv, required=True, help="reference structure")
+    add_shared_argument(parser, "input_structure")
     parser.add_argument(
         "-t",
         "--template",
@@ -27,22 +28,8 @@ def prepare_args(descr):
         required=True,
         help="SCF input template containing the '! FD2BEC' marker",
     )
-    parser.add_argument(
-        "-w",
-        "--what",
-        **argv,
-        choices=("bec", "piezo"),
-        default="bec",
-        help="quantity for which displacements are generated (default: %(default)s)",
-    )
-    parser.add_argument(
-        "-a",
-        "--amplitude",
-        **argv,
-        type=float,
-        default=1e-3,
-        help="atomic or cell displacement amplitude in Angstrom (default: %(default)s)",
-    )
+    add_shared_argument(parser, "response_quantity")
+    add_shared_argument(parser, "cartesian_amplitude")
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument(
         "--no-symmetry",
@@ -91,6 +78,7 @@ def prepare_args(descr):
         **argv,
         help="sourceable run script (default: OUTPUT/sourceme.sh)",
     )
+    add_shared_argument(parser, "symprec")
     return parser
 
 
@@ -106,6 +94,8 @@ def preparation_commands(args, structures_output, displacements_output, geometri
         str(args.what),
         "-a",
         str(args.amplitude),
+        "-sp",
+        str(args.symprec),
         "-d",
         str(displacements_output),
         "-o",

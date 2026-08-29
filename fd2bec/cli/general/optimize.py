@@ -10,8 +10,9 @@ from ase.constraints import FixSymmetry
 from ase.filters import UnitCellFilter
 from ase.optimize import BFGS
 
-from fd2bec.cli import cli, str2bool
-from fd2bec.io import read, write
+from fd2bec.cli import cli, read_input_structures, str2bool
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.io import write
 
 description = "Run an ASE optimizer with constrained symmetries."
 CALCULATOR_RESULT_KEYS = ("energy", "free_energy", "stress", "forces")
@@ -21,9 +22,7 @@ def prepare_args(descr):
     """Create the command-line parser."""
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument(
-        "-i", "--input", **argv, required=True, type=str, help="file with an atomic structure"
-    )
+    add_shared_argument(parser, "input_structure")
     parser.add_argument(
         "-if",
         "--input_format",
@@ -83,15 +82,7 @@ def prepare_args(descr):
         action="store_true",
         help="preserve the initial symmetry",
     )
-    parser.add_argument(
-        "-sp",
-        "--symprec",
-        **argv,
-        required=False,
-        type=float,
-        help="symmetry precision (default: %(default)s)",
-        default=0.0001,
-    )
+    add_shared_argument(parser, "symprec")
     parser.add_argument(
         "-rc",
         "--relax-cell",
@@ -341,9 +332,7 @@ def main(args):
     validate_args(args)
 
     # ------------------#
-    print(f"Reading input structure from {args.input} ... ", end="")
-    atoms: Atoms = read(args.input, format=args.input_format, index=0)
-    print("done")
+    atoms: Atoms = read_input_structures(args.input, input_format=args.input_format)
     print("Number of atoms:", atoms.get_global_number_of_atoms())
 
     removed_results = remove_stored_calculator_results(atoms)

@@ -41,3 +41,31 @@ def test_tensor_symmetry_operation_variants(bifeo3, kind):
         np.testing.assert_allclose(transformed, expected, atol=ATOL)
     else:
         np.testing.assert_allclose(translations, 0)
+
+
+def test_atomic_symmetry_mapping_uses_cartesian_symprec(monkeypatch):
+    displacement = 5e-5
+
+    def approximate_symmetry_operation(self, basis="cartesian"):
+        del self, basis
+        return np.eye(3)[None, ...], np.array([[displacement, 0.0, 0.0]])
+
+    monkeypatch.setattr(AtomicStructure, "get_symmetry_operations", approximate_symmetry_operation)
+    tensor = Forces.template(1, basis="cartesian")
+
+    accepted = AtomicStructure(
+        symbols=["H"],
+        cell=np.eye(3),
+        frac_pos=np.zeros((1, 3)),
+        symprec=1e-4,
+    )
+    accepted.get_tensor_symmetry_operations(tensor)
+
+    rejected = AtomicStructure(
+        symbols=["H"],
+        cell=np.eye(3),
+        frac_pos=np.zeros((1, 3)),
+        symprec=1e-5,
+    )
+    with pytest.raises(ValueError, match="Mapping failed for species H"):
+        rejected.get_tensor_symmetry_operations(tensor)

@@ -12,6 +12,7 @@ from numpy.linalg import norm
 
 from fd2bec.cli import cli
 from fd2bec.cli.aims.get_basis_functions_fhi_aims import create_species_file
+from fd2bec.cli.parser import add_shared_argument
 from fd2bec.io import read
 from fd2bec.io import read as fd2bec_read
 
@@ -25,30 +26,9 @@ def prepare_args(descr):
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument(
-        "-i",
-        "--input",
-        **argv,
-        type=str,
-        required=True,
-        help="input structure",
-    )
-    parser.add_argument(
-        "-w",
-        "--what",
-        **argv,
-        choices=("bec", "piezo"),
-        default="bec",
-        help="quantity for which displacements are generated (default: %(default)s)",
-    )
-    parser.add_argument(
-        "-a",
-        "--amplitude",
-        **argv,
-        type=float,
-        default=1e-3,
-        help="Cartesian displacement amplitude in Angstrom (default: %(default)s)",
-    )
+    add_shared_argument(parser, "input_structure")
+    add_shared_argument(parser, "response_quantity")
+    add_shared_argument(parser, "cartesian_amplitude")
     parser.add_argument(
         "--k-density",
         **argv,
@@ -155,6 +135,7 @@ def prepare_args(descr):
         default="fd2bec-log.txt",
         help="subcommand log file (default: %(default)s)",
     )
+    add_shared_argument(parser, "symprec")
     return parser
 
 
@@ -410,6 +391,8 @@ def preparation_commands(args):
         str(args.what),
         "-a",
         str(args.amplitude),
+        "-sp",
+        str(args.symprec),
         "-d",
         str(args.displacements_output),
         "-o",

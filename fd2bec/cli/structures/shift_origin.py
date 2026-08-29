@@ -4,8 +4,9 @@
 
 import argparse
 
-from fd2bec.cli import cli
-from fd2bec.io import read, write
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.io import write
 from fd2bec.tools import shift_first_atom_to_origin
 
 description = (
@@ -17,25 +18,16 @@ description = (
 def prepare_args(descr: str):
     """Create the command-line parser."""
     parser = argparse.ArgumentParser(description=descr)
-    argv = {"metavar": "\b"}
-    parser.add_argument("-i", "--input", **argv, required=True, help="path to input structure")
-    parser.add_argument("-o", "--output", **argv, required=True, help="path to shifted structure")
-    parser.add_argument(
-        "--index",
-        **argv,
-        type=int,
-        default=0,
-        help="index of the input structure to shift (default: %(default)s)",
-    )
+    add_shared_argument(parser, "input_structure")
+    add_shared_argument(parser, "output_structure")
+    add_shared_argument(parser, "structure_index")
     return parser
 
 
 @cli(prepare_args, description)
 def main(args: argparse.Namespace):
     """Read, translate, and write one periodic structure."""
-    print(f"Reading structure {args.index} from {args.input} ... ", end="")
-    atoms = read(args.input, index=args.index)
-    print("done")
+    atoms = read_input_structures(args.input, index=args.index)
 
     origin = atoms.get_scaled_positions(wrap=False)[0]
     print(

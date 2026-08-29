@@ -4,8 +4,9 @@
 
 import argparse
 
-from fd2bec.cli import cli
-from fd2bec.io import read, write
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.io import write
 from fd2bec.structure_alignment import sort_atoms_like
 
 description = "Align and reorder a structure so its atom order matches a reference structure."
@@ -22,20 +23,8 @@ def prepare_args(descr):
         required=True,
         help="path to the reference structure, whose atom order is retained",
     )
-    parser.add_argument(
-        "-i",
-        "--input",
-        **argv,
-        required=True,
-        help="path to the structure to align and reorder",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        **argv,
-        required=True,
-        help="path for the aligned and reordered structure",
-    )
+    add_shared_argument(parser, "input_structure")
+    add_shared_argument(parser, "output_structure")
     parser.add_argument(
         "--atol",
         **argv,
@@ -52,13 +41,8 @@ def prepare_args(descr):
 @cli(prepare_args, description)
 def main(args):
     """Run the structure sorting command."""
-    print(f"Reading reference structure from {args.reference} ... ", end="")
-    reference = read(args.reference, index=0)
-    print("done")
-
-    print(f"Reading structure to reorder from {args.input} ... ", end="")
-    candidate = read(args.input, index=0)
-    print("done")
+    reference = read_input_structures(args.reference, label="reference structure")
+    candidate = read_input_structures(args.input, label="structure to reorder")
 
     print("Aligning, matching, and reordering atoms ... ", end="")
     ordered = sort_atoms_like(reference, candidate, atol=args.atol)

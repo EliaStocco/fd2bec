@@ -5,7 +5,7 @@ import pytest
 from ase import Atoms
 from ase.io import read as ase_read
 
-from fd2bec import io
+from fd2bec import SYMPREC, io
 from fd2bec.cli.structures import convert_format
 
 
@@ -21,7 +21,15 @@ def test_parser_accepts_structure_transformations():
     parser = convert_format.prepare_args(convert_format.description)
 
     args = parser.parse_args(
-        ["-i", "structure.extxyz", "-o", "structure.cif", "--standardize", "primitive", "--rotate-cell"]
+        [
+            "-i",
+            "structure.extxyz",
+            "-o",
+            "structure.cif",
+            "--standardize",
+            "primitive",
+            "--rotate-cell",
+        ]
     )
 
     assert args.standardize == "primitive"
@@ -43,7 +51,11 @@ def test_standardize_option_transforms_before_writing(monkeypatch, tmp_path):
     input_atoms = Atoms("Na", cell=np.eye(3), scaled_positions=[[0, 0, 0]], pbc=True)
     output_atoms = Atoms("Na", cell=np.eye(3) * 2, scaled_positions=[[0, 0, 0]], pbc=True)
     calls = []
-    monkeypatch.setattr(convert_format, "read", lambda *args, **kwargs: input_atoms)
+    monkeypatch.setattr(
+        convert_format,
+        "read_input_structures",
+        lambda *args, **kwargs: input_atoms,
+    )
     monkeypatch.setattr(
         convert_format,
         "standardize_structure",
@@ -60,12 +72,12 @@ def test_standardize_option_transforms_before_writing(monkeypatch, tmp_path):
     convert_format.main.__wrapped__(args)
 
     assert calls == [
-        (input_atoms, {"setting": "primitive", "symprec": convert_format.SYMPREC}),
+        (input_atoms, {"setting": "primitive", "symprec": SYMPREC}),
         (
             tmp_path / "primitive.cif",
             output_atoms,
             "cif",
-            {"symprec": convert_format.SYMPREC, "conventional": False, "primitive": True},
+            {"symprec": SYMPREC, "conventional": False, "primitive": True},
         ),
     ]
 
@@ -81,9 +93,7 @@ def test_write_structure_routes_cif_to_the_symmetry_aware_writer(monkeypatch, tm
     output = tmp_path / "structure.cif"
     io.write_structure(output, "atoms", "cif", symprec=1e-4, conventional=True)
 
-    assert calls == [
-        (output, "atoms", {"symprec": 1e-4, "conventional": True, "primitive": False})
-    ]
+    assert calls == [(output, "atoms", {"symprec": 1e-4, "conventional": True, "primitive": False})]
 
 
 def test_symmetry_cif_requires_a_periodic_structure(tmp_path):

@@ -9,8 +9,9 @@ import numpy as np
 
 from fd2bec import float_format
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import KEYWORDS, cli
-from fd2bec.io import read, write_tensor_extxyz
+from fd2bec.cli import KEYWORDS, cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.io import write_tensor_extxyz
 from fd2bec.mathematics import rotate_rank3
 from fd2bec.piezoelectric import (
     E_PER_ANGSTROM2_TO_C_PER_M2,
@@ -22,48 +23,13 @@ from fd2bec.piezoelectric import (
     proper_piezoelectric_symmetry_basis,
     strains_from_cells,
 )
-from fd2bec.show import print_reference_structure
+from fd2bec.show import print_reference_structure, print_voigt_tensor
 
 description = (
     "Evaluate proper and improper piezoelectric tensors from the same set of "
     "polarized strained structures. Dipole inputs must be in e*Angstrom and "
     "are converted to polarization by dividing by the cell volume in Angstrom^3."
 )
-
-VOIGT_LABELS = ("xx", "yy", "zz", "yz", "xz", "xy")
-CARTESIAN_LABELS = ("x", "y", "z")
-
-
-def _display_number(value, precision=6, zero_tolerance=5e-10):
-    """Return a fixed-width-friendly number without negative numerical zero."""
-    value = 0.0 if abs(value) < zero_tolerance else value
-    return f"{value:.{precision}f}"
-
-
-def print_voigt_tensor(tensor, precision=6):
-    """Print a numerical 3x6 tensor with Cartesian and Voigt labels."""
-    tensor = np.asarray(tensor, dtype=float)
-    if tensor.shape != (3, 6):
-        raise ValueError(f"Expected a 3x6 tensor, got {tensor.shape}.")
-    width = precision + 8
-    print(" " * 6 + "".join(f"{label:>{width}}" for label in VOIGT_LABELS))
-    for axis, row in zip(CARTESIAN_LABELS, tensor):
-        values = "".join(f"{_display_number(value, precision):>{width}}" for value in row)
-        print(f"P_{axis:<4s}{values}")
-
-
-def print_lattice_tensor(tensor, precision=6):
-    """Print a rank-3 lattice-basis tensor as three labeled 3x3 slices."""
-    tensor = np.asarray(tensor, dtype=float)
-    if tensor.shape != (3, 3, 3):
-        raise ValueError(f"Expected a 3x3x3 tensor, got {tensor.shape}.")
-    width = precision + 8
-    for component, block in zip(CARTESIAN_LABELS, tensor):
-        print(f"P_{component} component:")
-        print(" " * 7 + "".join(f"{label:>{width}}" for label in CARTESIAN_LABELS))
-        for axis, row in zip(CARTESIAN_LABELS, block):
-            values = "".join(f"{_display_number(value, precision):>{width}}" for value in row)
-            print(f"  {axis:<5s}{values}")
 
 
 def prepare_args(descr):
@@ -144,6 +110,7 @@ def prepare_args(descr):
         default="piezoelectric",
         help="output folder (default: %(default)s)",
     )
+    add_shared_argument(parser, "symprec")
     return parser
 
 
@@ -196,10 +163,14 @@ def attach_polarizations(
 def main(args):
     if args.agreement_tolerance < 0:
         raise ValueError("--agreement-tolerance must be non-negative.")
-    structures = read(args.input, format="extxyz", index=":")
+    structures = read_input_structures(args.input, index=":", input_format="extxyz")
     if not structures:
         raise ValueError("The input dataset contains no structures.")
-    reference = read(args.reference, index=0) if args.reference else structures[0].copy()
+    reference = (
+        read_input_structures(args.reference, label="reference structure")
+        if args.reference
+        else structures[0].copy()
+    )
     print_reference_structure(reference)
 
     if args.polarizations:
@@ -265,7 +236,7 @@ def main(args):
             "dipoles can be multivalued."
         )
 
-    unit_cell = AtomicStructure.from_ase(reference)
+    unit_cell = AtomicStructure.from_ase(reference, symprec=args.symprec)
     if args.no_symmetry:
         # Eighteen independent components after enforcing j-k strain symmetry.
         full_modes = np.eye(27).reshape((27, 3, 3, 3))

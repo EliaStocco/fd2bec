@@ -8,7 +8,10 @@ import time
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
+
+from fd2bec.io import read as _read_structure
+from fd2bec.show import print_input_arguments
 
 KEYWORDS = {
     "forces": "REF_forces",
@@ -22,6 +25,26 @@ KEYWORDS = {
 }
 
 PACKAGE_DIRECTORY = Path(__file__).resolve().parent
+
+
+def read_input_structures(
+    filename: Union[str, Path],
+    *,
+    index: Union[int, str] = 0,
+    input_format: Optional[str] = None,
+    label: Optional[str] = None,
+    **kwargs,
+):
+    """Read CLI structure input through a normalized path and report progress."""
+    path = Path(filename)
+    if label is None:
+        label = "input structures" if index == ":" else "input structure"
+    print(f"Reading {label} from {path} ... ", end="")
+    if input_format is not None:
+        kwargs["format"] = input_format
+    structures = _read_structure(path, index=index, **kwargs)
+    print("done")
+    return structures
 
 
 def positive_int(value: str) -> int:
@@ -79,16 +102,6 @@ def ilist(s):
 
 def slist(s):
     return size_type(s, str)  # string list
-
-
-def print_input_arguments(args: argparse.Namespace):
-    """Print every parsed CLI argument, including parser defaults."""
-    print("\t" + "-" * 40)
-    print("\tInput arguments:")
-    for name, value in vars(args).items():
-        print(f"\t {name:>20s}: {value}")
-    print("\t" + "-" * 40)
-    print()
 
 
 def git_metadata(directory: Path) -> tuple[str, str]:

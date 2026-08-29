@@ -3,8 +3,8 @@ import argparse
 import numpy as np
 import pandas as pd
 
-from fd2bec.cli import cli
-from fd2bec.io import read
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
 
 description = "Overview of the mathematical problem to solve."
 
@@ -13,14 +13,7 @@ def prepare_args(descr):
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument(
-        "-i",
-        "--input",
-        **argv,
-        type=str,
-        required=True,
-        help="path to input structure (e.g. unitcell.extxyz)",
-    )
+    add_shared_argument(parser, "input_structure")
     parser.add_argument(
         "-o",
         "--output",
@@ -35,9 +28,7 @@ def prepare_args(descr):
 @cli(prepare_args, description)
 def main(args):
 
-    print(f"Reading input structure from {args.input} ... ", end="")
-    atoms = read(args.input, index=0)
-    print("done")
+    atoms = read_input_structures(args.input)
 
     Nbec_uc = 9 * atoms.get_global_number_of_atoms() + 3  #
     n = 1

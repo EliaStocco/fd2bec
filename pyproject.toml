@@ -129,6 +129,7 @@ prepare_qe = "fd2bec.cli.qe.prepare_qe:main"
 
 # --- root ---
 fd2bec-help = "fd2bec.cli.fd2bec_help:main"
+parser = "fd2bec.cli.parser:main"
 tools = "fd2bec.cli.tools:main"
 
 # --- structures ---

@@ -1,6 +1,7 @@
 from argparse import Namespace
 from pathlib import Path
 
+from fd2bec import SYMPREC
 from fd2bec.cli.aims.post_process_aims import postprocess_commands
 from fd2bec.cli.aims.prepare_aims import preparation_commands
 
@@ -16,12 +17,14 @@ def test_preparation_commands_use_unified_displacement_workflow():
         displacements_output="displacements.txt",
         structures_output="displaced.extxyz",
         output="geometries",
+        symprec=SYMPREC,
     )
 
     generate, export = preparation_commands(args)
 
     assert "fd2bec.cli.displacements.generate_displacements" in generate
     assert generate[generate.index("-w") + 1] == "piezo"
+    assert generate[generate.index("-sp") + 1] == str(SYMPREC)
     assert generate[-4:] == ["--number", "4", "--seed", "17"]
     assert "fd2bec.cli.displacements.extxyz2folder" in export
     assert export[-4:] == ["-f", "aims", "-o", "geometries"]
@@ -34,6 +37,7 @@ def test_postprocess_commands_share_configured_paths():
         format="aims_polarization",
         dataset="work/dataset.extxyz",
         output="work/bec",
+        symprec=SYMPREC,
     )
 
     build, fit, charges = postprocess_commands(args)
@@ -41,6 +45,7 @@ def test_postprocess_commands_share_configured_paths():
     assert "fd2bec.cli.dPdR.build_dataset4dPdR" in build
     assert build[-2:] == ["-o", "work/dataset.extxyz"]
     assert "fd2bec.cli.dPdR.dPdR2bec" in fit
+    assert fit[fit.index("-sp") + 1] == str(SYMPREC)
     assert fit[-2:] == ["-o", "work/bec"]
     assert "fd2bec.cli.general.bec2charges" in charges
     assert charges[-4:] == [
@@ -60,6 +65,7 @@ def test_postprocess_commands_support_piezoelectric_workflow():
         format="aims_polarization",
         dataset="work/piezo.extxyz",
         output="work/piezoelectric",
+        symprec=SYMPREC,
     )
 
     build, fit = postprocess_commands(args)
@@ -74,11 +80,13 @@ def test_postprocess_commands_support_piezoelectric_workflow():
         "work/piezo.extxyz",
     ]
     assert "fd2bec.cli.dPdS.dPdS2piezo" in fit
-    assert fit[-6:] == [
+    assert fit[-8:] == [
         "-i",
         "work/piezo.extxyz",
         "-r",
         "reference.extxyz",
+        "-sp",
+        str(SYMPREC),
         "-o",
         "work/piezoelectric",
     ]

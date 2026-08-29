@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from fd2bec.cli import cli
+from fd2bec.cli.parser import add_shared_argument
 
 description = "Post process Born-charge or piezoelectric calculations from FHI-aims."
 
@@ -14,22 +15,8 @@ def prepare_args(descr):
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument(
-        "-i",
-        "--input",
-        **argv,
-        type=str,
-        required=True,
-        help="input structure",
-    )
-    parser.add_argument(
-        "-w",
-        "--what",
-        **argv,
-        choices=("bec", "piezo"),
-        default="bec",
-        help="quantity to post process (default: %(default)s)",
-    )
+    add_shared_argument(parser, "input_structure")
+    add_shared_argument(parser, "response_quantity")
     parser.add_argument(
         "--results",
         **argv,
@@ -70,6 +57,7 @@ def prepare_args(descr):
         default="fd2bec-log.pp.txt",
         help="subcommand log file (default: %(default)s)",
     )
+    add_shared_argument(parser, "symprec")
     return parser
 
 
@@ -99,6 +87,8 @@ def postprocess_commands(args):
                 str(dataset),
                 "-r",
                 str(args.input),
+                "-sp",
+                str(args.symprec),
                 "-o",
                 str(output),
             ],
@@ -126,6 +116,8 @@ def postprocess_commands(args):
             "fd2bec.cli.dPdR.dPdR2bec",
             "-i",
             str(dataset),
+            "-sp",
+            str(args.symprec),
             "-o",
             str(output),
         ],

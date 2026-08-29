@@ -14,8 +14,8 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from ase import Atoms
 from ase.io import iread as ase_iread
 
-from fd2bec.cli import cli
-from fd2bec.io import format_atoms, read, write
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.io import format_atoms, write
 
 description = "Split a multi-frame extxyz file into structure folders or a ZIP archive."
 
@@ -148,9 +148,7 @@ def main(args):
         print(f"Wrote editable runner script to {script}")
         return
 
-    print(f"Reading structures from {args.input} ... ", end="")
-    structures = read(args.input, index=":")
-    print(f"done ({len(structures)} structures)")
+    structures = read_input_structures(args.input, index=":")
 
     print(f"Writing structures to {output} ... ", end="")
     filenames = write_dataset(structures, output)

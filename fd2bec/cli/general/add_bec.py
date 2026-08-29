@@ -5,8 +5,9 @@
 import argparse
 from pathlib import Path
 
-from fd2bec.cli import KEYWORDS, cli
-from fd2bec.io import add_born_effective_charges, read, read_numeric_data, write
+from fd2bec.cli import KEYWORDS, cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.io import add_born_effective_charges, read_numeric_data, write
 
 description = "Add BECs from a text file under the default REF_BEC key."
 
@@ -15,10 +16,8 @@ def prepare_args(descr):
     """Create the command-line parser."""
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument("-i", "--input", **argv, required=True, help="input extxyz file")
-    parser.add_argument(
-        "-d", "--data", **argv, required=True, help="BEC text file (n_atoms rows × 9)"
-    )
+    add_shared_argument(parser, "input_structure")
+    add_shared_argument(parser, "data_file")
     parser.add_argument(
         "-o",
         "--output",
@@ -36,7 +35,7 @@ def main(args):
     if input_path.suffix.lower() != ".extxyz" or output_path.suffix.lower() != ".extxyz":
         raise ValueError("Both input and output must use the .extxyz extension.")
 
-    structures = read(input_path, format="extxyz", index=":")
+    structures = read_input_structures(input_path, index=":", input_format="extxyz")
     if len(structures) != 1:
         raise ValueError("add_bec requires an extxyz input containing exactly one structure.")
     updated = add_born_effective_charges(

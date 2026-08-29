@@ -10,10 +10,12 @@ from ase import Atoms
 
 from fd2bec import ATOL, float_format
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import KEYWORDS, cli, str2bool
-from fd2bec.cli.tools import matrix_norm, print_born_charges
-from fd2bec.io import read, write_tensor_extxyz
+from fd2bec.cli import KEYWORDS, cli, read_input_structures, str2bool
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.cli.tools import matrix_norm
+from fd2bec.io import write_tensor_extxyz
 from fd2bec.linear_system import LinearSystem
+from fd2bec.show import print_born_charges
 from fd2bec.tensor import BornCharges
 
 description = "Compute the Born Effective Charges as derivative of polarization/dipole w.r.t. nuclear displacements."
@@ -48,6 +50,7 @@ def prepare_args(descr):
         help="folder for the output files (default: %(default)s)",
         default=".",
     )
+    add_shared_argument(parser, "symprec")
     return parser
 
 
@@ -56,9 +59,7 @@ def main(args):
 
     assert Path(args.input).suffix == ".extxyz", f"'{args.input}' must be an extxyz file."
 
-    print(f"Reading input structures from '{args.input}' ... ", end="")
-    structures: List[Atoms] = read(args.input, format="extxyz", index=":")
-    print("done")
+    structures: List[Atoms] = read_input_structures(args.input, index=":", input_format="extxyz")
 
     Ns = len(structures)
     Na = structures[0].get_global_number_of_atoms()
@@ -93,7 +94,7 @@ def main(args):
         pbc=structures[0].get_pbc(),
         symbols=structures[0].get_chemical_symbols(),
     )
-    reference = AtomicStructure.from_ase(reference_atoms)
+    reference = AtomicStructure.from_ase(reference_atoms, symprec=args.symprec)
 
     print("Preparing Born Charges and symmetrization ... ", end="")
     bec = BornCharges(data=np.zeros((Na, 3, 3)), cell=reference.cell)

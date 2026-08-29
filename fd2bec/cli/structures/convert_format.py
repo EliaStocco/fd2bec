@@ -15,9 +15,9 @@ import spglib
 from ase import Atoms
 from ase.io.formats import ioformats
 
-from fd2bec import SYMPREC
-from fd2bec.cli import cli
-from fd2bec.io import ESPRESSO_GEOMETRY_FORMAT, inferred_output_format, read, write_structure
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.io import ESPRESSO_GEOMETRY_FORMAT, inferred_output_format, write_structure
 from fd2bec.structure_alignment import is_ase_standard_cell as is_ase_standard_cell
 
 description = "Convert, standardize, or rotate one structure between ASE-supported formats."
@@ -29,8 +29,8 @@ def prepare_args(descr):
     """Create the command-line parser."""
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument("-i", "--input", **argv, required=True, help="path to input structure")
-    parser.add_argument("-o", "--output", **argv, required=True, help="path to converted structure")
+    add_shared_argument(parser, "input_structure")
+    add_shared_argument(parser, "output_structure")
     parser.add_argument(
         "-f",
         "--format",
@@ -43,20 +43,8 @@ def prepare_args(descr):
         **argv,
         help="ASE input format; inferred from the input filename when omitted",
     )
-    parser.add_argument(
-        "--index",
-        **argv,
-        type=int,
-        default=0,
-        help="index of the input structure to convert (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--symprec",
-        **argv,
-        type=float,
-        default=SYMPREC,
-        help="symmetry tolerance used for CIF output (default: %(default)s)",
-    )
+    add_shared_argument(parser, "structure_index")
+    add_shared_argument(parser, "symprec")
     cell_setting = parser.add_mutually_exclusive_group()
     cell_setting.add_argument(
         "--conventional",
@@ -127,9 +115,11 @@ def main(args):
     if args.standardize == "conventional" and args.primitive:
         raise ValueError("--standardize conventional cannot be combined with --primitive.")
 
-    print(f"Reading structure {args.index} from {args.input} ... ", end="")
-    atoms = read(args.input, index=args.index, format=args.input_format)
-    print("done")
+    atoms = read_input_structures(
+        args.input,
+        index=args.index,
+        input_format=args.input_format,
+    )
 
     if args.standardize:
         print(f"Constructing {args.standardize} standardized cell ... ", end="")

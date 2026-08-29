@@ -10,7 +10,7 @@ from warnings import warn
 import numpy as np
 from ase import Atoms
 
-from fd2bec.cli import KEYWORDS, cli, extract_n
+from fd2bec.cli import KEYWORDS, cli, extract_n, read_input_structures
 from fd2bec.cli.dPdR.build_dataset4dPdR import (
     FORMAT_REGISTRY,
     extract_vectors,
@@ -89,7 +89,7 @@ def main(args):
 
     regex = re.compile(fmt["regex"])
     factor = fmt["factor"]
-    reference = read(args.reference)
+    reference = read_input_structures(args.reference, label="reference structure")
     if any(reference.get_pbc()):
         raise ValueError(
             "The reference structure is periodic. "

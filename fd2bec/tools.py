@@ -123,12 +123,3 @@ def shift_first_atom_to_origin(atoms: Atoms) -> Atoms:
     fractional_positions[0] = 0.0
     shifted.set_scaled_positions(fractional_positions)
     return shifted
-
-
-def symmetrize_bec(structure: Atoms, bec: np.ndarray) -> np.ndarray:
-    from fd2bec.atomic import AtomicStructure
-    from fd2bec.tensor import BornCharges
-
-    tensor = BornCharges(data=bec)
-    atomic_structure = AtomicStructure.from_ase(structure)
-    return atomic_structure.symmetrize(tensor=tensor).data

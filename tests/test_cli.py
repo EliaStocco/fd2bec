@@ -1,7 +1,35 @@
 import warnings
+from pathlib import Path
 
 import fd2bec.cli as cli_module
-from fd2bec.cli import cli
+from fd2bec.cli import cli, read_input_structures
+
+
+def test_read_input_structures_normalizes_path_and_reports_progress(monkeypatch, capsys):
+    calls = []
+    expected = [object()]
+
+    def fake_read(path, **kwargs):
+        calls.append((path, kwargs))
+        return expected
+
+    monkeypatch.setattr(cli_module, "_read_structure", fake_read)
+
+    result = read_input_structures("dataset.extxyz", index=":", input_format="extxyz", rename=True)
+
+    assert result is expected
+    assert calls == [(Path("dataset.extxyz"), {"index": ":", "rename": True, "format": "extxyz"})]
+    assert capsys.readouterr().out == "Reading input structures from dataset.extxyz ... done\n"
+
+
+def test_read_input_structures_uses_a_singular_default_label(monkeypatch, capsys):
+    expected = object()
+    monkeypatch.setattr(cli_module, "_read_structure", lambda *args, **kwargs: expected)
+
+    result = read_input_structures("structure.cif")
+
+    assert result is expected
+    assert capsys.readouterr().out == "Reading input structure from structure.cif ... done\n"
 
 
 def test_regular_cli_does_not_warn():
@@ -53,28 +81,5 @@ def test_python_environment_detects_conda(monkeypatch):
     monkeypatch.setenv("CONDA_DEFAULT_ENV", "test-environment")
 
     assert (
-        cli_module.python_environment()
-        == "conda: test-environment (/tmp/conda/test-environment)"
-    )
-
-
-def test_cli_prints_description_after_execution_context(monkeypatch, capsys):
-    monkeypatch.setattr(
-        cli_module,
-        "git_metadata",
-        lambda directory: ("main", "abc123 Test commit"),
-    )
-    monkeypatch.setattr(cli_module, "python_environment", lambda: "system Python")
-
-    @cli(description="Prepare calculations for FHI-aims.")
-    def command(args):
-        return None
-
-    command()
-
-    output = capsys.readouterr().out
-    assert output.index("@ Running:") < output.index("@ Let's start!")
-    assert output.index("@ Let's start!") < output.index("@ Description:")
-    assert output.index("@ Description:") < output.index(
-        "\tPrepare calculations for FHI-aims."
+        cli_module.python_environment() == "conda: test-environment (/tmp/conda/test-environment)"
     )

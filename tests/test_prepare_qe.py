@@ -4,6 +4,7 @@ import pytest
 from ase import Atoms
 from ase.io import write
 
+from fd2bec import SYMPREC
 from fd2bec.cli.qe.prepare_qe import (
     automatic_k_grid,
     nscf_template,
@@ -68,6 +69,7 @@ def test_preparation_commands_generate_piezo_and_export_qe_geometries():
         no_symmetry=False,
         number=7,
         seed=12,
+        symprec=SYMPREC,
     )
 
     generate, export = preparation_commands(
@@ -76,6 +78,7 @@ def test_preparation_commands_generate_piezo_and_export_qe_geometries():
 
     assert "fd2bec.cli.displacements.generate_displacements" in generate
     assert generate[generate.index("-w") + 1] == "piezo"
+    assert generate[generate.index("-sp") + 1] == str(SYMPREC)
     assert generate[-4:] == ["--number", "7", "--seed", "12"]
     assert "fd2bec.cli.displacements.extxyz2folder" in export
     assert export[-4:] == ["-f", "espresso-in", "-o", "geometries"]

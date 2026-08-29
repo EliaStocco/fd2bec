@@ -75,3 +75,17 @@ dPdS2piezo -i aims-piezoelectric.extxyz -r reference.extxyz \
 ```
 
 Use `prepare_aims --what piezo` to prepare FHI-aims piezoelectric geometries.
+
+## Re-running failed preparations
+
+`rerun_prepare_aims.sh` rebuilds one structure folder from `start.extxyz`.
+To rebuild every `structure-*` folder in a failed dataset sequentially, use
+`rerun_failed_prepare_aims.sh`:
+
+```bash
+AIMS_CONTROL_TEMPLATE=/path/to/aims.in AIMS_FOLDER=/path/to/FHIaims \
+    /path/to/rerun_failed_prepare_aims.sh /path/to/failed
+```
+
+The rerun removes and recreates only preparation outputs; it preserves each
+folder's `start.extxyz`.

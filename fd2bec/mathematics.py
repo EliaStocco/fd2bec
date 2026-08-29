@@ -1,6 +1,7 @@
 from typing import List, Tuple
 
 import numpy as np
+from ase.geometry import find_mic
 from scipy.optimize import linear_sum_assignment
 
 from fd2bec import ATOL
@@ -10,15 +11,27 @@ def wrap(x: np.ndarray):
     return (x + 0.5) % 1.0 - 0.5
 
 
-def find_mapping(a, b, atol=ATOL, pbc=False):
+def find_mapping(a, b, atol=ATOL, pbc=False, cell=None):
+    """Match the rows of ``b`` to ``a`` within a distance tolerance.
+
+    Periodic coordinates are fractional.  By default their distances are
+    therefore also fractional, preserving the public structure-matching API.
+    Supplying ``cell`` instead measures minimum-image distances in Cartesian
+    units, which is needed when comparing against spglib's ``symprec``.
+    """
     if a.shape != b.shape:
         return np.array([], dtype=int), False, np.array([])
 
     difference = a[:, None, :] - b[None, :, :]
-    if pbc:
+    if pbc and cell is not None:
+        cartesian = difference @ np.asarray(cell)
+        _, distances = find_mic(cartesian.reshape((-1, 3)), cell=cell, pbc=True)
+        cost = distances.reshape(difference.shape[:-1])
+    elif pbc:
         difference = wrap(difference)
-
-    cost = np.linalg.norm(difference, axis=-1)
+        cost = np.linalg.norm(difference, axis=-1)
+    else:
+        cost = np.linalg.norm(difference, axis=-1)
 
     rows, columns = linear_sum_assignment(cost)
 

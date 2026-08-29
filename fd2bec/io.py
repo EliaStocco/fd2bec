@@ -132,7 +132,7 @@ def add_born_effective_charges(
     if values.size != expected:
         raise ValueError(
             f"BEC data has {values.size} values; expected {expected} "
-            f"({n_atoms} atoms × 9 components" + (")." if replicate else " per structure).")
+            f"({n_atoms} atoms x 9 components" + (")." if replicate else " per structure).")
         )
     values = values.reshape((1 if replicate else len(structures), n_atoms, 9))
     if replicate:
@@ -167,7 +167,7 @@ def add_proper_piezoelectric_tensors(
     if values.size != expected:
         raise ValueError(
             f"Proper piezoelectric data has {values.size} values; expected {expected} "
-            "(3 × 6 components per structure)."
+            "(3 x 6 components per structure)."
         )
     values = values.reshape((1 if replicate else len(structures), 3, 6))
     if replicate:

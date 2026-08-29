@@ -376,7 +376,7 @@ class AtomicStructure:
             if not np.allclose(diff, 0, atol=atol):
                 raise ValueError("Symmetry operation does not preserve atomic positions")
 
-    def _get_atoms_mapping(self, other: "AtomicStructure", atol=ATOL) -> np.ndarray:
+    def _get_atoms_mapping(self, other: "AtomicStructure", atol=ATOL, cell=None) -> np.ndarray:
         """
         Build an atom index mapping from `other` to `self`, computed per species
         using the provided `find_mapping` function.
@@ -400,7 +400,7 @@ class AtomicStructure:
                 a = self.frac_pos_dict[s]
                 b = other.frac_pos_dict[s]
 
-            local_map, ok, dists = find_mapping(a, b, atol=atol, pbc=self.pbc)
+            local_map, ok, dists = find_mapping(a, b, atol=atol, pbc=self.pbc, cell=cell)
             if not ok:
                 raise ValueError(
                     f"Mapping failed for species {s}."
@@ -470,7 +470,11 @@ class AtomicStructure:
         for n, (r, t) in enumerate(zip(R, T)):
             new_pos = self.positions @ r.T + t
             new_structure = self.clone(positions=new_pos)
-            mapping[n] = self._get_atoms_mapping(new_structure)
+            mapping[n] = self._get_atoms_mapping(
+                new_structure,
+                atol=self.symprec,
+                cell=self.cell.array if self.pbc else None,
+            )
         return np.asarray(mapping)
 
     def get_tensor_symmetry_operations(self, tensor: Tensor):

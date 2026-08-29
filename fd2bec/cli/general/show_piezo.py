@@ -4,16 +4,15 @@ import numpy as np
 
 from fd2bec import float_format
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import cli
-from fd2bec.cli.dPdS.dPdS2piezo import print_voigt_tensor
-from fd2bec.io import read
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
 from fd2bec.mathematics import rotate_rank3
 from fd2bec.piezoelectric import (
     piezoelectric_symbolic_matrix,
     piezoelectric_to_voigt,
     proper_piezoelectric_symmetry_basis,
 )
-from fd2bec.show import print_reference_structure
+from fd2bec.show import print_reference_structure, print_voigt_tensor
 
 description = "Extract BEC from a extxyz file and convert it to a txt file."
 
@@ -22,14 +21,7 @@ def prepare_args(descr):
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument(
-        "-i",
-        "--input",
-        **argv,
-        type=str,
-        required=True,
-        help="path to input structure (e.g. supercell.extxyz)",
-    )
+    add_shared_argument(parser, "input_structure")
     parser.add_argument(
         "-n",
         "--name",
@@ -55,19 +47,18 @@ def prepare_args(descr):
         required=True,
         help="path to txt output file (e.g. piezoelectric.txt)",
     )
+    add_shared_argument(parser, "symprec")
     return parser
 
 
 @cli(prepare_args, description)
 def main(args):
 
-    print(f"Reading input structure from {args.input} ... ", end="")
-    reference = read(args.input, index=0)
-    print("done")
+    reference = read_input_structures(args.input)
 
     print_reference_structure(reference)
 
-    unit_cell = AtomicStructure.from_ase(reference)
+    unit_cell = AtomicStructure.from_ase(reference, symprec=args.symprec)
     direct_basis = proper_piezoelectric_symmetry_basis(unit_cell)
     dataset = unit_cell._spglib_dataset  # pylint: disable=protected-access
     space_group_symbol = dataset.international

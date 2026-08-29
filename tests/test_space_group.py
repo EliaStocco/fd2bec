@@ -2,17 +2,12 @@ import numpy as np
 import pandas as pd
 from ase import Atoms
 
-from fd2bec.cli.structures.space_group import (
-    _print_space_group,
-    print_cell,
-    print_positions,
-    print_symmetry_operations,
-)
 from fd2bec.cli.structures.space_group_dataset import (
     CSV_COLUMNS,
     collect_space_group_information,
     plot_dataset_statistics,
 )
+from fd2bec.show import print_cell, print_positions, print_space_group, print_symmetry_operations
 from fd2bec.tools import ase2spglib_dataset
 
 
@@ -61,7 +56,7 @@ def test_space_group_summary_has_readable_symmetry_fields(capsys):
     )
     dataset = ase2spglib_dataset(atoms, symprec=1e-3)
 
-    _print_space_group(dataset, atoms, 1e-3)
+    print_space_group(dataset, atoms, 1e-3)
     output = capsys.readouterr().out
 
     assert "International symbol" in output
@@ -100,7 +95,9 @@ def test_dataset_statistics_plot_is_written(tmp_path):
         scaled_positions=[[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]],
         pbc=True,
     )
-    dataframe = pd.DataFrame.from_records(collect_space_group_information([atoms]), columns=CSV_COLUMNS)
+    dataframe = pd.DataFrame.from_records(
+        collect_space_group_information([atoms]), columns=CSV_COLUMNS
+    )
     output = tmp_path / "statistics.png"
 
     plot_dataset_statistics(dataframe, output)

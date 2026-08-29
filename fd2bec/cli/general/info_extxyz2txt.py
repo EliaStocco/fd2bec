@@ -3,8 +3,8 @@ import argparse
 import numpy as np
 
 from fd2bec import float_format
-from fd2bec.cli import cli
-from fd2bec.io import read
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
 
 description = "Extract an 'info' from a extxyz file and convert it to a txt file."
 
@@ -21,14 +21,7 @@ def prepare_args(descr):
         required=True,
         help="path to input structure (e.g. supercell.extxyz)",
     )
-    parser.add_argument(
-        "-n",
-        "--name",
-        **argv,
-        type=str,
-        required=True,
-        help="name of the 'info' (e.g. dipole)",
-    )
+    add_shared_argument(parser, "data_name")
     parser.add_argument(
         "-o",
         "--output",
@@ -43,9 +36,7 @@ def prepare_args(descr):
 @cli(prepare_args, description)
 def main(args):
 
-    print(f"Reading input structure from {args.input} ... ", end="")
-    structures = read(args.input, index=":")
-    print("done")
+    structures = read_input_structures(args.input, index=":")
 
     print(f"Extracting '{args.name}' from the 'info' of the structures ... ", end="")
     data = [None] * len(structures)

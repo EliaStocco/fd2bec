@@ -6,7 +6,8 @@ import numpy as np
 
 from fd2bec import float_format
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import cli
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
 from fd2bec.displacements import (
     all_cartesian_displacements,
     all_cell_displacements,
@@ -17,7 +18,7 @@ from fd2bec.displacements import (
     tensor_has_atomic_input,
     tensor_perturbation_shape,
 )
-from fd2bec.io import read, write
+from fd2bec.io import write
 from fd2bec.show import print_displacement_input_structure, print_symmetry_selection
 
 description = "Generate Cartesian atomic or cell displacements and displaced structures."
@@ -27,33 +28,9 @@ def prepare_args(descr):
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument(
-        "-i",
-        "--input",
-        **argv,
-        type=str,
-        required=True,
-        help="path to input structure",
-    )
-    parser.add_argument(
-        "-a",
-        "--amplitude",
-        **argv,
-        type=float,
-        required=False,
-        help="Cartesian displacement amplitude in Angstrom (default: %(default)s)",
-        default=1e-3,
-    )
-    parser.add_argument(
-        "-w",
-        "--what",
-        **argv,
-        type=str,
-        required=False,
-        help="target quantity (default: %(default)s)",
-        default="bec",
-        choices=("bec", "piezo", "forces", "stress", "elastic", "force_constants"),
-    )
+    add_shared_argument(parser, "input_structure")
+    add_shared_argument(parser, "cartesian_amplitude")
+    add_shared_argument(parser, "displacement_target")
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument(
         "--no-symmetry",
@@ -90,6 +67,7 @@ def prepare_args(descr):
         required=True,
         help="path to the multi-frame extxyz output",
     )
+    add_shared_argument(parser, "symprec")
     return parser
 
 
@@ -103,12 +81,10 @@ def main(args):
     if args.seed is not None and args.number is None:
         raise ValueError("--seed can only be used together with --number.")
 
-    print(f"Reading input structure from {args.input} ... ", end="")
-    atoms = read(args.input, index=0)
-    print("done")
+    atoms = read_input_structures(args.input)
     print_displacement_input_structure(atoms)
 
-    unit_cell = AtomicStructure.from_ase(atoms)
+    unit_cell = AtomicStructure.from_ase(atoms, symprec=args.symprec)
     number_of_atoms = len(unit_cell)
 
     print(f"Constructing {args.what} tensor ... ", end="")

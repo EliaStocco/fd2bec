@@ -10,6 +10,8 @@ import tokenize
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+from fd2bec.show import print_scripts
+
 DESCRIPTION = "Search for scripts and their descriptions in 'fd2bec'."
 CLI_ROOT = Path(__file__).resolve().parent
 
@@ -136,32 +138,6 @@ def prepare_parser() -> argparse.ArgumentParser:
         help="disable colored output",
     )
     return parser
-
-
-def print_scripts(
-    scripts: Dict[str, List[Tuple[str, Optional[str]]]],
-    show_folders: bool = False,
-    descriptions: bool = False,
-    color: bool = True,
-) -> None:
-    """Print grouped script names and, optionally, descriptions."""
-    blue = "\033[1;34m" if color else ""
-    green = "\033[0;32m" if color else ""
-    reset = "\033[0m" if color else ""
-
-    for folder, entries in scripts.items():
-        print(f"\t{blue}{folder}:{reset}")
-        if show_folders:
-            continue
-
-        width = max(len(filename) for filename, _ in entries)
-        for filename, description in entries:
-            if descriptions:
-                text = description or "No description found"
-                print(f"\t - {green}{filename:<{width}}{reset}: {text}")
-            else:
-                print(f"\t - {green}{filename}{reset}")
-        print()
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

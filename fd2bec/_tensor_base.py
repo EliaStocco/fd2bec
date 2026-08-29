@@ -58,9 +58,9 @@ class Tensor:
             if self.data is None:
                 raise ValueError("Tensor components require data.")
             components = self.data
+        from .show import print_components
         from .tensor_components import (
             flattened_nuclear_position_matrix,
-            print_components,
             symmetric_pairs,
             voigt_components,
         )

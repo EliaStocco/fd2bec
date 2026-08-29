@@ -9,8 +9,8 @@ from typing import Iterable, List
 from ase import Atoms
 from ase.io.formats import ioformats
 
-from fd2bec.cli import cli
-from fd2bec.io import ESPRESSO_GEOMETRY_FORMAT, read, write, write_espresso_geometry
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.io import ESPRESSO_GEOMETRY_FORMAT, write, write_espresso_geometry
 
 ase_writable_formats = sorted(name for name, fmt in ioformats.items() if fmt.can_write)
 output_formats = sorted(set(ase_writable_formats) | {ESPRESSO_GEOMETRY_FORMAT})
@@ -70,9 +70,7 @@ def write_snapshots(structures: Iterable[Atoms], output: Path, output_format: st
 @cli(prepare_args, description)
 def main(args):
     """Run the snapshot exporter."""
-    print(f"Reading snapshots from {args.input} ... ", end="")
-    structures = read(args.input, index=":")
-    print(f"done ({len(structures)} structures)")
+    structures = read_input_structures(args.input, index=":")
 
     output = Path(args.output)
     print(f"Writing {args.format} geometries to {output} ... ", end="")

@@ -7,7 +7,7 @@ from ase.io import read, write
 from ase.units import Bohr
 
 from fd2bec import ATOL
-from fd2bec.cli import cli
+from fd2bec.cli import cli, read_input_structures
 from fd2bec.mathematics import wrap
 
 description = "Post process Quantum ESPRESSO Berry-phase polarization calculations."
@@ -70,7 +70,7 @@ def main(args):
     if not results.is_dir():
         raise FileNotFoundError(f"QE results directory not found: '{results}'.")
 
-    reference = read(args.input)
+    reference = read_input_structures(args.input, label="reference structure")
 
     dataset = []
 

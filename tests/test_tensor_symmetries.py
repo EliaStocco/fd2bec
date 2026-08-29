@@ -5,6 +5,7 @@ import pytest
 
 from fd2bec.cli import count_with_percentage
 from fd2bec.cli.structures.tensor_symmetries import prepare_args
+from fd2bec.show import print_components, print_independent_components, print_numeric_tensor
 from fd2bec.tensor_components import (
     _symmetric_basis,
     affine_parameter_values,
@@ -13,9 +14,6 @@ from fd2bec.tensor_components import (
     forbidden_component_indices,
     parameter_name,
     physical_modes,
-    print_components,
-    print_independent_components,
-    print_numeric_tensor,
     selected_tensor_basis,
     selected_tensor_precision,
     symbolic_affine_components,
@@ -147,9 +145,7 @@ def test_numeric_tensor_prints_independent_values_and_checks_zeros(capsys):
 
 
 def test_nonzero_symmetry_forbidden_components_are_rejected():
-    violations, forbidden_count = forbidden_component_indices(
-        [2.5, 0.1, 0.0], ["a", "0", "0"]
-    )
+    violations, forbidden_count = forbidden_component_indices([2.5, 0.1, 0.0], ["a", "0", "0"])
 
     assert violations.tolist() == [1]
     assert forbidden_count == 2
@@ -189,9 +185,7 @@ def test_affine_numeric_values_are_reported_as_parameters_not_raw_pivots():
 
 
 def test_affine_fixed_zero_strings_are_checked():
-    violations, forbidden_count = forbidden_component_indices(
-        [1.0, 0.1, 0.5], ["a", "0.0", "0.5"]
-    )
+    violations, forbidden_count = forbidden_component_indices([1.0, 0.1, 0.5], ["a", "0.0", "0.5"])
 
     assert violations.tolist() == [1]
     assert forbidden_count == 1

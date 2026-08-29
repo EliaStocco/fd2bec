@@ -11,8 +11,8 @@ from typing import Dict, Iterable, List
 import numpy as np
 from ase import Atoms
 
-from fd2bec.cli import cli
-from fd2bec.io import read, write
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.io import write
 
 description = "Add oxidation numbers from a species-to-charge JSON file to extxyz arrays."
 
@@ -123,7 +123,7 @@ def main(args):
         raise ValueError("Both input and output must use the .extxyz extension.")
 
     oxidation_numbers = read_oxidation_numbers(args.charges)
-    structures = read(input_path, format="extxyz", index=":")
+    structures = read_input_structures(input_path, index=":", input_format="extxyz")
     charged = add_oxidation_numbers(
         structures,
         oxidation_numbers,

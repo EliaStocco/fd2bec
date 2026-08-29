@@ -9,10 +9,12 @@ from typing import Callable, List, Optional
 import numpy as np
 from ase import Atoms
 
+from fd2bec import SYMPREC
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import KEYWORDS, cli
+from fd2bec.cli import KEYWORDS, cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
 from fd2bec.displacements import atomic_structure2all_displacements, displacements2structures
-from fd2bec.io import read, write
+from fd2bec.io import write
 
 description = (
     "Evaluate MACE-POLAR dipoles for Cartesian finite displacements of an "
@@ -24,7 +26,7 @@ description = (
 def prepare_args(descr):
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument("-i", "--input", **argv, required=True, help="isolated input structure")
+    add_shared_argument(parser, "input_structure")
     parser.add_argument(
         "-m",
         "--model",
@@ -32,15 +34,7 @@ def prepare_args(descr):
         default="polar-1-m",
         help=("MACE-POLAR model name, local checkpoint, or URL (default: %(default)s)"),
     )
-    parser.add_argument(
-        "-a",
-        "--amplitude",
-        **argv,
-        type=float,
-        required=False,
-        help="amplitude of the displacement (default: %(default)s)",
-        default=1e-3,
-    )
+    add_shared_argument(parser, "cartesian_amplitude")
     parser.add_argument(
         "-d", "--device", **argv, default="cpu", help="torch device (default: %(default)s)"
     )
@@ -69,6 +63,7 @@ def prepare_args(descr):
         default="mace-polar-dataset.extxyz",
         help="output extxyz dataset (default: %(default)s)",
     )
+    add_shared_argument(parser, "symprec")
     return parser
 
 
@@ -91,11 +86,13 @@ def _electronic_state(reference: Atoms, charge: Optional[float], spin: Optional[
     }
 
 
-def build_displaced_structures(reference: Atoms, amplitude: float) -> List[Atoms]:
+def build_displaced_structures(
+    reference: Atoms, amplitude: float, symprec: float = SYMPREC
+) -> List[Atoms]:
     """Return positive, negative, and zero Cartesian displacements."""
     if amplitude <= 0:
         raise ValueError("The displacement amplitude must be positive.")
-    unit_cell = AtomicStructure.from_ase(reference)
+    unit_cell = AtomicStructure.from_ase(reference, symprec=symprec)
     displacements = atomic_structure2all_displacements(unit_cell, amplitude)
     return displacements2structures(reference, displacements, atomic=True)
 
@@ -157,15 +154,14 @@ def main(args):
     if output.suffix != ".extxyz":
         raise ValueError(f"'{output}' must be an extxyz file.")
 
-    print(f"Reading reference structure from '{args.input}'")
-    reference = read(args.input, index=0)
+    reference = read_input_structures(args.input, label="reference structure")
     if any(reference.get_pbc()):
         raise ValueError(
             "MACE-POLAR total dipoles are only meaningful for non-periodic "
             "structures; periodic inputs cannot be used for dP/dR."
         )
 
-    structures = build_displaced_structures(reference, args.amplitude)
+    structures = build_displaced_structures(reference, args.amplitude, symprec=args.symprec)
     print(
         f"Evaluating {len(structures)} structures with '{args.model}' "
         f"on '{args.device}' ({args.default_dtype})"

@@ -12,7 +12,7 @@ from warnings import warn
 import numpy as np
 from ase import Atoms
 
-from fd2bec.cli import KEYWORDS, cli, extract_n
+from fd2bec.cli import KEYWORDS, cli, extract_n, read_input_structures
 from fd2bec.geometry import cart2frac, frac2cart
 from fd2bec.io import read, write
 
@@ -207,8 +207,7 @@ def main(args):
     factor = fmt["factor"]
     dtype = fmt["type"]
 
-    print(f"Reading input structures from '{args.reference}'")
-    reference = read(args.reference)
+    reference = read_input_structures(args.reference, label="reference structure")
     print("n. atoms: ", reference.get_global_number_of_atoms())
 
     print(f"Reading input structures from '{args.input}'")

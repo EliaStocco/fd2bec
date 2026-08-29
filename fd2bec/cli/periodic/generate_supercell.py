@@ -3,8 +3,9 @@ import argparse
 import numpy as np
 from ase.build import make_supercell
 
-from fd2bec.cli import cli, ilist
-from fd2bec.io import read, write
+from fd2bec.cli import cli, ilist, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.io import write
 
 description = """Generate supercell structures from a unit cell structure.
     -t/--type:
@@ -29,14 +30,7 @@ def prepare_args(descr):
 
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument(
-        "-i",
-        "--input",
-        **argv,
-        type=str,
-        required=True,
-        help="path to input structure (e.g. unitcell.extxyz)",
-    )
+    add_shared_argument(parser, "input_structure")
     parser.add_argument(
         "-s",
         "--supercell",
@@ -54,23 +48,14 @@ def prepare_args(descr):
         default="atom-major",
         choices=choices,
     )
-    parser.add_argument(
-        "-o",
-        "--output",
-        **argv,
-        type=str,
-        required=True,
-        help="path to output structure (e.g. supercell.extxyz)",
-    )
+    add_shared_argument(parser, "output_structure")
     return parser
 
 
 @cli(prepare_args, description)
 def main(args):
 
-    print(f"Reading input structure from {args.input} ... ", end="")
-    atoms = read(args.input, index=0)
-    print("done")
+    atoms = read_input_structures(args.input)
 
     print(f"Generating supercell with dimensions {args.supercell} ... ", end="")
     matrix = np.diag(args.supercell)

@@ -11,8 +11,8 @@ import numpy as np
 import pandas as pd
 
 from fd2bec import SYMPREC
-from fd2bec.cli import cli
-from fd2bec.io import read
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
 from fd2bec.tools import ase2spglib_dataset
 
 description = "Write lattice and space-group information for a multi-frame extxyz file."
@@ -58,14 +58,7 @@ def prepare_args(descr):
         required=True,
         help="path to the output CSV file",
     )
-    parser.add_argument(
-        "-t",
-        "--threshold",
-        **argv,
-        type=float,
-        default=SYMPREC,
-        help="symmetry tolerance passed to spglib (default: %(default)s)",
-    )
+    add_shared_argument(parser, "symprec")
     parser.add_argument(
         "--plot-output",
         **argv,
@@ -80,14 +73,14 @@ def _text(value):
     return value.decode() if isinstance(value, bytes) else str(value)
 
 
-def _bravais_type(atoms, threshold):
+def _bravais_type(atoms, symprec):
     try:
-        return atoms.cell.get_bravais_lattice(eps=threshold).longname
+        return atoms.cell.get_bravais_lattice(eps=symprec).longname
     except (AttributeError, ValueError):
         return "undetermined"
 
 
-def structure_record(atoms, threshold=SYMPREC):
+def structure_record(atoms, symprec=SYMPREC):
     """Return one CSV row containing lattice and space-group information."""
     record = {column: None for column in CSV_COLUMNS}
     record["n. atoms"] = len(atoms)
@@ -107,7 +100,7 @@ def structure_record(atoms, threshold=SYMPREC):
         }
     )
 
-    dataset = ase2spglib_dataset(atoms, symprec=threshold)
+    dataset = ase2spglib_dataset(atoms, symprec=symprec)
     if dataset is None:
         return record
 
@@ -118,7 +111,7 @@ def structure_record(atoms, threshold=SYMPREC):
             "space group symbol": _text(dataset.international),
             "Hall symbol": _text(dataset.hall),
             "crystal class": _text(dataset.pointgroup),
-            "Bravais lattice type": _bravais_type(atoms, threshold),
+            "Bravais lattice type": _bravais_type(atoms, symprec),
             "centrosymmetric": any(
                 np.array_equal(rotation, -np.eye(3, dtype=int)) for rotation in dataset.rotations
             ),
@@ -131,9 +124,9 @@ def structure_record(atoms, threshold=SYMPREC):
     return record
 
 
-def collect_space_group_information(structures, threshold=SYMPREC):
+def collect_space_group_information(structures, symprec=SYMPREC):
     """Return one ordered record for each structure."""
-    return [structure_record(structure, threshold) for structure in structures]
+    return [structure_record(structure, symprec) for structure in structures]
 
 
 def _plot_histogram(axis, dataframe, columns, labels, title, xlabel):
@@ -237,14 +230,12 @@ def plot_dataset_statistics(dataframe, output):
 
 @cli(prepare_args, description)
 def main(args):
-    print(f"Reading structures from {args.input} ... ", end="")
-    structures = read(args.input, index=":")
+    structures = read_input_structures(args.input, index=":")
     if not isinstance(structures, list):
         structures = [structures]
-    print(f"done ({len(structures)} structure(s))")
 
     print("Computing lattice and space-group information ... ", end="")
-    records = collect_space_group_information(structures, args.threshold)
+    records = collect_space_group_information(structures, args.symprec)
     print("done")
 
     print(f"Writing CSV file to {args.output} ... ", end="")

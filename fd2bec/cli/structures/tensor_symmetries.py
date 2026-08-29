@@ -7,16 +7,18 @@ import argparse
 import numpy as np
 
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import cli, count_with_percentage, positive_int
+from fd2bec.cli import cli, count_with_percentage, positive_int, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
 from fd2bec.displacements import symmetry_inequivalent_displacements
-from fd2bec.io import read
-from fd2bec.show import print_reference_structure
+from fd2bec.show import (
+    print_independent_components,
+    print_numeric_tensor,
+    print_reference_structure,
+)
 from fd2bec.tensor import MAPPING
 from fd2bec.tensor_components import (
     affine_parameter_values,
     physical_modes,
-    print_independent_components,
-    print_numeric_tensor,
     rotate_modes,
     selected_tensor_basis,
     selected_tensor_precision,
@@ -32,14 +34,7 @@ choices = list(MAPPING.keys())
 def prepare_args(descr: str):
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
-    parser.add_argument(
-        "-i",
-        "--input",
-        **argv,
-        type=str,
-        required=True,
-        help="path to input structure (e.g. supercell.extxyz)",
-    )
+    add_shared_argument(parser, "input_structure")
     parser.add_argument(
         "-n",
         "--name",
@@ -80,17 +75,16 @@ def prepare_args(descr: str):
             "defaults to 4 for positions and unrestricted otherwise"
         ),
     )
+    add_shared_argument(parser, "symprec")
     return parser
 
 
 @cli(prepare_args, description)
 def main(args: argparse.Namespace):
-    print(f"Reading input structure from {args.input} ... ", end="")
-    reference = read(args.input, index=0)
-    print("done")
+    reference = read_input_structures(args.input)
 
     print_reference_structure(reference)
-    unit_cell = AtomicStructure.from_ase(reference)
+    unit_cell = AtomicStructure.from_ase(reference, symprec=args.symprec)
     basis = selected_tensor_basis(args.name, args.basis)
     precision = selected_tensor_precision(args.name, getattr(args, "precision", None))
     if basis == "fractional" and not unit_cell.pbc:

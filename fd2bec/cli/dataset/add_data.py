@@ -5,8 +5,9 @@
 import argparse
 from pathlib import Path
 
-from fd2bec.cli import cli
-from fd2bec.io import add_extxyz_data, read, read_numeric_data, write
+from fd2bec.cli import cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.io import add_extxyz_data, read_numeric_data, write
 
 description = "Add numeric data from a text or CSV file to an extxyz trajectory."
 
@@ -14,19 +15,11 @@ description = "Add numeric data from a text or CSV file to an extxyz trajectory.
 def prepare_args(descr):
     """Create the command-line parser."""
     parser = argparse.ArgumentParser(description=descr)
-    argv = {"metavar": "\b"}
-    parser.add_argument("-i", "--input", **argv, required=True, help="input extxyz file")
-    parser.add_argument("-n", "--name", **argv, required=True, help="name of the new info or array")
-    parser.add_argument("-d", "--data", **argv, required=True, help="numeric text or CSV data file")
-    parser.add_argument(
-        "-w",
-        "--what",
-        **argv,
-        required=True,
-        choices=("i", "info", "a", "array", "arrays"),
-        help="store data as structure info ('i') or a per-atom array ('a')",
-    )
-    parser.add_argument("-o", "--output", **argv, required=True, help="output extxyz file")
+    add_shared_argument(parser, "input_structure")
+    add_shared_argument(parser, "data_name")
+    add_shared_argument(parser, "data_file")
+    add_shared_argument(parser, "data_destination")
+    add_shared_argument(parser, "output_structure")
     return parser
 
 
@@ -38,7 +31,7 @@ def main(args):
     if input_path.suffix.lower() != ".extxyz" or output_path.suffix.lower() != ".extxyz":
         raise ValueError("Both input and output must use the .extxyz extension.")
 
-    structures = read(input_path, format="extxyz", index=":")
+    structures = read_input_structures(input_path, index=":", input_format="extxyz")
     if len(structures) != 1:
         raise ValueError("add_data requires an extxyz input containing exactly one structure.")
     data = read_numeric_data(args.data)
