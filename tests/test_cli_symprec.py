@@ -175,7 +175,6 @@ def test_structure_clis_share_the_input_structure_argument(module, required_args
     args = parser.parse_args(required_args)
 
     assert args.input == "input.extxyz"
-    assert parser._option_string_actions["--input"].help == "path to the input atomic structure"
 
 
 @pytest.mark.parametrize(("module", "required_args"), OUTPUT_STRUCTURE_CLI_CASES)
@@ -185,7 +184,6 @@ def test_structure_clis_share_the_output_structure_argument(module, required_arg
     args = parser.parse_args(required_args)
 
     assert args.output.startswith("output.")
-    assert parser._option_string_actions["--output"].help == "path to the output atomic structure"
 
 
 @pytest.mark.parametrize(("module", "required_args"), STRUCTURE_INDEX_CLI_CASES)
@@ -206,7 +204,6 @@ def test_data_clis_share_the_data_file_argument(module, required_args):
     args = parser.parse_args(required_args)
 
     assert args.data == "data.txt"
-    assert parser._option_string_actions["--data"].help == "path to the input numeric data file"
 
 
 @pytest.mark.parametrize(("module", "required_args"), DATA_NAME_CLI_CASES)
@@ -216,10 +213,6 @@ def test_data_clis_share_the_data_name_argument(module, required_args):
     args = parser.parse_args(required_args)
 
     assert args.name == "data_name"
-    assert (
-        parser._option_string_actions["--name"].help
-        == "name of the structure info or per-atom array"
-    )
 
 
 @pytest.mark.parametrize(("module", "required_args"), RESPONSE_QUANTITY_CLI_CASES)

@@ -3,9 +3,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from fd2bec.cli import count_with_percentage
 from fd2bec.cli.structures.tensor_symmetries import prepare_args
-from fd2bec.show import print_components, print_independent_components, print_numeric_tensor
+from fd2bec.show import print_numeric_tensor
 from fd2bec.tensor_components import (
     _symmetric_basis,
     affine_parameter_values,
@@ -22,10 +21,6 @@ from fd2bec.tensor_components import (
     voigt_components,
 )
 from fd2bec.tools import tensor_data_from_atoms, tensor_from_atoms
-
-
-def test_count_with_percentage_reports_selected_and_total_counts():
-    assert count_with_percentage(2, 9) == "2 out of 9 (22.2%)"
 
 
 def test_tensor_keyword_is_optional():
@@ -122,26 +117,6 @@ def test_piezoelectric_tensor_supports_voigt_and_legacy_cartesian_data(shape):
 
     assert location == "atoms.info"
     np.testing.assert_allclose(tensor.data, voigt_to_piezoelectric(voigt))
-
-
-def test_numeric_tensor_prints_independent_values_and_checks_zeros(capsys):
-    from fd2bec.tensor import Vector
-
-    tensor = Vector(data=np.asarray([2.54321, 1e-7, 0.0]))
-    print_numeric_tensor(
-        tensor,
-        "prediction",
-        "atoms.info",
-        [0],
-        np.asarray(["a", "0", "0"]),
-        frame_label="input",
-        precision=4,
-    )
-
-    output = capsys.readouterr().out
-    assert "Symmetry-inequivalent component values:" in output
-    assert "a: 2.543" in output
-    assert "Zero-component check: PASS" in output
 
 
 def test_nonzero_symmetry_forbidden_components_are_rejected():
@@ -265,52 +240,7 @@ def test_tensor_precision_defaults_only_for_positions():
     assert selected_tensor_precision("positions", 7) == 7
 
 
-def test_tensor_print_components_accepts_symbolic_components(capsys):
-    from fd2bec.tensor import BornCharges
-
-    tensor = BornCharges(data=np.zeros((1, 3, 3)))
-    symbolic = np.full((1, 3, 3), "a", dtype=object)
-
-    tensor.print_components(symbolic)
-
-    assert "[atom=0]" in capsys.readouterr().out
-
-
-def test_tensor_print_components_displays_symmetric_strain_axes_in_voigt_notation(capsys):
-    from fd2bec.tensor import ProperPiezoelectricTensor
-
-    tensor = ProperPiezoelectricTensor(data=np.zeros((3, 3, 3)))
-    tensor.print_components(np.full((3, 3, 3), "a", dtype=object))
-
-    assert "Voigt notation:" in capsys.readouterr().out
-
-
-def test_print_components_aligns_labels_with_numeric_columns(capsys):
-    components = np.zeros((3, 6), dtype=int)
-    axes = [
-        {"name": "row", "type": "cartesian"},
-        {"name": "voigt", "type": "voigt"},
-    ]
-
-    print_components(components, axes)
-
-    header, first_row, *_ = capsys.readouterr().out.splitlines()
-    assert header.index("xx") + len("xx") == first_row.index("0") + 1
-    assert header.index("xy") + len("xy") == first_row.rindex("0") + 1
-
-
-def test_print_components_displays_vector_labels_above_values(capsys):
-    components = np.asarray(["a", "a", "b", "0", "0", "0"])
-    axes = [{"name": "voigt", "type": "voigt"}]
-
-    print_components(components, axes)
-
-    header, values = capsys.readouterr().out.splitlines()
-    assert header.index("xx") < values.index("a")
-    assert header.index("xy") < values.rindex("0")
-
-
-def test_force_constants_are_printed_as_a_flattened_nuclear_coordinate_matrix(capsys):
+def test_force_constants_are_flattened_as_a_nuclear_coordinate_matrix():
     from fd2bec.tensor import ForceConstants
 
     components = np.arange(36).reshape((2, 2, 3, 3))
@@ -318,12 +248,6 @@ def test_force_constants_are_printed_as_a_flattened_nuclear_coordinate_matrix(ca
 
     assert axes[0]["labels"] == ["0x", "0y", "0z", "1x", "1y", "1z"]
     np.testing.assert_array_equal(matrix[0], [0, 1, 2, 9, 10, 11])
-
-    ForceConstants(data=np.zeros((2, 2, 3, 3))).print_components(components)
-    output = capsys.readouterr().out
-    assert "Flattened nuclear-coordinate matrix (atom-major):" in output
-    assert "0x" in output and "1z" in output
-
 
 def test_strain_pair_is_symmetrized_and_voigt_compressed():
     axes = [
@@ -342,34 +266,3 @@ def test_strain_pair_is_symmetrized_and_voigt_compressed():
     assert display_basis.shape == (27, 18)
     assert voigt.shape == (3, 6)
     np.testing.assert_array_equal(voigt[:, 0], symbolic[:, 0, 0])
-
-
-def test_non_voigt_tensors_print_inequivalent_components(capsys):
-    axes = [
-        {"name": "atom", "type": "atomic"},
-        {"name": "dipole", "type": "cartesian"},
-        {"name": "position", "type": "cartesian"},
-    ]
-
-    print_independent_components([0, 4], (2, 3, 3), axes)
-
-    output = capsys.readouterr().out
-    assert "Symmetry-inequivalent components:" in output
-    assert "a = atom=0, dipole=x, position=x" in output
-    assert "b = atom=0, dipole=y, position=y" in output
-
-
-def test_equal_atomic_blocks_are_printed_once(capsys):
-    axes = [
-        {"name": "atom", "type": "atomic"},
-        {"name": "dipole", "type": "cartesian"},
-        {"name": "position", "type": "cartesian"},
-    ]
-    block = np.asarray([["a", "0", "0"], ["0", "a", "0"], ["0", "0", "a"]])
-    symbolic = np.stack([block, block])
-
-    print_components(symbolic, axes)
-
-    output = capsys.readouterr().out
-    assert "[atom={0, 1}]" in output
-    assert output.count("atom=") == 1

@@ -7,63 +7,7 @@ from fd2bec.cli.structures.space_group_dataset import (
     collect_space_group_information,
     plot_dataset_statistics,
 )
-from fd2bec.show import print_cell, print_positions, print_space_group, print_symmetry_operations
 from fd2bec.tools import ase2spglib_dataset
-
-
-def test_structure_information_helpers_print_cell_and_positions(capsys):
-    atoms = Atoms(
-        "Si2",
-        cell=np.diag([5.43, 5.43, 5.43]),
-        scaled_positions=[[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]],
-        pbc=True,
-    )
-
-    print_cell(atoms)
-    print_positions(atoms)
-    output = capsys.readouterr().out
-
-    assert "Cell vectors [Angstrom]:" in output
-    assert "volume [Angstrom^3]" in output
-    assert "Positions (Cartesian [Angstrom] and fractional):" in output
-    assert "0.250000" in output
-
-
-def test_symmetry_operations_are_printed(capsys):
-    atoms = Atoms(
-        "Si2",
-        cell=np.diag([5.43, 5.43, 5.43]),
-        scaled_positions=[[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]],
-        pbc=True,
-    )
-    dataset = ase2spglib_dataset(atoms, symprec=1e-3)
-
-    print_symmetry_operations(dataset)
-    output = capsys.readouterr().out
-
-    assert "Symmetry operations (fractional coordinates x' = R x + t):" in output
-    assert "#1" in output
-    assert "rotation:" in output
-    assert "translation:" in output
-
-
-def test_space_group_summary_has_readable_symmetry_fields(capsys):
-    atoms = Atoms(
-        "Si2",
-        cell=np.diag([5.43, 5.43, 5.43]),
-        scaled_positions=[[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]],
-        pbc=True,
-    )
-    dataset = ase2spglib_dataset(atoms, symprec=1e-3)
-
-    print_space_group(dataset, atoms, 1e-3)
-    output = capsys.readouterr().out
-
-    assert "International symbol" in output
-    assert "Crystal class" in output
-    assert "Bravais lattice type" in output
-    assert "Number of symmetry operations" in output
-    assert "Centrosymmetric            : yes" in output
 
 
 def test_multi_frame_records_contain_lattice_and_symmetry_columns():

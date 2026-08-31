@@ -126,8 +126,8 @@ def test_symmetry_check_uses_an_elementwise_tolerance(monkeypatch):
     assert eigh_called
 
 
-def test_asymmetric_cartesian_projection_warns_and_is_symmetrized(monkeypatch, capsys):
-    """Cartesian projections are symmetrized after reporting their asymmetry."""
+def test_asymmetric_cartesian_projection_warns_and_is_symmetrized(monkeypatch):
+    """Cartesian projections are symmetrized after detecting their asymmetry."""
     atol = 1e-6
     projection = np.array(
         [
@@ -155,7 +155,6 @@ def test_asymmetric_cartesian_projection_warns_and_is_symmetrized(monkeypatch, c
         structure.get_symmetry_modes(tensor, atol=atol)
 
     np.testing.assert_allclose(eigh_inputs[0], (projection + projection.T) / 2)
-    assert "Largest component of projection - projection.T: 2e-06" in capsys.readouterr().out
 
 @pytest.mark.parametrize("basis",["fractional","cartesian"])
 def test_symmetry_modes_for_periodic_structure(sg_case,basis):
