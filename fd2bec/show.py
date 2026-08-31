@@ -156,10 +156,10 @@ def print_space_group(dataset: SpglibDataset, atoms: Atoms, symprec: float) -> N
     )
     print("Space-group summary:")
     for label, value in fields:
-        print(f"  {label:<27}: {value}")
+        print(f"  {label:<30}: {value}")
 
 
-def print_symmetry_operations(dataset: SpglibDataset, precision: int = 8) -> None:
+def print_symmetry_operations(dataset: SpglibDataset, precision: int = 2) -> None:
     """Print spglib symmetry operations in fractional coordinates."""
     print("Symmetry operations (fractional coordinates x' = R x + t):")
     for index, (rotation, translation) in enumerate(
@@ -167,8 +167,9 @@ def print_symmetry_operations(dataset: SpglibDataset, precision: int = 8) -> Non
     ):
         print(f"  #{index}")
         print("    rotation:")
-        print_matrix(rotation, precision=0)
-        print("    translation: " + "  ".join(f"{value: .{precision}f}" for value in translation))
+        print_matrix(rotation, precision=precision)
+        print("    translation: ")
+        print_matrix(np.reshape(translation, (1, len(translation))), precision=precision)
 
 
 def print_symmetry_selection(

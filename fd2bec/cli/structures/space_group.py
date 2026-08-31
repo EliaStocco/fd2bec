@@ -9,6 +9,7 @@ import numpy as np
 from fd2bec.cli import cli, read_input_structures
 from fd2bec.cli.parser import add_shared_argument
 from fd2bec.show import print_space_group, print_structure, print_symmetry_operations
+from fd2bec.symmetry import character_table_frame, gamma_character_table
 from fd2bec.tools import ase2spglib_dataset
 
 description = "Show the cell, atomic positions, and space-group information."
@@ -19,7 +20,7 @@ def prepare_args(descr):
     add_shared_argument(parser, "input_structure")
     add_shared_argument(parser, "symprec")
     parser.add_argument(
-        "--show-operations",
+        "--show_operations",
         action="store_true",
         help="print all fractional-coordinate symmetry operations",
     )
@@ -43,7 +44,12 @@ def main(args):
 
     print()
     print_space_group(dataset, atoms, args.symprec)
-    print()
+
+    table = gamma_character_table(dataset.rotations)
+    df = character_table_frame(table)
+    print("\nCharacter table:")
+    print(df)
+
     if args.show_operations:
         print()
         print_symmetry_operations(dataset)
