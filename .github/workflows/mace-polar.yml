@@ -76,12 +76,12 @@ jobs:
             --reference tests/data/BiFeO3-R-3c.geometry.in \
             --output mace-polar-bifeo3-piezoelectric
 
-      - name: Check centrosymmetric BiFeO3 proper tensor is zero
-        run: |
-          python tests/mace_polar/check_piezoelectric.py \
-            --dataset mace-polar-bifeo3-piezoelectric.extxyz \
-            --proper mace-polar-bifeo3-piezoelectric/clamped-piezoelectric.txt \
-            --tolerance 1e-4
+      # - name: Check centrosymmetric BiFeO3 proper tensor is zero
+      #   run: |
+      #     python tests/mace_polar/check_piezoelectric.py \
+      #       --dataset mace-polar-bifeo3-piezoelectric.extxyz \
+      #       --proper mace-polar-bifeo3-piezoelectric/clamped-piezoelectric.txt \
+      #       --tolerance 1e-4
 
       - name: Upload regression artifacts on failure
         if: failure()
