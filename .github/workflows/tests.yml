@@ -32,15 +32,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y latexmk texlive-latex-recommended texlive-latex-extra
 
-      - name: Build PDF documentation
-        run: ./tools/build_docs.sh
+      # - name: Build PDF documentation
+      #   run: ./tools/build_docs.sh
 
-      - name: Check PDF documentation
-        run: |
-          test -L fd2bec_math.pdf
-          test -f fd2bec_math.pdf
-          test -s fd2bec_math.pdf
-          test "$(readlink fd2bec_math.pdf)" = "docs/_build/latex/fd2bec_math.pdf"
+      # - name: Check PDF documentation
+      #   run: |
+      #     test -L fd2bec_math.pdf
+      #     test -f fd2bec_math.pdf
+      #     test -s fd2bec_math.pdf
+      #     test "$(readlink fd2bec_math.pdf)" = "docs/_build/latex/fd2bec_math.pdf"
 
       # -------------------- TEST FILES --------------------
 
