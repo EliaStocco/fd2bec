@@ -137,7 +137,7 @@ def _spglib_text(value: object) -> str:
     return value.decode() if isinstance(value, bytes) else str(value)
 
 
-def print_space_group(dataset: SpglibDataset, atoms: Atoms, symprec: float) -> None:
+def print_space_group(dataset: SpglibDataset, atoms: Atoms, symprec: float) -> dict:
     """Print a standardized summary of a spglib space-group dataset."""
     try:
         bravais_type = atoms.cell.get_bravais_lattice(eps=symprec).longname
@@ -157,6 +157,8 @@ def print_space_group(dataset: SpglibDataset, atoms: Atoms, symprec: float) -> N
     print("Space-group summary:")
     for label, value in fields:
         print(f"  {label:<30}: {value}")
+
+    return dict(fields)
 
 
 def print_symmetry_operations(dataset: SpglibDataset, precision: int = 2) -> None:

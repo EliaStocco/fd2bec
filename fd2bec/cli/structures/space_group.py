@@ -9,7 +9,7 @@ import numpy as np
 from fd2bec.cli import cli, read_input_structures
 from fd2bec.cli.parser import add_shared_argument
 from fd2bec.show import print_space_group, print_structure, print_symmetry_operations
-from fd2bec.symmetry import character_table_frame, gamma_character_table
+from fd2bec.symmetry import character_table_frame, character_table_legend, gamma_character_table
 from fd2bec.tools import ase2spglib_dataset
 
 description = "Show the cell, atomic positions, and space-group information."
@@ -49,6 +49,7 @@ def main(args):
     df = character_table_frame(table)
     print("\nCharacter table:")
     print(df)
+    print(character_table_legend())
 
     if args.show_operations:
         print()

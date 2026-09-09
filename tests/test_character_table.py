@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import spglib
 
-from fd2bec.symmetry import gamma_character_table
+from fd2bec.symmetry import character_table_legend, gamma_character_table
 
 
 def _c2v_rotations():
@@ -47,6 +47,15 @@ def test_gamma_character_table_supports_complex_irreps():
 
     assert table.dimensions == (1, 1, 1)
     assert np.any(np.abs(table.characters.imag) > 0.5)
+
+
+def test_character_table_legend_explains_display_symbols():
+    legend = character_table_legend()
+
+    assert "n x label" in legend
+    assert "E = identity" in legend
+    assert "Γk (d=n)" in legend
+    assert "sqrt(-1)" in legend
 
 
 @pytest.mark.parametrize(

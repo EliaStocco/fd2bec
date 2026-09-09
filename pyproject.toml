@@ -138,6 +138,7 @@ shift_origin = "fd2bec.cli.structures.shift_origin:main"
 sort_structure = "fd2bec.cli.structures.sort_structure:main"
 space_group = "fd2bec.cli.structures.space_group:main"
 space_group_dataset = "fd2bec.cli.structures.space_group_dataset:main"
+standardize_centrosymmetric = "fd2bec.cli.structures.standardize_centrosymmetric:main"
 tensor_symmetries = "fd2bec.cli.structures.tensor_symmetries:main"
 
 [tool.pylint.main]

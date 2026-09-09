@@ -585,12 +585,24 @@ def character_table_frame(table: GammaCharacterTable) -> pd.DataFrame:
     """Return a display-oriented character table."""
     columns = [f"{size} x {label}" for size, label in zip(table.class_sizes, table.class_labels)]
     rows = [
-        f"Γ{number}  (d={dimension})" for number, dimension in enumerate(table.dimensions, start=1)
+        f"Γ{number:3}  (d={dimension})"
+        for number, dimension in enumerate(table.dimensions, start=1)
     ]
     values = [
         [format_character(value) for value in character_row] for character_row in table.characters
     ]
     return pd.DataFrame(values, index=rows, columns=columns)
+
+
+def character_table_legend() -> str:
+    """Return a concise explanation of the displayed character-table notation."""
+    return (
+        "\nEntries are characters (traces) where i denotes sqrt(-1)."
+        "\nRows 'Γk (d=n)' are irreducible representations at Γ with dimension d."
+        "\nColumns 'n x label' are conjugacy classes containing n equivalent "
+        "symmetry operations:\n -  E = identity\n - Cn = n-fold rotation\n -  m = mirror\n"
+        " -  i = inversion\n - Sn = roto-reflection."
+    )
 
 
 def is_sohncke(sg_number):
