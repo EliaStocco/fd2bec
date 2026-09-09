@@ -1,3 +1,5 @@
+# Tested by pytest: tests/test_aims_workflow_wrappers.py
+
 import argparse
 
 import numpy as np

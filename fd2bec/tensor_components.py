@@ -1,0 +1,466 @@
+"""Symbolic tensor-component construction and axis-aware display helpers."""
+
+from itertools import product
+from typing import Optional
+
+import numpy as np
+
+from fd2bec import ATOL, Basis
+
+VOIGT_LABELS = ("xx", "yy", "zz", "yz", "xz", "xy")
+VOIGT_PAIRS = ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))
+CARTESIAN_LABELS = ("x", "y", "z")
+
+
+def parameter_name(index: int) -> str:
+    """Return a readable name for an independent tensor parameter."""
+    letter = chr(ord("a") + index % 26)
+    suffix = index // 26
+    return letter if suffix == 0 else f"{letter}{suffix}"
+
+
+def selected_tensor_basis(name: str, requested_basis: Optional[Basis]):
+    """Choose the CLI default basis for a named tensor."""
+    return requested_basis or ("fractional" if name == "positions" else "cartesian")
+
+
+def selected_tensor_precision(name: str, requested_precision: Optional[int]):
+    """Default position displays to four significant digits."""
+    if requested_precision is not None and requested_precision <= 0:
+        raise ValueError("Tensor display precision must be positive.")
+    return 4 if name == "positions" and requested_precision is None else requested_precision
+
+
+def format_numeric_components(data, precision: Optional[int] = None):
+    """Format numeric components with an optional significant-digit limit."""
+    data = np.asarray(data)
+    if precision is None:
+        return data
+    if precision <= 0:
+        raise ValueError("Tensor display precision must be positive.")
+    return np.asarray(
+        [format(float(value), f".{precision}g") for value in data.flat], dtype=object
+    ).reshape(data.shape)
+
+
+def rotate_modes(tensor, modes: np.ndarray, coordinate_rotation: np.ndarray):
+    """Rotate each tensor mode into a new Cartesian coordinate frame."""
+    if not len(modes):
+        return modes.copy()
+    return np.asarray(
+        [tensor.copy_with(data=mode).rotate(coordinate_rotation).data for mode in modes]
+    )
+
+
+def physical_modes(
+    component_modes: np.ndarray,
+    shape: tuple[int, ...],
+    *,
+    affine: bool,
+    atol: float = ATOL,
+):
+    """Reshape modes and discard homogeneous-only affine coordinates."""
+    modes = component_modes.reshape((component_modes.shape[0], *shape))
+    if not len(modes):
+        return modes
+    norms = np.linalg.norm(modes.reshape((len(modes), -1)), axis=1)
+    if affine:
+        return modes[norms > atol]
+    if not np.allclose(norms, 1, atol=atol):
+        raise ValueError("Symmetry modes must be normalized.")
+    return modes
+
+
+def forbidden_component_indices(data, symbolic, *, atol: float = ATOL):
+    """Return flat indices of symmetry-forbidden components that are non-zero."""
+    data = np.asarray(data, dtype=float)
+    symbolic = np.asarray(symbolic)
+    if data.shape != symbolic.shape:
+        raise ValueError(
+            f"Numeric and symbolic tensor shapes differ: {data.shape} != {symbolic.shape}."
+        )
+    forbidden = np.zeros(symbolic.shape, dtype=bool)
+    for index, value in np.ndenumerate(symbolic):
+        try:
+            forbidden[index] = np.isclose(float(value), 0.0, atol=atol, rtol=0.0)
+        except (TypeError, ValueError):
+            pass
+    nonzero = ~np.isclose(data, 0.0, atol=atol, rtol=0.0)
+    return np.flatnonzero(forbidden & nonzero), int(np.count_nonzero(forbidden))
+
+
+def _independent_columns(basis: np.ndarray, atol: float) -> np.ndarray:
+    """Keep a deterministic linearly independent subset of basis columns."""
+    selected = []
+    rank = 0
+    for index in range(basis.shape[1]):
+        trial = basis[:, selected + [index]]
+        trial_rank = np.linalg.matrix_rank(trial, tol=atol)
+        if trial_rank > rank:
+            selected.append(index)
+            rank = trial_rank
+    return basis[:, selected]
+
+
+def symmetric_pairs(axes, shape, declared_pairs=None):
+    """Return Cartesian symmetric-axis pairs eligible for Voigt notation.
+
+    Explicit definition metadata takes precedence. The axis-name convention is
+    retained as a compatibility fallback for callers that only provide axes.
+    """
+    if declared_pairs is not None:
+        return [
+            (left, right)
+            for left, right in declared_pairs
+            if shape[left] == 3 and shape[right] == 3
+        ]
+    pairs = []
+    used = set()
+    for index in range(len(axes) - 1):
+        left, right = axes[index], axes[index + 1]
+        if index in used or index + 1 in used:
+            continue
+        if left.get("type") != "cartesian" or right.get("type") != "cartesian":
+            continue
+        if left.get("role") != right.get("role"):
+            continue
+        if not (
+            left.get("name", "").startswith("strain") and right.get("name", "").startswith("strain")
+        ):
+            continue
+        if shape[index] != 3 or shape[index + 1] != 3:
+            continue
+        pairs.append((index, index + 1))
+        used.update((index, index + 1))
+    return pairs
+
+
+def expand_voigt_data(data: np.ndarray, tensor) -> np.ndarray:
+    """Expand a standard Voigt-shaped value to a tensor's explicit axes."""
+    data = np.asarray(data)
+    shape = tensor.core_shape()
+    pairs = symmetric_pairs(tensor.axes, shape, declared_pairs=tensor.symmetric_axes)
+    if data.shape == shape or not pairs:
+        return data
+
+    paired_axes = {axis for pair in pairs for axis in pair}
+    remaining_axes = [axis for axis in range(len(shape)) if axis not in paired_axes]
+    voigt_shape = tuple(shape[axis] for axis in remaining_axes) + (6,) * len(pairs)
+    if data.shape != voigt_shape:
+        return data
+
+    pair_to_voigt = {
+        pair: index for index, pair in enumerate(VOIGT_PAIRS) for pair in (pair, pair[::-1])
+    }
+    expanded = np.empty(shape, dtype=data.dtype)
+    for index in np.ndindex(shape):
+        prefix = tuple(index[axis] for axis in remaining_axes)
+        voigt = tuple(pair_to_voigt[(index[left], index[right])] for left, right in pairs)
+        expanded[index] = data[prefix + voigt]
+    return expanded
+
+
+def _symmetric_basis(basis, shape, pairs, atol=1e-10):
+    """Apply strain-pair symmetry to a column-oriented component basis."""
+    if not pairs:
+        return basis
+    modes = np.asarray(basis, dtype=float).reshape((*shape, basis.shape[1]))
+    for left, right in pairs:
+        modes = 0.5 * (modes + np.swapaxes(modes, left, right))
+    return _independent_columns(modes.reshape((int(np.prod(shape)), -1)), atol=atol)
+
+
+def _independent_rows(basis: np.ndarray, atol: float) -> list[int]:
+    """Select component rows that can serve as independent parameters."""
+    pivots = []
+    rank = 0
+    for index in range(basis.shape[0]):
+        trial = basis[pivots + [index], :]
+        trial_rank = np.linalg.matrix_rank(trial, tol=atol)
+        if trial_rank > rank:
+            pivots.append(index)
+            rank = trial_rank
+        if rank == basis.shape[1]:
+            break
+    return pivots
+
+
+def _format_expression(coefficients, atol: float) -> str:
+    """Format one component as a linear combination of parameter names."""
+    terms = []
+    for index, coefficient in enumerate(coefficients):
+        if abs(coefficient) <= atol:
+            continue
+        name = parameter_name(index)
+        term = (
+            name
+            if np.isclose(abs(coefficient), 1.0, atol=atol)
+            else f"{abs(coefficient):.4g}{name}"
+        )
+        if not terms:
+            terms.append(f"-{term}" if coefficient < 0 else term)
+        else:
+            terms.append((" - " if coefficient < 0 else " + ") + term)
+    return "".join(terms) if terms else "0"
+
+
+def symbolic_components(
+    component_modes: np.ndarray,
+    axes=None,
+    atol: float = 1e-10,
+    symmetric_axis_pairs=None,
+):
+    """Express tensor components in terms of independent symmetry-mode parameters.
+
+    Parameters
+    ----------
+    component_modes
+        Real-space symmetry modes with shape ``(number_of_modes, *tensor_shape)``.
+        Each first-axis entry is one allowed mode.
+    axes
+        Optional tensor-axis definitions. When supplied, named strain pairs are
+        symmetrized before independent parameters are selected.
+    symmetric_axis_pairs
+        Optional explicitly declared symmetric-axis pairs. When supplied, these
+        take precedence over axis-name inference.
+
+    Returns
+    -------
+    symbolic, pivots
+        An object array with shape ``tensor_shape`` and the flattened component
+        indices chosen as the independent parameters.
+    """
+    modes = np.asarray(component_modes, dtype=float)
+    if modes.ndim == 0:
+        raise ValueError("component_modes must have shape (number_of_modes, *tensor_shape).")
+    shape = modes.shape[1:]
+    if axes is not None and len(axes) != len(shape):
+        raise ValueError("The number of axes must match component_modes tensor dimensions.")
+
+    coefficients, pivots = _symbolic_coefficients(
+        modes,
+        axes=axes,
+        atol=atol,
+        symmetric_axis_pairs=symmetric_axis_pairs,
+    )
+    if coefficients.size == 0:
+        return np.full(shape, "0", dtype=object), []
+
+    symbolic = [_format_expression(row, atol) for row in coefficients]
+    return np.asarray(symbolic, dtype=object).reshape(shape), pivots
+
+
+def _symbolic_coefficients(
+    component_modes: np.ndarray,
+    axes=None,
+    atol: float = 1e-10,
+    symmetric_axis_pairs=None,
+):
+    """Return component coefficients and pivots for a real-space mode basis."""
+    modes = np.asarray(component_modes, dtype=float)
+    shape = modes.shape[1:]
+    dimension = int(np.prod(shape, dtype=int)) if shape else 1
+    basis = modes.reshape((modes.shape[0], dimension)).T
+    if axes is not None:
+        pairs = symmetric_pairs(axes, shape, declared_pairs=symmetric_axis_pairs)
+        basis = _symmetric_basis(basis, shape, pairs, atol=atol)
+    if basis.shape[1] == 0:
+        return np.empty((0, 0)), []
+
+    pivots = _independent_rows(basis, atol)
+    if len(pivots) != basis.shape[1]:
+        basis = _independent_columns(basis, atol)
+        pivots = _independent_rows(basis, atol)
+    return basis @ np.linalg.inv(basis[pivots, :]), pivots
+
+
+def _format_affine_expression(constant: float, coefficients: np.ndarray, atol: float) -> str:
+    """Format a constant reference value plus a symbolic displacement."""
+    displacement = _format_expression(coefficients, atol)
+    if displacement == "0":
+        return str(constant)
+    if np.isclose(constant, 0.0, atol=atol):
+        return displacement
+    if displacement.startswith("-"):
+        return f"{constant} - {displacement[1:]}"
+    return f"{constant} + {displacement}"
+
+
+def _affine_parameterization(
+    reference_components: np.ndarray,
+    component_modes: np.ndarray,
+    axes,
+    *,
+    fractional: bool,
+    atol: float,
+):
+    """Return the oriented affine coefficients, pivots, fixed mask, and origins."""
+    reference_components = np.asarray(reference_components, dtype=float)
+    modes = np.asarray(component_modes, dtype=float)
+    if modes.shape[1:] != reference_components.shape:
+        raise ValueError("Reference components and component modes must have the same shape.")
+
+    coefficients, pivots = _symbolic_coefficients(modes, axes=axes, atol=atol)
+    if coefficients.size == 0:
+        fixed_components = np.ones(reference_components.shape, dtype=bool)
+    else:
+        fixed_components = np.all(np.abs(coefficients) <= atol, axis=1).reshape(
+            reference_components.shape
+        )
+
+    origins = np.zeros(reference_components.size, dtype=float)
+    if not fractional:
+        return coefficients, pivots, fixed_components, origins
+
+    values = reference_components.reshape(-1) % 1.0
+    # Fractional coordinates differ by an integer lattice vector. The two
+    # closest high-symmetry representatives in this setting are therefore
+    # 0 and 1/2, chosen independently modulo one.
+    origins = (np.round(2.0 * values) / 2.0) % 1.0
+    displacements = (values - origins + 0.5) % 1.0 - 0.5
+
+    # Eigenvectors have arbitrary signs. Choose each parameter sign so that
+    # the selected pivot's displacement has the same sign as the input
+    # structure; all symmetry-related entries follow automatically.
+    coefficients = coefficients.copy()
+    for parameter, pivot in enumerate(pivots):
+        if displacements[pivot] < -atol:
+            coefficients[:, parameter] *= -1.0
+    return coefficients, pivots, fixed_components, origins
+
+
+def affine_parameter_values(
+    reference_components: np.ndarray,
+    numeric_components: np.ndarray,
+    component_modes: np.ndarray,
+    axes=None,
+    *,
+    fractional: bool = False,
+    atol: float = 1e-8,
+):
+    """Extract independent parameter values from a numeric affine tensor."""
+    reference_components = np.asarray(reference_components, dtype=float)
+    numeric_components = np.asarray(numeric_components, dtype=float)
+    if numeric_components.shape != reference_components.shape:
+        raise ValueError("Reference and numeric affine components must have the same shape.")
+
+    coefficients, pivots, _, origins = _affine_parameterization(
+        reference_components,
+        component_modes,
+        axes,
+        fractional=fractional,
+        atol=atol,
+    )
+    if not pivots:
+        return np.empty(0, dtype=float)
+
+    values = numeric_components.reshape(-1)
+    if fractional:
+        values = values % 1.0
+        displacements = (values - origins + 0.5) % 1.0 - 0.5
+    else:
+        displacements = values - origins
+    pivot_coefficients = coefficients[pivots, np.arange(len(pivots))]
+    if np.any(np.abs(pivot_coefficients) <= atol):
+        raise ValueError("Affine pivot coefficients must be non-zero.")
+    return displacements[pivots] / pivot_coefficients
+
+
+def symbolic_affine_components(
+    reference_components: np.ndarray,
+    component_modes: np.ndarray,
+    axes=None,
+    *,
+    fractional: bool = False,
+    atol: float = 1e-8,
+):
+    """Show affine reference components together with symbolic linear modes.
+
+    Components with no allowed linear displacement retain their reference
+    value. In a fractional basis, variable components are written as the
+    nearest ``0`` or ``1/2`` reference coordinate plus their displacement;
+    the nearest periodic image is selected modulo one. This makes small
+    distortions of a high-symmetry structure legible (for example,
+    ``0.982 -> -c``). Cartesian components retain the previous, purely
+    symbolic presentation.
+    """
+    reference_components = np.asarray(reference_components, dtype=float)
+    coefficients, pivots, fixed_components, origins = _affine_parameterization(
+        reference_components,
+        component_modes,
+        axes,
+        fractional=fractional,
+        atol=atol,
+    )
+    if coefficients.size == 0:
+        symbolic = np.full(reference_components.shape, "0", dtype=object)
+    else:
+        symbolic = np.asarray(
+            [_format_expression(row, atol) for row in coefficients], dtype=object
+        ).reshape(reference_components.shape)
+
+    result = symbolic.copy()
+    for index in zip(*np.where(fixed_components)):
+        value = reference_components[index]
+        if fractional:
+            value %= 1.0
+            if np.isclose(value, 0.0, atol=atol) or np.isclose(value, 1.0, atol=atol):
+                value = 0.0
+            elif np.isclose(value, 0.5, atol=atol):
+                value = 0.5
+        result[index] = str(value)
+
+    if not fractional or not len(pivots):
+        return result, pivots
+
+    for index, row in enumerate(coefficients):
+        if not fixed_components.reshape(-1)[index]:
+            result.reshape(-1)[index] = _format_affine_expression(origins[index], row, atol)
+    return result, pivots
+
+
+def voigt_components(symbolic, axes, pairs):
+    """Compress each symmetric strain pair into one Voigt axis."""
+    shape = symbolic.shape
+    pair_axes = {axis for pair in pairs for axis in pair}
+    remaining = [axis for axis in range(len(shape)) if axis not in pair_axes]
+    output_shape = tuple(shape[index] for index in remaining) + (6,) * len(pairs)
+    result = np.empty(output_shape, dtype=object)
+
+    for prefix in product(*(range(shape[index]) for index in remaining)):
+        for voigt_index in product(range(6), repeat=len(pairs)):
+            full = [None] * len(shape)
+            for axis, value in zip(remaining, prefix):
+                full[axis] = value
+            for (left, right), component in zip(pairs, voigt_index):
+                full[left], full[right] = VOIGT_PAIRS[component]
+            result[prefix + voigt_index] = symbolic[tuple(full)]
+    voigt_axes = [axes[index] for index in remaining] + [
+        {"name": "voigt", "type": "voigt"} for _ in pairs
+    ]
+    return result, voigt_axes
+
+
+def flattened_nuclear_position_matrix(components, axes):
+    """Return force constants as an atom-major ``3N x 3N`` matrix.
+
+    Force constants are stored with the two atomic axes first and the two
+    Cartesian axes last.  Interleaving each atom with its ``x``, ``y``, and
+    ``z`` components gives the conventional matrix indexing used for nuclear
+    displacements.
+    """
+    components = np.asarray(components, dtype=object)
+    axis_types = [axis.get("type") for axis in axes]
+    if components.ndim != 4 or axis_types != ["atomic", "atomic", "cartesian", "cartesian"]:
+        raise ValueError("Force constants must have atomic, atomic, Cartesian, Cartesian axes.")
+    natoms, other_natoms, first_size, second_size = components.shape
+    if natoms != other_natoms or (first_size, second_size) != (3, 3):
+        raise ValueError("Force constants must have shape (N, N, 3, 3).")
+
+    labels = [f"{atom}{coordinate}" for atom in range(natoms) for coordinate in CARTESIAN_LABELS]
+    matrix = components.transpose(0, 2, 1, 3).reshape((3 * natoms, 3 * natoms))
+    matrix_axes = [
+        {"name": "nuclear coordinate", "labels": labels},
+        {"name": "nuclear coordinate", "labels": labels},
+    ]
+    return matrix, matrix_axes

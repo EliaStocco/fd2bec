@@ -1,3 +1,5 @@
 test_outputs/
 results.csv
 table.pdf
+mace_polar/*.model
+mace_polar/*.model.part

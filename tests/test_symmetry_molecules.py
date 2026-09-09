@@ -29,9 +29,9 @@ def test_translations(filepath:Path):
 
     assert pga.sch_symbol is not None
 
-    S = pga.get_symmetry_operations()
-    R = np.asarray([s.rotation_matrix for s in S])
-    T = np.asarray([s.translation_vector for s in S])
+    point_group_operations = pga.get_symmetry_operations()
+    R = np.asarray([operation.rotation_matrix for operation in point_group_operations])
+    T = np.asarray([operation.translation_vector for operation in point_group_operations])
     x = atoms.get_positions()
     for _,(r,t) in enumerate(zip(R,T)):
         x_test = x @ r.T + t

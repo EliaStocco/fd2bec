@@ -1,3 +1,5 @@
+# Tested by pytest: tests/test_aims_workflow_wrappers.py
+
 import argparse
 from pathlib import Path
 from typing import List
@@ -8,10 +10,12 @@ from ase import Atoms
 
 from fd2bec import ATOL, float_format
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import KEYWORDS, cli, str2bool
-from fd2bec.cli.tools import matrix_norm, print_born_charges
-from fd2bec.io import read
+from fd2bec.cli import KEYWORDS, cli, read_input_structures, str2bool
+from fd2bec.cli.parser import add_shared_argument
+from fd2bec.cli.tools import matrix_norm
+from fd2bec.io import write_tensor_extxyz
 from fd2bec.linear_system import LinearSystem
+from fd2bec.show import print_born_charges
 from fd2bec.tensor import BornCharges
 
 description = "Compute the Born Effective Charges as derivative of polarization/dipole w.r.t. nuclear displacements."
@@ -46,6 +50,7 @@ def prepare_args(descr):
         help="folder for the output files (default: %(default)s)",
         default=".",
     )
+    add_shared_argument(parser, "symprec")
     return parser
 
 
@@ -54,9 +59,7 @@ def main(args):
 
     assert Path(args.input).suffix == ".extxyz", f"'{args.input}' must be an extxyz file."
 
-    print(f"Reading input structures from '{args.input}' ... ", end="")
-    structures: List[Atoms] = read(args.input, format="extxyz", index=":")
-    print("done")
+    structures: List[Atoms] = read_input_structures(args.input, index=":", input_format="extxyz")
 
     Ns = len(structures)
     Na = structures[0].get_global_number_of_atoms()
@@ -85,29 +88,30 @@ def main(args):
         raise ValueError("There has been a problem while reconstrucing the reference structure.")
 
     ref_pos = np.mean(reference, axis=0)
-    reference = Atoms(
+    reference_atoms = Atoms(
         positions=ref_pos,
         cell=structures[0].get_cell(),
         pbc=structures[0].get_pbc(),
         symbols=structures[0].get_chemical_symbols(),
     )
-    reference = AtomicStructure.from_ase(reference)
+    reference = AtomicStructure.from_ase(reference_atoms, symprec=args.symprec)
 
     print("Preparing Born Charges and symmetrization ... ", end="")
     bec = BornCharges(data=np.zeros((Na, 3, 3)), cell=reference.cell)
-    S, theta, theta_real = reference.get_symmetrizer(bec)
+    _, _, component_modes = reference.get_symmetry_modes(bec)
+    mode_basis = component_modes.T
     A = np.kron(displacements.reshape((Ns, -1)), np.eye(3))
     b = dipole.flatten()
     print("done")
-    n_unknown = S.shape[1]
+    n_unknown = mode_basis.shape[1]
 
     print("\nMatrix shapes:")
     print(" - b.shape:", b.shape)
     print(" - A.shape:", A.shape)
-    print(" - S.shape:", S.shape)
+    print(" - mode_basis.shape:", mode_basis.shape)
 
     print("\nMatrix shapes with symmetrization:")
-    A = A @ S
+    A = A @ mode_basis
     print(" - b.shape:", b.shape)
     print(" - A.shape:", A.shape)
 
@@ -144,7 +148,7 @@ def main(args):
         ls.summary()
 
     print("Extracting Born Charges  ... ", end="")
-    bec = S @ ls.x[:n_unknown]
+    bec = mode_basis @ ls.x[:n_unknown]
     bec = bec.reshape((Na, 3, 3))
     print("done\n")
 
@@ -172,7 +176,14 @@ def main(args):
 
     file = folder / "bec.txt"
     print(f"Writing sum of Born Charges with ASR applied to {file} ... ", end="")
-    np.savetxt(file, bec.reshape((Na, 9)) - asr.reshape((1, 9)), fmt=float_format)
+    bec_with_asr = bec - asr
+    np.savetxt(file, bec_with_asr.reshape((Na, 9)), fmt=float_format)
+    print("done")
+
+    file = folder / "bec.extxyz"
+    key = KEYWORDS["bec"]
+    print(f"Writing Born Charges to {file} under '{key}' ... ", end="")
+    write_tensor_extxyz(file, reference_atoms, bec_with_asr, key, per_atom=True)
     print("done")
 
 

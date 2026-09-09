@@ -10,7 +10,7 @@ from fd2bec.mathematics import append_one, remove_one
 from fd2bec.tensor import AtomicVector, BornCharges, Forces, Position
 
 
-def test_symmetrizer(structure):
+def test_symmetry_modes(structure):
     """
     Test that the structures have the correct number of atoms,
     correct space group, and that atomic positions are symmetric.
@@ -46,13 +46,13 @@ def test_symmetrizer(structure):
     new_pos = H @ pos1
     assert np.allclose(
         pos1, new_pos, atol=ATOL * len(atomic_structure)
-    ), "Error with symmetrizer when using 'positions'."
+    ), "Error with symmetry projection when using 'positions'."
 
     x = tensor.to("fractional")
-    S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=x)
+    projection = atomic_structure.get_symmetry_projection(tensor=x)
     assert np.allclose(
-        remove_one(S @ theta), flat_pos, atol=ATOL * len(atomic_structure)
-    ), "Error with symmetrizer when using 'positions'."
+        remove_one(projection @ pos1), flat_pos, atol=ATOL * len(atomic_structure)
+    ), "Error with symmetry projection when using 'positions'."
 
     # ----------------------#
     # vectors
@@ -73,13 +73,10 @@ def test_symmetrizer(structure):
         # R = atomic_structure.get_tensor_symmetry_operations(**params)
         # assert np.allclose(
         #     R @ flat_vector, flat_vector, atol=ATOL * len(atomic_structure)
-        # ), f"Error with symmetrizer when using {name}."
+        # ), f"Error with symmetry projection when using {name}."
 
         R = atomic_structure.get_tensor_symmetry_operations(tensor=frac_vector)
-        S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=frac_vector)
-        # assert np.allclose(
-        #     S @ theta, flat_vector, atol=ATOL * len(atomic_structure)
-        # ), f"Error with symmetrizer when using {name}."
+        atomic_structure.get_symmetry_modes(tensor=frac_vector)
 
     # ----------------------#
     # Born Charges
@@ -96,16 +93,11 @@ def test_symmetrizer(structure):
 
     # frac_bec = frac_bec.data.flatten()
     R = atomic_structure.get_tensor_symmetry_operations(tensor=frac_bec)
-    S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=frac_vector)
+    atomic_structure.get_symmetry_modes(tensor=frac_vector)
 
     # assert np.allclose(
     #     R @ flat_vector, flat_vector, atol=ATOL * len(atomic_structure)
-    # ), "Error with symmetrizer when using 'REF_BEC'."
-
-    # S, theta, theta_real = atomic_structure.get_symmetrizer(tensor=frac_bec, **params)
-    # assert np.allclose(
-    #     S @ theta, flat_vector, atol=ATOL * len(atomic_structure)
-    # ), "Error with symmetrizer when using 'REF_BEC'."
+    # ), "Error with symmetry projection when using 'REF_BEC'."
 
 
 if __name__ == "__main__":

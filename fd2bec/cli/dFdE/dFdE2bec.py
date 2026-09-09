@@ -8,12 +8,12 @@ from ase import Atom, Atoms
 
 from fd2bec import ATOL, SYMPREC, float_format
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli import KEYWORDS, cli
-from fd2bec.cli.tools import print_born_charges
-from fd2bec.io import read
+from fd2bec.cli import KEYWORDS, cli, read_input_structures
+from fd2bec.cli.parser import add_shared_argument
 from fd2bec.linear_system import LinearSystem, StackedLinearSystem
+from fd2bec.show import print_born_charges
+from fd2bec.symmetry import symmetrize_bec
 from fd2bec.tensor import Forces
-from fd2bec.tools import symmetrize_bec
 
 description = (
     "Compute the Born Effective Charges as derivative of the forces w.r.t. applied electric field."
@@ -32,15 +32,7 @@ def prepare_args(descr):
         required=True,
         help="path to extxyz file with all structures produced by 'build_dataset4dFdE' (e.g. structures.extxyz)",
     )
-    parser.add_argument(
-        "-sp",
-        "--symprec",
-        **argv,
-        type=float,
-        required=False,
-        help="symmetry precision for spglib (default: %(default)s)",
-        default=SYMPREC,
-    )
+    add_shared_argument(parser, "symprec")
     parser.add_argument(
         "-c",
         "--clean_forces",
@@ -87,7 +79,10 @@ def prepare_args(descr):
 
 
 def symmetrize_forces(
-    structures: List[Atoms], efield: np.ndarray, forces: np.ndarray
+    structures: List[Atoms],
+    efield: np.ndarray,
+    forces: np.ndarray,
+    symprec: float = SYMPREC,
 ) -> np.ndarray:
     N = len(structures)
     broken_symmetry = [None] * N
@@ -99,7 +94,7 @@ def symmetrize_forces(
         # pos -= np.mean(pos,axis=0)
         # s.set_positions(pos)
         broken_symmetry[n] = s.copy()
-    atomic_structures = [AtomicStructure.from_ase(s) for s in broken_symmetry]
+    atomic_structures = [AtomicStructure.from_ase(s, symprec=symprec) for s in broken_symmetry]
     _forces = [None] * N
     for n, (s, e) in enumerate(zip(atomic_structures, efield)):
         s._test_symmetry()
@@ -123,9 +118,7 @@ def main(args):
 
     assert Path(args.input).suffix == ".extxyz", f"'{args.input}' must be an extxyz file."
 
-    print(f"Reading input structures from '{args.input}' ... ", end="")
-    structures: List[Atoms] = read(args.input, format="extxyz", index=":")
-    print("done")
+    structures: List[Atoms] = read_input_structures(args.input, index=":", input_format="extxyz")
 
     Ns = len(structures)
     Na = structures[0].get_global_number_of_atoms()
@@ -181,7 +174,7 @@ def main(args):
 
     if args.symmetrize in ["forces", "both"]:
         print("Symmetrizing forces ... ", end="")
-        forces = symmetrize_forces(structures, efield, forces)
+        forces = symmetrize_forces(structures, efield, forces, symprec=args.symprec)
         print("done")
     else:
         print("Not symmetrizing forces")
@@ -223,7 +216,7 @@ def main(args):
 
     if args.symmetrize in ["bec", "both"]:
         print("Symmetrizing Born Charges ... ", end="")
-        bec = symmetrize_bec(structures[0], bec)
+        bec = symmetrize_bec(structures[0], bec, symprec=args.symprec)
         print("done")
         print_born_charges(structures[0], bec)
     else:

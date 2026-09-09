@@ -6,7 +6,7 @@ from fd2bec.io import read
 
 from fd2bec import ATOL
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli.generate_all_displacements import atomic_structure2all_displacements
+from fd2bec.displacements import atomic_structure2all_displacements
 from fd2bec.tensor import BornCharges
 
 # from fd2bec.symmetry import is_sohncke
@@ -36,14 +36,14 @@ def run_workflow(filepath):
 
     try:
         tmp = unit_cell.to("fractional", bec)
-        P = unit_cell.get_totally_symmetric_projection(tensor=tmp)
-        tmp: np.ndarray = P @ tmp.flatten(full=True)  # symmetrize the BECs
+        projection = unit_cell.get_symmetry_projection(tensor=tmp)
+        tmp: np.ndarray = projection @ tmp.flatten_full()  # symmetrize the BECs
         tmp = BornCharges(data=tmp.reshape((Na, 3, 3)))
         bec = unit_cell.to("cartesian", tmp)
     except Exception as e:
         raise ValueError(f"Error symmetrizing BECs for {filepath}: {e}")
 
-    if not np.allclose(P @ bec.flatten(full=True), bec.flatten(full=True), atol=ATOL):
+    if not np.allclose(projection @ bec.flatten_full(), bec.flatten_full(), atol=ATOL):
         raise ValueError("BECs are not symmetrized correctly")
 
     d, _ = atomic_structure2all_displacements(
