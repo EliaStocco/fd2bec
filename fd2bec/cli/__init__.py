@@ -22,6 +22,7 @@ KEYWORDS = {
     "piezoelectric": "REF_piezoelectric",
     "displacements": "displacements",
     "strain": "strain",
+    "stress": "REF_stress",
 }
 
 PACKAGE_DIRECTORY = Path(__file__).resolve().parent

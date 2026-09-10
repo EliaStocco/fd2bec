@@ -133,7 +133,9 @@ parser = "fd2bec.cli.parser:main"
 tools = "fd2bec.cli.tools:main"
 
 # --- structures ---
+check_relaxation_symmetry = "fd2bec.cli.structures.check_relaxation_symmetry:main"
 convert_format = "fd2bec.cli.structures.convert_format:main"
+generate_domain_variants = "fd2bec.cli.structures.generate_domain_variants:main"
 shift_origin = "fd2bec.cli.structures.shift_origin:main"
 sort_structure = "fd2bec.cli.structures.sort_structure:main"
 space_group = "fd2bec.cli.structures.space_group:main"
