@@ -1,6 +1,8 @@
 """Standardized terminal presentation for fd2bec."""
 
 import argparse
+from contextlib import redirect_stdout
+from io import StringIO
 from itertools import product
 from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 from warnings import warn
@@ -12,6 +14,7 @@ from spglib import SpglibDataset
 
 from fd2bec import ATOL, BEC_NORM_THRESHOLD
 from fd2bec.atomic import AtomicStructure
+from fd2bec.mathematics import find_mapping, wrap
 from fd2bec.tensor_components import (
     CARTESIAN_LABELS,
     VOIGT_LABELS,
@@ -104,17 +107,89 @@ def print_positions(atoms: Atoms, precision: int = 6) -> None:
         print(f"  {index:5d}  {symbol:>4s}  {values}")
 
 
+def print_compact_structure(
+    atoms: Atoms,
+    title: str,
+    precision: int = 6,
+    space_group_symbol: Optional[str] = None,
+    parent: Optional[Atoms] = None,
+) -> None:
+    """Print a compact structure summary and optional differences from a parent."""
+    cell = np.asarray(atoms.cell.array, dtype=float)
+    fractional = np.asarray(atoms.get_scaled_positions(wrap=True), dtype=float)
+    display_tolerance = 0.5 * 10 ** (-precision)
+
+    if parent is not None and (
+        len(parent) != len(atoms) or not np.array_equal(parent.numbers, atoms.numbers)
+    ):
+        raise ValueError("Parent and displayed structure must have the same ordered atoms.")
+
+    def format_vector(vector, *, periodic=False):
+        values = np.asarray(vector, dtype=float).copy()
+        if periodic:
+            values = wrap(values)
+            values[np.abs(values) <= display_tolerance] = 0.0
+            values[values < 0.0] += 1.0
+        else:
+            values[np.abs(values) <= display_tolerance] = 0.0
+        values[np.abs(values) <= display_tolerance] = 0.0
+        width = precision + 5
+        return "[" + " ".join(f"{value:{width}.{precision}f}" for value in values) + "]"
+
+    title = f"{title} ({space_group_symbol})" if space_group_symbol else title
+    print(f"\n{title}:")
+    print("  lattice [Angstrom]:")
+    for vector in cell:
+        print(f"    {format_vector(vector)}")
+    if parent is not None:
+        print("  lattice difference from parent [Angstrom]:")
+        for vector in cell - parent.cell.array:
+            print(f"    {format_vector(vector)}")
+    print("  fractional:")
+    for symbol, position in zip(atoms.get_chemical_symbols(), fractional):
+        print(f"    {symbol:<2} {format_vector(position, periodic=True)}")
+    if parent is not None:
+        parent_fractional = parent.get_scaled_positions(wrap=True)
+        difference = np.empty_like(fractional)
+        for number in np.unique(atoms.numbers):
+            parent_indices = np.flatnonzero(parent.numbers == number)
+            atom_indices = np.flatnonzero(atoms.numbers == number)
+            mapping, _, _ = find_mapping(
+                parent_fractional[parent_indices], fractional[atom_indices], pbc=True
+            )
+            difference[atom_indices] = wrap(
+                fractional[atom_indices] - parent_fractional[parent_indices][mapping]
+            )
+        print("  fractional difference from parent:")
+        for symbol, position in zip(atoms.get_chemical_symbols(), difference):
+            print(f"    {symbol:<2} {format_vector(position)}")
+
+
+def _print_frame(contents: str) -> None:
+    """Print text inside an ASCII frame sized to its widest line."""
+    lines = contents.rstrip().splitlines()
+    width = max(len(line) for line in lines)
+    border = "+" + "-" * (width + 2) + "+"
+    print(border)
+    for line in lines:
+        print(f"| {line:<{width}} |")
+    print(border)
+
+
 def print_structure(atoms: Atoms, title: str = "Structure information") -> None:
-    """Print a common structure summary followed by coordinates and, when periodic, its cell."""
-    print(f"{title} ({atoms.get_chemical_formula()}):")
-    print(f"  atoms = {len(atoms)}")
-    print(f"  periodic boundary conditions = {atoms.get_pbc().tolist()}")
-    print(f"  total mass [amu] = {atoms.get_masses().sum():.8f}")
-    if np.all(atoms.get_pbc()):
+    """Print a framed structure summary, coordinates, and its cell when periodic."""
+    output = StringIO()
+    with redirect_stdout(output):
+        print(f"{title} ({atoms.get_chemical_formula()}):")
+        print(f"  atoms = {len(atoms)}")
+        print(f"  periodic boundary conditions = {atoms.get_pbc().tolist()}")
+        print(f"  total mass [amu] = {atoms.get_masses().sum():.8f}")
+        if np.all(atoms.get_pbc()):
+            print()
+            print_cell(atoms)
         print()
-        print_cell(atoms)
-    print()
-    print_positions(atoms)
+        print_positions(atoms)
+    _print_frame(output.getvalue())
 
 
 def print_displacement_input_structure(atoms: Atoms) -> None:
