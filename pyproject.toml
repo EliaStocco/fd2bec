@@ -133,16 +133,18 @@ parser = "fd2bec.cli.parser:main"
 tools = "fd2bec.cli.tools:main"
 
 # --- structures ---
-check_relaxation_symmetry = "fd2bec.cli.structures.check_relaxation_symmetry:main"
 convert_format = "fd2bec.cli.structures.convert_format:main"
-generate_domain_variants = "fd2bec.cli.structures.generate_domain_variants:main"
-generate_inequivalent_pairs = "fd2bec.cli.structures.generate_inequivalent_pairs:main"
 shift_origin = "fd2bec.cli.structures.shift_origin:main"
 sort_structure = "fd2bec.cli.structures.sort_structure:main"
-space_group = "fd2bec.cli.structures.space_group:main"
-space_group_dataset = "fd2bec.cli.structures.space_group_dataset:main"
-standardize_centrosymmetric = "fd2bec.cli.structures.standardize_centrosymmetric:main"
-tensor_symmetries = "fd2bec.cli.structures.tensor_symmetries:main"
+
+# --- symmetry ---
+check_relaxation_symmetry = "fd2bec.cli.symmetry.check_relaxation_symmetry:main"
+generate_domain_variants = "fd2bec.cli.symmetry.generate_domain_variants:main"
+generate_inequivalent_pairs = "fd2bec.cli.symmetry.generate_inequivalent_pairs:main"
+space_group = "fd2bec.cli.symmetry.space_group:main"
+space_group_dataset = "fd2bec.cli.symmetry.space_group_dataset:main"
+standardize_centrosymmetric = "fd2bec.cli.symmetry.standardize_centrosymmetric:main"
+tensor_symmetries = "fd2bec.cli.symmetry.tensor_symmetries:main"
 
 [tool.pylint.main]
 # Analyse import fallback blocks. This can be used to support both Python 2 and 3
