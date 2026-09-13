@@ -3,13 +3,23 @@
 # Tested by pytest: tests/test_sort_structure.py
 
 import argparse
+from pathlib import Path
 
 from fd2bec.cli import cli, read_input_structures
 from fd2bec.cli.parser import add_shared_argument
 from fd2bec.io import write
-from fd2bec.structure_alignment import sort_atoms_like
+from fd2bec.structure_alignment import sort_atoms_like_with_indices, write_sorting_map
 
-description = "Align and reorder a structure so its atom order matches a reference structure."
+description = (
+    "Align and reorder a structure so its atom order matches a reference structure, "
+    "and save the resulting atom-order map.\n\n"
+    "Example:\n"
+    "  sort_structure -r reference.extxyz -i positions.extxyz -o positions-sorted.extxyz\n\n"
+    "This also writes positions-sorted.sorting.json, which can reorder a velocity or "
+    "momentum XYZ file with:\n"
+    "  apply_sorting_map "
+    "-m positions-sorted.sorting.json -i velocities.xyz -o velocities-sorted.xyz"
+)
 
 
 def prepare_args(descr):
@@ -35,6 +45,17 @@ def prepare_args(descr):
             "fractional coordinates for periodic structures and Angstrom for molecules."
         ),
     )
+    parser.add_argument(
+        "-m",
+        "--sorting-map",
+        "--sorting-info",
+        dest="sorting_map",
+        **argv,
+        help=(
+            "path to the JSON sorting map (default: <output>.sorting.json); it can be used "
+            "to reorder velocity or momentum XYZ files"
+        ),
+    )
     return parser
 
 
@@ -45,11 +66,19 @@ def main(args):
     candidate = read_input_structures(args.input, label="structure to reorder")
 
     print("Aligning, matching, and reordering atoms ... ", end="")
-    ordered = sort_atoms_like(reference, candidate, atol=args.atol)
+    ordered, sorting_indices = sort_atoms_like_with_indices(reference, candidate, atol=args.atol)
     print("done")
 
     print(f"Writing reordered structure to {args.output} ... ", end="")
     write(args.output, ordered)
+    print("done")
+
+    output = Path(args.output)
+    sorting_map = (
+        Path(args.sorting_map) if args.sorting_map else output.with_suffix(".sorting.json")
+    )
+    print(f"Writing sorting map to {sorting_map} ... ", end="")
+    write_sorting_map(sorting_map, reference, candidate, sorting_indices)
     print("done")
 
 

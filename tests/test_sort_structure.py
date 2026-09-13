@@ -1,11 +1,13 @@
+import json
+
 import numpy as np
 import pytest
 from ase import Atoms
 from ase.io import read, write
 
 from fd2bec.atomic import AtomicStructure
-from fd2bec.cli.structures import sort_structure
-from fd2bec.structure_alignment import sort_atoms_like
+from fd2bec.cli.structures import apply_sorting_map, sort_structure
+from fd2bec.structure_alignment import sort_atoms_like, write_sorting_map
 
 
 def test_reordered_like_matches_reference_order_for_periodic_structure():
@@ -132,6 +134,7 @@ def test_sort_structure_cli_aligns_then_sorts(tmp_path):
     reference_path = tmp_path / "reference.extxyz"
     candidate_path = tmp_path / "candidate.extxyz"
     output_path = tmp_path / "sorted.extxyz"
+    sorting_map_path = output_path.with_suffix(".sorting.json")
     reference = Atoms(
         symbols=["Na", "Cl"],
         cell=np.eye(3) * 4.0,
@@ -168,3 +171,34 @@ def test_sort_structure_cli_aligns_then_sorts(tmp_path):
         reference.get_scaled_positions(wrap=False),
         atol=1e-8,
     )
+
+    sorting_map = json.loads(sorting_map_path.read_text(encoding="utf-8"))
+    assert sorting_map["reference_structure"]["symbols"] == ["Na", "Cl"]
+    assert sorting_map["sorting_indices"] == [1, 0]
+
+
+def test_apply_sorting_map_cli_reorders_data_xyz_frames(tmp_path):
+    sorting_map_path = tmp_path / "sorting-map.json"
+    input_path = tmp_path / "velocity.xyz"
+    output_path = tmp_path / "sorted-velocity.xyz"
+    reference = Atoms(symbols=["Na", "Cl"], positions=[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    candidate = Atoms(symbols=["Cl", "Na"], positions=[[6.0, 5.0, 4.0], [3.0, 2.0, 1.0]])
+
+    write_sorting_map(sorting_map_path, reference, candidate, [1, 0])
+    write(
+        input_path,
+        [
+            Atoms(symbols=["Cl", "Na"], positions=[[30.0, 31.0, 32.0], [10.0, 11.0, 12.0]]),
+            Atoms(symbols=["Cl", "Na"], positions=[[60.0, 61.0, 62.0], [40.0, 41.0, 42.0]]),
+        ],
+    )
+    args = apply_sorting_map.prepare_args(apply_sorting_map.description).parse_args(
+        ["-m", str(sorting_map_path), "-i", str(input_path), "-o", str(output_path)]
+    )
+
+    apply_sorting_map.main.__wrapped__(args)
+
+    ordered = read(output_path, index=":")
+    assert [atoms.get_chemical_symbols() for atoms in ordered] == [["Na", "Cl"], ["Na", "Cl"]]
+    np.testing.assert_allclose(ordered[0].positions, [[10.0, 11.0, 12.0], [30.0, 31.0, 32.0]])
+    np.testing.assert_allclose(ordered[1].positions, [[40.0, 41.0, 42.0], [60.0, 61.0, 62.0]])
