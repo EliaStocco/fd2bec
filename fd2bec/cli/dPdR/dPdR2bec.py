@@ -13,6 +13,11 @@ from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import KEYWORDS, cli, read_input_structures, str2bool
 from fd2bec.cli.parser import add_shared_argument
 from fd2bec.cli.tools import matrix_norm
+from fd2bec.displacement_cache import (
+    born_charge_mode_cache_metadata,
+    restore_born_charge_mode_cache,
+    save_born_charge_mode_cache,
+)
 from fd2bec.io import write_tensor_extxyz
 from fd2bec.linear_system import LinearSystem
 from fd2bec.show import print_born_charges
@@ -49,6 +54,17 @@ def prepare_args(descr):
         required=False,
         help="folder for the output files (default: %(default)s)",
         default=".",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        **argv,
+        default=".fd2bec",
+        help="folder used for cached symmetry data (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="do not read or write the symmetry-data cache",
     )
     add_shared_argument(parser, "symprec")
     return parser
@@ -98,7 +114,21 @@ def main(args):
 
     print("Preparing Born Charges and symmetrization ... ", end="")
     bec = BornCharges(data=np.zeros((Na, 3, 3)), cell=reference.cell)
-    _, _, component_modes = reference.get_symmetry_modes(bec)
+    cache_metadata = born_charge_mode_cache_metadata(args.symprec)
+    component_modes = None
+    if not args.no_cache:
+        component_modes = restore_born_charge_mode_cache(
+            args.cache_dir, cache_metadata, reference_atoms
+        )
+    if component_modes is None:
+        _, _, component_modes = reference.get_symmetry_modes(bec)
+        if not args.no_cache:
+            cache_path = save_born_charge_mode_cache(
+                args.cache_dir, cache_metadata, reference_atoms, component_modes
+            )
+            print(f"cached in '{cache_path}'", end="; ")
+    else:
+        print(f"reused from '{args.cache_dir}'", end="; ")
     mode_basis = component_modes.T
     A = np.kron(displacements.reshape((Ns, -1)), np.eye(3))
     b = dipole.flatten()

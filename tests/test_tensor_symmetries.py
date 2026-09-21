@@ -2,8 +2,11 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from ase import Atoms
+from ase.io import write
 
-from fd2bec.cli.structures.tensor_symmetries import prepare_args
+from fd2bec.cli.symmetry.tensor_symmetries import prepare_args
+from fd2bec.cli.symmetry import tensor_symmetries
 from fd2bec.show import print_numeric_tensor
 from fd2bec.tensor_components import (
     _symmetric_basis,
@@ -44,6 +47,28 @@ def test_tensor_keyword_is_optional():
     assert without_keyword.precision is None
     assert with_keyword.keyword == "MACE_BEC"
     assert with_keyword.precision == 6
+
+
+def test_positions_cli_shifts_the_origin_and_hides_zero_origin_parameters(tmp_path, capsys):
+    structure = Atoms(
+        "HHeLi",
+        cell=[[4.0, 0.0, 0.0], [0.2, 4.0, 0.0], [0.1, 0.3, 4.0]],
+        scaled_positions=[[0.2, 0.3, 0.4], [0.71, 0.82, 0.93], [0.12, 0.23, 0.34]],
+        pbc=True,
+    )
+    input_path = tmp_path / "off_origin.extxyz"
+    write(input_path, structure)
+    args = tensor_symmetries.prepare_args(tensor_symmetries.description).parse_args(
+        ["-i", str(input_path), "-n", "positions"]
+    )
+
+    with pytest.warns(UserWarning, match="shift_origin"):
+        tensor_symmetries.main.__wrapped__(args)
+
+    output = capsys.readouterr().out
+    assert "n. symmetry-inequivalent component(s): 9 out of 9" in output
+    assert "  a:" not in output
+    assert "  d: 0.01" in output
 
 
 def test_tensor_data_is_found_in_arrays_info_and_split_bec_fields():

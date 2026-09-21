@@ -1,6 +1,7 @@
 """Generate and classify parent-symmetry-related orientation-domain structures."""
 
 from dataclasses import dataclass
+from itertools import combinations
 from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
@@ -8,6 +9,7 @@ from ase import Atoms
 from ase.geometry import find_mic
 from scipy.optimize import linear_sum_assignment
 
+from fd2bec.symmetry import generated_point_group_order, point_operation_name
 from fd2bec.tools import ase2spglib_dataset
 
 
@@ -235,6 +237,77 @@ def _transformed_variant(
     return variant
 
 
+def retained_parent_point_operations(
+    atoms: Atoms, parent: Atoms, *, symprec: float
+) -> List[Tuple[np.ndarray, np.ndarray]]:
+    """Return parent point operations that remain symmetries of ``atoms``.
+
+    The input is first expressed in the parent frame, as it is for domain
+    generation. Each returned affine operation leaves that canonical structure
+    unchanged, apart from atom ordering and periodic wrapping.
+    """
+    _require_periodic_cell(atoms, "input")
+    canonical_atoms = canonicalize_lattice_orientation(atoms, parent)
+    retained = []
+    for operation in parent_point_operations(parent, symprec=symprec):
+        rotation, translation = operation
+        transformed = _transformed_variant(
+            canonical_atoms, parent.cell.array, rotation, translation
+        )
+        if structures_match(canonical_atoms, transformed, symprec=symprec):
+            retained.append(operation)
+    return retained
+
+
+def lost_parent_point_operations(
+    atoms: Atoms, parent: Atoms, *, symprec: float
+) -> List[Tuple[np.ndarray, np.ndarray]]:
+    """Return parent point operations that are broken in ``atoms``."""
+    retained_keys = {
+        _rotation_key(rotation)
+        for rotation, _ in retained_parent_point_operations(atoms, parent, symprec=symprec)
+    }
+    return [
+        operation
+        for operation in parent_point_operations(parent, symprec=symprec)
+        if _rotation_key(operation[0]) not in retained_keys
+    ]
+
+
+def lost_parent_point_operation_generators(
+    atoms: Atoms, parent: Atoms, *, symprec: float
+) -> List[Tuple[np.ndarray, np.ndarray]]:
+    """Return a simple set of broken operations extending the retained subgroup.
+
+    Combining the returned rotations with all retained parent point operations
+    generates the full parent point group. Proper rotations, mirrors, and
+    inversion are preferred over composite rotoinversions, so the reported set
+    exposes the symmetry breaking in familiar terms. Three generators suffice
+    for every crystallographic point group.
+    """
+    retained = retained_parent_point_operations(atoms, parent, symprec=symprec)
+    lost = lost_parent_point_operations(atoms, parent, symprec=symprec)
+    parent_operations = parent_point_operations(parent, symprec=symprec)
+    parent_order = len(parent_operations)
+    retained_rotations = [rotation for rotation, _ in retained]
+    if generated_point_group_order(retained_rotations) == parent_order:
+        return []
+
+    lost.sort(
+        key=lambda operation: (point_operation_name(operation[0]), _rotation_key(operation[0]))
+    )
+    simple_lost = [
+        operation for operation in lost if "rotoinversion" not in point_operation_name(operation[0])
+    ]
+    for candidates in (simple_lost, lost):
+        for count in range(1, min(3, len(candidates)) + 1):
+            for candidate_operations in combinations(candidates, count):
+                rotations = retained_rotations + [rotation for rotation, _ in candidate_operations]
+                if generated_point_group_order(rotations) == parent_order:
+                    return list(candidate_operations)
+    raise ValueError("Could not find generators for the parent point group.")
+
+
 def _matching_structure_index(
     structure: Atoms, structures: Sequence[Atoms], *, symprec: float
 ) -> int:
@@ -326,8 +399,10 @@ def inequivalent_structure_pairs(
     return pairs
 
 
-def generate_domain_variants(atoms: Atoms, parent: Atoms, *, symprec: float) -> List[Atoms]:
-    """Generate the unique orientation variants of ``atoms`` under ``parent`` symmetry.
+def generate_domain_variants_with_operations(
+    atoms: Atoms, parent: Atoms, *, symprec: float
+) -> List[Tuple[Atoms, np.ndarray, np.ndarray]]:
+    """Generate unique variants with the parent operation producing each one.
 
     ``atoms`` and ``parent`` must use corresponding lattice directions and the
     same origin. The source structure need not have the parent lattice
@@ -341,10 +416,23 @@ def generate_domain_variants(atoms: Atoms, parent: Atoms, *, symprec: float) -> 
     validate_atom_arrays(atoms)
     parent_cell = parent.cell.array
     canonical_atoms = canonicalize_lattice_orientation(atoms, parent)
-    variants: List[Atoms] = []
+    variants_with_operations: List[Tuple[Atoms, np.ndarray, np.ndarray]] = []
     for rotation, translation in parent_point_operations(parent, symprec=symprec):
         variant = _transformed_variant(canonical_atoms, parent_cell, rotation, translation)
-        if not any(structures_match(existing, variant, symprec=symprec) for existing in variants):
+        if not any(
+            structures_match(existing, variant, symprec=symprec)
+            for existing, _, _ in variants_with_operations
+        ):
             validate_atom_arrays(variant)
-            variants.append(variant)
-    return variants
+            variants_with_operations.append((variant, rotation, translation))
+    return variants_with_operations
+
+
+def generate_domain_variants(atoms: Atoms, parent: Atoms, *, symprec: float) -> List[Atoms]:
+    """Generate the unique orientation variants of ``atoms`` under ``parent`` symmetry."""
+    return [
+        variant
+        for variant, _, _ in generate_domain_variants_with_operations(
+            atoms, parent, symprec=symprec
+        )
+    ]

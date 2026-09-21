@@ -57,6 +57,17 @@ def prepare_args(descr):
         default="fd2bec-log.pp.txt",
         help="subcommand log file (default: %(default)s)",
     )
+    parser.add_argument(
+        "--cache-dir",
+        **argv,
+        default=".fd2bec",
+        help="folder used for cached symmetry data (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="do not read or write the symmetry-data cache",
+    )
     add_shared_argument(parser, "symprec")
     return parser
 
@@ -96,7 +107,7 @@ def postprocess_commands(args):
 
     bec = output / "bec.txt"
     charges = output / "charges.txt"
-    return (
+    commands = (
         [
             sys.executable,
             "-m",
@@ -116,6 +127,8 @@ def postprocess_commands(args):
             "fd2bec.cli.dPdR.dPdR2bec",
             "-i",
             str(dataset),
+            "--cache-dir",
+            str(getattr(args, "cache_dir", ".fd2bec")),
             "-sp",
             str(args.symprec),
             "-o",
@@ -131,6 +144,9 @@ def postprocess_commands(args):
             str(charges),
         ],
     )
+    if getattr(args, "no_cache", False):
+        commands[1].append("--no-cache")
+    return commands
 
 
 @cli(prepare_args, description)

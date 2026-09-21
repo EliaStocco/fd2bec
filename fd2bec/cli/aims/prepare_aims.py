@@ -111,6 +111,17 @@ def prepare_args(descr):
     )
     parser.add_argument("--seed", **argv, type=int, help="random seed used with --number")
     parser.add_argument(
+        "--cache-dir",
+        **argv,
+        default=".fd2bec",
+        help="folder used for cached displacement datasets (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="do not read or write the displacement cache",
+    )
+    parser.add_argument(
         "--structures-output",
         **argv,
         default="displaced-structures.extxyz",
@@ -398,6 +409,9 @@ def preparation_commands(args):
         "-o",
         str(args.structures_output),
     ]
+    generate.extend(("--cache-dir", str(getattr(args, "cache_dir", ".fd2bec"))))
+    if getattr(args, "no_cache", False):
+        generate.append("--no-cache")
     if args.no_symmetry:
         generate.append("--no-symmetry")
     elif args.number is not None:

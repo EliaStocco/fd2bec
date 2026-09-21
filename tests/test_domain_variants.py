@@ -2,15 +2,19 @@ import numpy as np
 from ase import Atoms
 from ase.io import read, write
 
-from fd2bec.cli.structures import generate_domain_variants as domain_variants_cli
-from fd2bec.cli.structures import generate_inequivalent_pairs as pairs_cli
+from fd2bec.cli.symmetry import generate_domain_variants as domain_variants_cli
+from fd2bec.cli.symmetry import generate_inequivalent_pairs as pairs_cli
 from fd2bec.domain_variants import (
     common_space_group_symbol,
     generate_domain_variants,
     inequivalent_structure_pairs,
+    lost_parent_point_operation_generators,
+    lost_parent_point_operations,
     parent_point_operations,
+    retained_parent_point_operations,
     structures_match,
 )
+from fd2bec.symmetry import point_operation_name
 from fd2bec.show import print_compact_structure, print_structure
 
 
@@ -67,6 +71,46 @@ def test_cubic_parent_operations_and_tetragonal_variants():
         for index, variant in enumerate(variants)
         for other in variants[index + 1 :]
     )
+
+
+def test_point_operation_names():
+    assert point_operation_name(np.eye(3, dtype=int)) == "identity"
+    assert (
+        point_operation_name(np.diag([-1, 1, 1]), coordinate_frame="parent")
+        == "mirror plane normal to parent x axis"
+    )
+    assert point_operation_name(-np.eye(3, dtype=int)) == "inversion"
+    assert (
+        point_operation_name(
+            np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]]), coordinate_frame="parent"
+        )
+        == "90-degree rotation about parent z axis"
+    )
+    threefold_rotation = np.array([[0, -1, 0], [1, -1, 0], [0, 0, 1]])
+    assert (
+        point_operation_name(threefold_rotation, coordinate_frame="parent")
+        == "120-degree rotation about parent z axis"
+    )
+    assert (
+        point_operation_name(-threefold_rotation, coordinate_frame="parent")
+        == "120-degree rotoinversion about parent z axis"
+    )
+
+
+def test_tetragonal_variant_retained_and_lost_parent_operations():
+    parent = _cubic_parent()
+    atoms = _tetragonal_variant()
+    retained = retained_parent_point_operations(atoms, parent, symprec=1e-4)
+    lost = lost_parent_point_operations(atoms, parent, symprec=1e-4)
+    generators = lost_parent_point_operation_generators(atoms, parent, symprec=1e-4)
+
+    assert len(retained) == 8
+    assert len(lost) == 40
+    names = [
+        point_operation_name(rotation, coordinate_frame="parent") for rotation, _ in generators
+    ]
+    assert len(generators) == 1
+    assert any(name.startswith("120-degree rotation about parent [") for name in names)
 
 
 def test_roundoff_in_parent_translations_does_not_create_extra_variants():
@@ -193,6 +237,14 @@ def test_cli_writes_all_domain_variants(tmp_path, capsys):
     assert "lattice [Angstrom]" in output
     assert "fractional:" in output
     assert "lattice difference from parent" in output
+    assert "The distorted input retains 8 parent point operations and loses 40." in output
+    assert "Lost parent point-operation types:" in output
+    assert "Symmetry-breaking generators:" in output
+    assert "inversion" in output
+    assert "120-degree rotation about parent [" in output
+    assert "parent operation identity" in output
+    assert "    R:" in output
+    assert "    t: [" in output
 
 
 def test_cli_differences_are_opt_in():

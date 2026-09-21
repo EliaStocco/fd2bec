@@ -25,6 +25,8 @@ from fd2bec.cli.structures import (
     convert_format,
     shift_origin,
     sort_structure,
+)
+from fd2bec.cli.symmetry import (
     space_group,
     space_group_dataset,
     tensor_symmetries,

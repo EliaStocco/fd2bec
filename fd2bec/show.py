@@ -15,6 +15,7 @@ from spglib import SpglibDataset
 from fd2bec import ATOL, BEC_NORM_THRESHOLD
 from fd2bec.atomic import AtomicStructure
 from fd2bec.mathematics import find_mapping, wrap
+from fd2bec.symmetry import point_operation_name
 from fd2bec.tensor_components import (
     CARTESIAN_LABELS,
     VOIGT_LABELS,
@@ -236,17 +237,39 @@ def print_space_group(dataset: SpglibDataset, atoms: Atoms, symprec: float) -> d
     return dict(fields)
 
 
-def print_symmetry_operations(dataset: SpglibDataset, precision: int = 2) -> None:
-    """Print spglib symmetry operations in fractional coordinates."""
-    print("Symmetry operations (fractional coordinates x' = R x + t):")
+def print_point_operation(
+    rotation: ArrayLike,
+    translation: Optional[ArrayLike] = None,
+    *,
+    label: str = "point operation",
+    precision: int = 6,
+    coordinate_frame: str = "",
+) -> None:
+    """Print a uniformly named point operation and optional affine translation."""
+    rotation = np.asarray(rotation, dtype=int)
+    print(f"\t{label} {point_operation_name(rotation, coordinate_frame=coordinate_frame)}")
+    # if translation is None:
+    #     print("    fractional coordinates: x' = R x")
+    # else:
+    #     translation = np.asarray(translation, dtype=float)
+    #     print("    fractional coordinates: x' = R x + t")
+    print("    R:")
+    for row in rotation:
+        print("      " + " ".join(f"{value:2d}" for value in row))
+    if translation is None:
+        translation = np.zeros(3, dtype=float)
+    print("    t: [" + " ".join(f"{value:.{precision}f}" for value in translation) + "]")
+
+
+def print_symmetry_operations(dataset: SpglibDataset, precision: int = 6) -> None:
+    """Print spglib symmetry operations with the common operation notation."""
+    print("Symmetry operations:")
     for index, (rotation, translation) in enumerate(
         zip(dataset.rotations, dataset.translations), start=1
     ):
-        print(f"  #{index}")
-        print("    rotation:")
-        print_matrix(rotation, precision=precision)
-        print("    translation: ")
-        print_matrix(np.reshape(translation, (1, len(translation))), precision=precision)
+        print_point_operation(
+            rotation, translation, label=f"operation #{index}", precision=precision
+        )
 
 
 def print_symmetry_selection(
@@ -475,6 +498,7 @@ def print_numeric_tensor(
     frame_label: str,
     atol: float = ATOL,
     parameter_values: Optional[ArrayLike] = None,
+    display_parameter_indices: Optional[Sequence[int]] = None,
     precision: Optional[int] = None,
 ) -> None:
     """Print a numeric tensor, its independent values, and its symmetry-zero check."""
@@ -490,7 +514,13 @@ def print_numeric_tensor(
         if values.shape != (len(pivots),):
             raise ValueError("There must be one value per symmetry-inequivalent component.")
         formatted = format_numeric_components(values, precision)
-        for index, value in enumerate(formatted):
+        indices = (
+            range(len(pivots)) if display_parameter_indices is None else display_parameter_indices
+        )
+        for index in indices:
+            if index < 0 or index >= len(pivots):
+                raise ValueError("Displayed parameter indices must identify existing parameters.")
+            value = formatted[index]
             print(f"  {parameter_name(index)}: {value}")
     else:
         print("  none")

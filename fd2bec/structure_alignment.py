@@ -145,8 +145,10 @@ def write_sorting_map(filename, reference: Atoms, candidate: Atoms, sorting_indi
     """
     indices = np.asarray(sorting_indices)
     expected = np.arange(len(candidate))
-    if indices.ndim != 1 or len(indices) != len(candidate) or not np.array_equal(
-        np.sort(indices), expected
+    if (
+        indices.ndim != 1
+        or len(indices) != len(candidate)
+        or not np.array_equal(np.sort(indices), expected)
     ):
         raise ValueError("Sorting indices must be a permutation of the candidate atom indices.")
 
