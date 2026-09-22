@@ -39,14 +39,23 @@ use_csc="${use_csc:-USE_CSC_DEFAULT}"
 delete_csc="${delete_csc:-true}"
 
 mkdir -p results
+geometry_root="GEOMETRY_DIRECTORY"
 mapfile -t geometry_files < <(
-    find geometries -maxdepth 1 -type f -name 'geometry.n=*.in' -printf '%f\n' | sort -V
+    find "${geometry_root}" -type f -name 'geometry.n=*.in' -printf '%p\n' | sort -V
 )
 first_geometry=true
-for geometry_file in "${geometry_files[@]}"; do
-    gfile="geometries/${geometry_file}"
+for gfile in "${geometry_files[@]}"; do
+    geometry_file="${gfile##*/}"
     n="${geometry_file#geometry.n=}"
     n="${n%.in}"
+    relative_folder="${gfile#${geometry_root}/}"
+    relative_folder="${relative_folder%/*}"
+
+    if [[ "${relative_folder}" == "${geometry_file}" ]]; then
+        result_folder="results"
+    else
+        result_folder="results/${relative_folder}"
+    fi
 
     if [[ "${first_geometry}" == "true" ]]; then
         csc_control="control.first.in"
@@ -55,7 +64,8 @@ for geometry_file in "${geometry_files[@]}"; do
         csc_control="control.other.in"
     fi
 
-    export AIMS_OUTPUT_FILE="results/aims.n=${n}.out"
+    mkdir -p "${result_folder}"
+    export AIMS_OUTPUT_FILE="${result_folder}/aims.n=${n}.out"
     if [[ ! -e "${AIMS_OUTPUT_FILE}" ]]; then
         cp "${gfile}" geometry.in
         if [[ "${use_csc}" == "true" ]] ; then

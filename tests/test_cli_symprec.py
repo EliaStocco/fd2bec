@@ -226,7 +226,10 @@ def test_workflow_clis_share_the_response_quantity_argument(module, required_arg
 
     assert defaults.what == "bec"
     assert custom.what == "piezo"
-    assert parser._option_string_actions["--what"].choices == ("bec", "piezo")
+    expected_choices = ("bec", "piezo")
+    if module in (post_process_aims, prepare_aims):
+        expected_choices += ("both",)
+    assert parser._option_string_actions["--what"].choices == expected_choices
 
 
 def test_displacement_cli_uses_the_broader_displacement_target_argument():

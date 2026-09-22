@@ -22,6 +22,7 @@ displacement generator and geometry exporter:
 ```bash
 prepare_aims -i reference.extxyz --what bec
 prepare_aims -i reference.extxyz --what piezo
+prepare_aims -i reference.extxyz --what both
 ```
 
 Use `--no-symmetry` for all signed basis displacements or `--number N --seed S`
@@ -38,8 +39,10 @@ dimension. The generated polarization meshes always contain more k-points
 than the SCF mesh.
 
 The command writes a multi-frame extxyz file, a text displacement table,
-individual AIMS geometries, a log, and `sourceme.sh`. Set `AIMS` in the
-submission script and source the helper:
+individual AIMS geometries, a log, and `sourceme.sh`. With `--what both`, the
+BEC and piezoelectric inputs are kept separate in `geometries/bec/` and
+`geometries/piezo/`; their FHI-aims outputs are written to `results/bec/` and
+`results/piezo/`. Set `AIMS` in the submission script and source the helper:
 
 ```bash
 export AIMS=/path/to/aims
@@ -70,11 +73,17 @@ set it to `false` there if the final `.csc` files should be retained.
 
 ## Post-processing
 
-`post_process_aims` is intentionally a Born-charge-only convenience wrapper:
+`post_process_aims` can evaluate either response, or both response datasets
+created by the combined preparation:
 
 ```bash
 post_process_aims -i reference.extxyz --results results -o bec
+post_process_aims -i reference.extxyz --what both
 ```
+
+In combined mode, post-processing reads `results/bec/` and `results/piezo/`,
+writes `dataset.bec.extxyz` and `dataset.piezo.extxyz`, and places fitted files
+in `bec/` and `piezo/`, respectively.
 
 The symmetry basis used in the Born-charge fit is cached in `.fd2bec/` by
 default. Set `--cache-dir PATH` to share it between calculations that use the
