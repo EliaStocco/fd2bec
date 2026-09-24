@@ -27,6 +27,11 @@ KEYWORDS = {
 
 PACKAGE_DIRECTORY = Path(__file__).resolve().parent
 
+ASCII_LOGO = """\
+┏━╸╺┳┓┏━┓┏┓ ┏━╸┏━╸
+┣╸  ┃┃┏━┛┣┻┓┣╸ ┃
+╹  ╺┻┛┗━╸┗━┛┗━╸┗━╸"""
+
 
 def read_input_structures(
     filename: Union[str, Path],
@@ -200,6 +205,8 @@ def cli(prepare_parser=None, description=None):
             # --- run main ---
             print("@ Let's start!")
             if description:
+                print()
+                print(textwrap.indent(ASCII_LOGO, "\t"))
                 print("\n\tDescription:")
                 print(textwrap.indent(description, "\t"))
             else:
