@@ -41,7 +41,7 @@ delete_csc="${delete_csc:-true}"
 mkdir -p results
 geometry_root="GEOMETRY_DIRECTORY"
 mapfile -t geometry_files < <(
-    find "${geometry_root}" -type f -name 'geometry.n=*.in' -printf '%p\n' | sort -V
+    find -H "${geometry_root}" -type f -name 'geometry.n=*.in' -printf '%p\n' | sort -V
 )
 first_geometry=true
 for gfile in "${geometry_files[@]}"; do
