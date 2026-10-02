@@ -167,7 +167,7 @@ used by equality. Its convention is
 .. math::
 
    \mathtt{mapping}[i]
-   = \text{index in ``self`` corresponding to atom }i\text{ in ``other``}.
+   = \text{index in \texttt{self} corresponding to atom }i\text{ in \texttt{other}}.
 
 The public method first gives clear errors for different atom counts,
 periodicity, or chemical compositions. The internal mapping then verifies

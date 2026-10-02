@@ -17,20 +17,3 @@ fd2bec documentation
    atomic_structures
    symmetries
    symmetry_modes
-
-.. raw:: latex
-
-   \phantomsection
-   \addcontentsline{toc}{part}{II. Code map}
-
-.. only:: html
-
-   Code map
-   --------
-
-.. toctree::
-   :maxdepth: 2
-
-   package_structure
-   pytest_map
-   dependencies

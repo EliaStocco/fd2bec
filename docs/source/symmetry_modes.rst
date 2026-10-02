@@ -63,19 +63,39 @@ independent number.
 From many operations to one projection
 ---------------------------------------
 
-Suppose the structure has ``M`` allowed operations, represented by
-``G_1, G_2, ..., G_M``. fd2bec averages them:
+Suppose the structure has ``M`` allowed operations. For each abstract group
+element :math:`g`, let :math:`G_g` denote its matrix representation on the
+flattened tensor components. fd2bec averages these matrices:
 
 .. math::
 
-   P = \frac{1}{M}\sum_{g=1}^{M} G_g.
+   P = \frac{1}{M}\sum_{g\in G} G_g.
 
 This matrix ``P`` is called a projection because it removes the forbidden
 parts of a vector and keeps the allowed parts.
 
+.. important::
+
+   :math:`P` is generally **not** the matrix representing one group element.
+   An abstract group has multiplication and inverses, but it does not have an
+   addition operation, so the displayed sum is not a sum of group elements.
+   The sum is taken after every group element has been represented by a matrix
+   :math:`G_g`, where ordinary matrix addition is defined.
+
+   Equivalently, one may form the group-algebra element
+
+   .. math::
+
+      e_G = \frac{1}{\lvert G\rvert}\sum_{g\in G} g
+
+   in :math:`\mathbb{R}[G]`. This is a formal linear combination of group
+   elements, not normally a group element itself. Extending the representation
+   linearly gives :math:`P = \rho(e_G)`. This averaging operator is also
+   called the *Reynolds operator*.
+
 Formally, ``P`` is a projection: it is idempotent, meaning that
-``P^2 = P``. The allowed operations form a finite group, so the product of
-any two operations is another operation in the same list. Hence
+:math:`P^2 = P`. The allowed operations form a finite group, so the product
+of any two operations is another operation in the same list. Hence
 
 .. math::
 
@@ -89,10 +109,10 @@ any two operations is another operation in the same list. Hence
     = P.
    \end{aligned}
 
-In the third line, for each fixed ``G_h``, right multiplication by ``G_h``
-only permutes the group elements, so ``\{G_gG_h\}`` is the same set as
-``\{G_\ell\}``. Thus applying the average twice has exactly the same effect
-as applying it once.
+In the third line, for each fixed :math:`G_h`, right multiplication by
+:math:`G_h` only permutes the group elements, so
+:math:`\{G_gG_h\}` is the same set as :math:`\{G_\ell\}`. Thus applying the
+average twice has exactly the same effect as applying it once.
 
 For the reflection example,
 
@@ -121,7 +141,7 @@ Why does averaging work?
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Applying one more allowed operation only rearranges the terms in the average.
-For every operation ``G_k``,
+For every operation :math:`G_k`,
 
 .. math::
 
@@ -136,7 +156,7 @@ Why not solve each constraint separately?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 That is a valid and equivalent approach. Imposing every symmetry condition
-``G_g x = x`` separately gives the stacked linear system
+:math:`G_g\mathbf{x}=\mathbf{x}` separately gives the stacked linear system
 
 .. math::
 
@@ -151,9 +171,10 @@ That is a valid and equivalent approach. Imposing every symmetry condition
    \end{pmatrix}.
 
 Its null space is the set of vectors unchanged by every operation. Let this
-set be ``V_fixed``. The eigenvalue-one space of ``P`` is exactly the same
-space. First, if ``\mathbf{x} \in V_{\mathrm{fixed}}``, each term in the
-average is ``\mathbf{x}``, and therefore
+set be :math:`V_{\mathrm{fixed}}`. The eigenvalue-one space of :math:`P` is
+exactly the same space. First, if
+:math:`\mathbf{x} \in V_{\mathrm{fixed}}`, each term in the average is
+:math:`\mathbf{x}`, and therefore
 
 .. math::
 
@@ -168,8 +189,8 @@ Conversely, suppose
 
    P\mathbf{x} = \mathbf{x}
 
-for some vector ``\mathbf{x}``. For any ``G_k``, the identity ``G_kP=P``
-above gives
+for some vector :math:`\mathbf{x}`. For any :math:`G_k`, the identity
+:math:`G_kP=P` above gives
 
 .. math::
 
@@ -178,8 +199,8 @@ above gives
    = P\mathbf{x}
    = \mathbf{x}.
 
-Thus ``\mathbf{x}`` is unchanged by every symmetry and belongs to
-``V_fixed``. In other words,
+Thus :math:`\mathbf{x}` is unchanged by every symmetry and belongs to
+:math:`V_{\mathrm{fixed}}`. In other words,
 
 .. math::
 
@@ -188,10 +209,11 @@ Thus ``\mathbf{x}`` is unchanged by every symmetry and belongs to
 The direct method finds this space, usually through the null space of ``A``
 (or the zero-eigenvalue space of ``A^T A``). Averaging is useful because it
 also supplies the operator that symmetrizes an arbitrary vector:
-``P\mathbf{x}`` is already in ``V_fixed``. For exact operations, its
-idempotence also gives a particularly simple spectrum: eigenvalue ``1`` on
-the allowed space and ``0`` on the rest. In contrast, finding the null space
-through ``A^T A`` squares its numerical conditioning.
+:math:`P\mathbf{x}` is already in :math:`V_{\mathrm{fixed}}`. For exact
+operations, its idempotence also gives a particularly simple spectrum:
+eigenvalue ``1`` on the allowed space and ``0`` on the rest. In contrast,
+finding the null space through :math:`A^T A` squares its numerical
+conditioning.
 
 How a tensor becomes a vector
 -----------------------------
