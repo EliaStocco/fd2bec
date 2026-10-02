@@ -175,6 +175,66 @@ def _phase_structure(phase):
     )
 
 
+def _phonopy_displacement_space(reference, amplitude, symprec):
+    phonopy = pytest.importorskip("phonopy")
+    from phonopy.structure.atoms import PhonopyAtoms
+
+    phonopy_atoms = PhonopyAtoms(
+        symbols=reference.get_chemical_symbols(),
+        cell=reference.cell.array,
+        scaled_positions=reference.get_scaled_positions(wrap=False),
+    )
+    phonon = phonopy.Phonopy(
+        phonopy_atoms,
+        supercell_matrix=np.eye(3, dtype=int),
+        primitive_matrix=np.eye(3),
+        symprec=symprec,
+    )
+    phonon.generate_displacements(
+        distance=amplitude,
+        is_plusminus=True,
+        is_diagonal=False,
+    )
+
+    reference_positions = np.asarray(phonon.supercell.positions)
+    return np.asarray(
+        [
+            np.asarray(displaced.positions) - reference_positions
+            for displaced in phonon.supercells_with_displacements
+        ]
+    ).reshape((-1, 3 * len(reference)))
+
+
+@pytest.mark.parametrize("phase", ("cubic", "tetragonal", "orthorhombic"))
+def test_force_constant_displacements_span_same_space_as_phonopy(phase):
+    """fd2bec and phonopy select equivalent force-constant perturbations."""
+    amplitude = 0.01
+    reference = _phase_structure(phase)
+    unit_cell = AtomicStructure.from_ase(reference)
+    selected, _ = symmetry_inequivalent_displacements(
+        unit_cell, target_tensor("force_constants", len(reference))
+    )
+    fd2bec_structures = displacements2structures(
+        reference, amplitude * selected, atomic=True
+    )
+    fd2bec_displacements = np.asarray(
+        [structure.positions - reference.positions for structure in fd2bec_structures]
+    ).reshape((-1, 3 * len(reference)))
+    phonopy_displacements = _phonopy_displacement_space(
+        reference, amplitude=amplitude, symprec=unit_cell.symprec
+    )
+
+    tolerance = 1e-10
+    fd2bec_rank = np.linalg.matrix_rank(fd2bec_displacements, tol=tolerance)
+    phonopy_rank = np.linalg.matrix_rank(phonopy_displacements, tol=tolerance)
+    combined_rank = np.linalg.matrix_rank(
+        np.vstack((fd2bec_displacements, phonopy_displacements)), tol=tolerance
+    )
+
+    assert fd2bec_rank == phonopy_rank
+    assert combined_rank == fd2bec_rank
+
+
 def _proper_piezoelectric_design(displacements, cell, symmetry_basis):
     inverse_cell = np.linalg.inv(cell)
     blocks = []
