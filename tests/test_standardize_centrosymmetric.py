@@ -1,4 +1,4 @@
-from fd2bec.cli.structures import standardize_centrosymmetric
+from fd2bec.cli.symmetry import standardize_centrosymmetric
 
 
 def test_standardize_centrosymmetric_parser_requires_an_output_path():

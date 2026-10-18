@@ -1,7 +1,7 @@
 import numpy as np
 
 from fd2bec.cli import KEYWORDS
-from fd2bec.cli.structures.check_relaxation_symmetry import prepare_args
+from fd2bec.cli.symmetry.check_relaxation_symmetry import prepare_args
 from fd2bec.relaxation import project_relaxation_tensor
 from fd2bec.tensor import Forces, Stress
 
