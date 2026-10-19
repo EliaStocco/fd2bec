@@ -6,6 +6,7 @@ from warnings import warn
 import numpy as np
 from ase import Atoms
 
+from fd2bec import ATOL
 from fd2bec.atomic import AtomicStructure
 from fd2bec.tensor import MAPPING, Tensor
 
@@ -17,6 +18,45 @@ CELL_COMPONENTS = (
     (2, 1),
     (2, 2),
 )
+
+
+def displacement_directions(displacements: np.ndarray, *, atol: float = ATOL) -> np.ndarray:
+    """Label each displacement as reference, positive, or negative.
+
+    The sign is defined by the first non-zero flattened Cartesian component,
+    giving paired finite displacements a stable, deterministic ``+``/``-``
+    label without requiring external displacement metadata.
+    """
+    displacements = np.asarray(displacements, dtype=float)
+    if displacements.ndim < 2:
+        raise ValueError("Displacements must include a frame and component dimension.")
+    flattened = displacements.reshape((len(displacements), -1))
+    directions = []
+    for displacement in flattened:
+        nonzero = np.flatnonzero(np.abs(displacement) > atol)
+        if not len(nonzero):
+            directions.append("0")
+        elif displacement[nonzero[0]] > 0:
+            directions.append("+")
+        else:
+            directions.append("-")
+    return np.asarray(directions, dtype=object)
+
+
+def displacement_magnitudes(displacements: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Return total and maximum atomic displacement norms for each frame.
+
+    The total norm is calculated over all ``3N`` Cartesian displacement
+    components.  The maximum atomic norm identifies the atom with the largest
+    Cartesian displacement in that frame.
+    """
+    displacements = np.asarray(displacements, dtype=float)
+    if displacements.ndim < 3 or displacements.shape[-1] != 3:
+        raise ValueError("Displacements must have shape (frames, atoms, 3).")
+    per_atom = displacements.reshape((len(displacements), -1, 3))
+    total_norms = np.linalg.norm(per_atom.reshape((len(per_atom), -1)), axis=1)
+    maximum_atomic_norms = np.max(np.linalg.norm(per_atom, axis=2), axis=1)
+    return total_norms, maximum_atomic_norms
 
 
 def target_tensor(name: str, natoms: int) -> Tensor:

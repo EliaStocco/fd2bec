@@ -19,7 +19,6 @@ from fd2bec.symmetry import point_operation_name
 from fd2bec.tensor_components import (
     CARTESIAN_LABELS,
     VOIGT_LABELS,
-    forbidden_component_indices,
     format_numeric_components,
     parameter_name,
 )
@@ -496,12 +495,13 @@ def print_numeric_tensor(
     symbolic: ArrayLike,
     *,
     frame_label: str,
+    symmetry_projected: Any,
     atol: float = ATOL,
     parameter_values: Optional[ArrayLike] = None,
     display_parameter_indices: Optional[Sequence[int]] = None,
     precision: Optional[int] = None,
 ) -> None:
-    """Print a numeric tensor, its independent values, and its symmetry-zero check."""
+    """Print a numeric tensor, its independent values, and its symmetry residual."""
     print(
         f"\nNumeric tensor from {location}[{keyword!r}] ({tensor.basis} basis, {frame_label} axes):"
     )
@@ -520,28 +520,26 @@ def print_numeric_tensor(
         for index in indices:
             if index < 0 or index >= len(pivots):
                 raise ValueError("Displayed parameter indices must identify existing parameters.")
-            value = formatted[index]
-            print(f"  {parameter_name(index)}: {value}")
+            value = str(formatted[index])
+            sign_padding = "" if value.startswith(("-", "+")) else " "
+            print(f"  {parameter_name(index)}: {sign_padding}{value}")
     else:
         print("  none")
 
-    violations, forbidden_count = forbidden_component_indices(tensor.data, symbolic, atol=atol)
-    if not forbidden_count:
-        print("\nZero-component check: no components are constrained to zero by symmetry.")
-        return
-    if not len(violations):
+    if tensor.data.shape != symmetry_projected.data.shape:
+        raise ValueError("The numeric and symmetry-projected tensors must have the same shape.")
+    residual_norm = float(np.linalg.norm(tensor.data - symmetry_projected.data))
+    if residual_norm <= atol:
         print(
-            f"\nZero-component check: PASS; all {forbidden_count} symmetry-forbidden "
-            f"components are zero within absolute tolerance {atol:.1e}."
+            f"\nSymmetry-breaking residual norm: {residual_norm:.6e}; "
+            f"PASS (<= absolute tolerance {atol:.1e})."
         )
         return
 
-    maximum = np.max(np.abs(flat[violations]))
     print(
-        f"\nZero-component check: FAIL; {len(violations)} of {forbidden_count} "
-        f"symmetry-forbidden components exceed absolute tolerance {atol:.1e}."
+        f"\nSymmetry-breaking residual norm: {residual_norm:.6e}; "
+        f"FAIL (> absolute tolerance {atol:.1e})."
     )
     raise ValueError(
-        "Symmetry-forbidden tensor components are non-zero; "
-        f"maximum absolute value is {maximum:.6e}."
+        f"Numeric tensor has a non-zero symmetry-breaking residual; norm is {residual_norm:.6e}."
     )

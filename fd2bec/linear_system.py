@@ -104,6 +104,39 @@ class LinearSystem:
     def _quality(self, rel_err):
         return "GOOD" if rel_err < 1e-2 else "BAD"
 
+    def grouped_rmse(self, group_size: int) -> np.ndarray:
+        """Return residual RMSE values for consecutive groups of equations."""
+        if self.residual_vector is None:
+            raise RuntimeError("Linear system not solved.")
+        if group_size <= 0:
+            raise ValueError("The group size must be positive.")
+        if self.n_rows % group_size:
+            raise ValueError(f"Cannot split {self.n_rows} residuals into groups of {group_size}.")
+        residuals = self.residual_vector.reshape((-1, group_size, self.n_parallel))
+        return np.sqrt(np.mean(residuals**2, axis=1))
+
+    def grouped_squared_residual_contributions(self, group_size: int) -> np.ndarray:
+        """Return each group's fraction of the total squared residual.
+
+        For every parallel right-hand side, the returned contributions sum to
+        one unless the total residual is zero, in which case they are NaN.
+        """
+        if self.residual_vector is None:
+            raise RuntimeError("Linear system not solved.")
+        if group_size <= 0:
+            raise ValueError("The group size must be positive.")
+        if self.n_rows % group_size:
+            raise ValueError(f"Cannot split {self.n_rows} residuals into groups of {group_size}.")
+        residuals = self.residual_vector.reshape((-1, group_size, self.n_parallel))
+        squared_residuals = np.sum(residuals**2, axis=1)
+        total_squared_residual = np.sum(squared_residuals, axis=0, keepdims=True)
+        return np.divide(
+            squared_residuals,
+            total_squared_residual,
+            out=np.full_like(squared_residuals, np.nan, dtype=float),
+            where=total_squared_residual > 0,
+        )
+
     def summary(self):
         if self.x is None:
             raise RuntimeError("Linear system not solved.")

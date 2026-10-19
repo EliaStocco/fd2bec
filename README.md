@@ -1,4 +1,10 @@
-# Finite Differences to Born Effective Charges (fd2bec)
+```text
+┏━╸╺┳┓┏━┓┏┓ ┏━╸┏━╸  |  Finite Differences     
+┣╸  ┃┃┏━┛┣┻┓┣╸ ┃    |    to                     
+╹  ╺┻┛┗━╸┗━┛┗━╸┗━╸  |  Born Effective Charges 
+```
+
+<!-- # Finite Differences to Born Effective Charges (fd2bec) -->
 
 **fd2bec** is a Python toolkit for computing Born effective charge tensors and
 proper or improper piezoelectric tensors from finite-difference calculations.

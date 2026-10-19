@@ -147,8 +147,9 @@ def main(args: argparse.Namespace):
         print("\nComputing symmetry-allowed displacement modes ... ", end="")
         _, _, displacement_modes = unit_cell.get_displacement_symmetry_modes(tensor)
         print("done")
+        position_projection = unit_cell.get_symmetry_projection(tensor)
         displacement_modes = displacement_modes.reshape((-1, *shape))
-        components, pivots = symbolic_affine_components(
+        components, all_pivots = symbolic_affine_components(
             tensor.data,
             displacement_modes,
             axes=tensor.axes,
@@ -162,11 +163,19 @@ def main(args: argparse.Namespace):
             fractional=basis == "fractional",
         )
         display_parameter_indices = _display_parameter_indices(
-            tensor, pivots, reference_parameter_values
+            tensor, all_pivots, reference_parameter_values
         )
+        components, pivots = symbolic_affine_components(
+            tensor.data,
+            displacement_modes,
+            axes=tensor.axes,
+            fractional=basis == "fractional",
+            parameter_indices=display_parameter_indices,
+        )
+        reference_parameter_values = reference_parameter_values[display_parameter_indices]
         print(
             "n. symmetry-inequivalent component(s):",
-            count_with_percentage(len(pivots), int(np.prod(shape))),
+            count_with_percentage(len(all_pivots), int(np.prod(shape))),
         )
         tensor.print_components(components)
         if numeric_tensor is None:
@@ -177,8 +186,8 @@ def main(args: argparse.Namespace):
                 pivots,
                 components,
                 frame_label="input",
+                symmetry_projected=tensor.symmetrize(position_projection),
                 parameter_values=reference_parameter_values,
-                display_parameter_indices=display_parameter_indices,
                 precision=precision,
             )
         if numeric_tensor is not None:
@@ -189,6 +198,7 @@ def main(args: argparse.Namespace):
                 axes=tensor.axes,
                 fractional=basis == "fractional",
             )
+            parameter_values = parameter_values[display_parameter_indices]
             print_numeric_tensor(
                 numeric_tensor,
                 keyword,
@@ -196,14 +206,14 @@ def main(args: argparse.Namespace):
                 pivots,
                 components,
                 frame_label="input",
+                symmetry_projected=numeric_tensor.symmetrize(position_projection),
                 parameter_values=parameter_values,
-                display_parameter_indices=display_parameter_indices,
                 precision=precision,
             )
         return
 
     print("\nComputing symmetry-allowed components ... ", end="")
-    _, _, component_modes = unit_cell.get_symmetry_modes(tensor=tensor)
+    projection, _, component_modes = unit_cell.get_symmetry_modes(tensor=tensor)
     print("done")
     modes = physical_modes(component_modes, shape, affine=tensor.has_affine_axis)
     print(
@@ -222,6 +232,9 @@ def main(args: argparse.Namespace):
     )
 
     frame_label = "input"
+    symmetry_projected = None
+    if numeric_tensor is not None:
+        symmetry_projected = numeric_tensor.symmetrize(projection)
     if args.conventional_axes:
         coordinate_rotation = np.asarray(
             unit_cell._spglib_dataset.std_rotation_matrix,
@@ -230,6 +243,7 @@ def main(args: argparse.Namespace):
         modes = rotate_modes(tensor, modes, coordinate_rotation)
         if numeric_tensor is not None:
             numeric_tensor = numeric_tensor.rotate(coordinate_rotation)
+            symmetry_projected = symmetry_projected.rotate(coordinate_rotation)
         frame_label = "conventional"
         print("Rotating Cartesian components into conventional crystallographic axes.")
         print("Cartesian coordinate rotation (conventional <- input):")
@@ -251,6 +265,7 @@ def main(args: argparse.Namespace):
             pivots,
             symbolic,
             frame_label=frame_label,
+            symmetry_projected=symmetry_projected,
             precision=precision,
         )
 
