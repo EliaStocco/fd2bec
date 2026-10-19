@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from ase import Atoms
 
-from fd2bec import ATOL, float_format
+from fd2bec import ASR_TOL, float_format
 from fd2bec.acoustic_sum_rule import write_acoustic_sum_rule_diagnostics
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import KEYWORDS, cli, read_input_structures, str2bool
@@ -170,7 +170,7 @@ def main(args):
     print("done")
     var = np.var(reference, axis=0)
     var_norm = np.linalg.norm(var)
-    if var_norm > ATOL:
+    if var_norm > ASR_TOL:
         raise ValueError("There has been a problem while reconstrucing the reference structure.")
 
     ref_pos = np.mean(reference, axis=0)
@@ -343,13 +343,13 @@ def main(args):
         bec,
         reference_atoms.get_chemical_symbols(),
         reference_atoms.get_positions(),
-        tolerance=ATOL,
+        tolerance=ASR_TOL,
     )
     print("done")
-    if norm > ATOL:
+    if norm > ASR_TOL:
         msg = (
             f"Mean Born-charge acoustic sum-rule residual is not satisfied: "
-            f"{norm:.5e} > {ATOL:.1e}. "
+            f"{norm:.5e} > {ASR_TOL:.1e}. "
             f"Inspect {diagnostics}."
         )
         raise ValueError(msg)
