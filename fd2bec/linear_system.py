@@ -50,6 +50,17 @@ class LinearSystem:
     def solved(self):
         return self.x is not None
 
+    def require_full_column_rank(self, name="Linear system"):
+        """Raise when the system cannot determine every fitted unknown."""
+        rank = np.linalg.matrix_rank(self.A)
+        if rank < self.n_cols:
+            raise ValueError(
+                f"{name} is underdetermined: design-matrix rank {rank} is below "
+                f"the {self.n_cols} unknowns ({self.n_rows} equations). "
+                "Refusing to solve a rank-deficient fit."
+            )
+        return rank
+
     def solve(self, method="lstsq"):
         """Solve Ax=b and compute diagnostics."""
 

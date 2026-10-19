@@ -4,9 +4,11 @@ from ase import Atoms
 
 from fd2bec.atomic import AtomicStructure
 from fd2bec.displacements import (
+    _rank_increasing_generators,
     all_cartesian_displacements,
     all_cell_displacements,
     displacements2structures,
+    mode_response_design_blocks,
     random_cartesian_displacements,
     symmetry_inequivalent_displacements,
     target_tensor,
@@ -66,6 +68,19 @@ def test_precomputed_symmetry_modes_select_the_same_displacements():
     expected[1] = 1.0
     np.testing.assert_allclose(selected, [np.zeros(6), expected, -expected])
     np.testing.assert_allclose(candidates, selected)
+
+
+def test_rank_increasing_selection_refuses_an_incomplete_mode_basis():
+    candidates = np.eye(2)
+    design_blocks = np.asarray(
+        [
+            [[1.0, 0.0, 0.0]],
+            [[0.0, 1.0, 0.0]],
+        ]
+    )
+
+    with pytest.raises(ValueError, match=r"underdetermined.*rank 2.*3 symmetry-allowed"):
+        _rank_increasing_generators(candidates, design_blocks)
 
 
 def test_global_tensor_modes_produce_covariant_perturbations():
@@ -173,6 +188,26 @@ def _phase_structure(phase):
         scaled_positions=values["scaled_positions"],
         pbc=True,
     )
+
+
+def test_orthorhombic_bec_selection_spans_all_symmetry_modes():
+    """Guard the Amm2 case that requires the O[2].z displacement."""
+    reference = _phase_structure("orthorhombic")
+    unit_cell = AtomicStructure.from_ase(reference)
+    tensor = BornCharges(data=np.zeros((len(reference), 3, 3)), cell=unit_cell.cell)
+    _, _, modes = unit_cell.get_symmetry_modes(tensor)
+
+    selected, _ = symmetry_inequivalent_displacements(
+        unit_cell, tensor, component_modes=modes
+    )
+    design = mode_response_design_blocks(selected, tensor, modes)
+    historical_selection = selected[np.abs(selected[:, 8]) < 1e-12]
+    historical_design = mode_response_design_blocks(historical_selection, tensor, modes)
+
+    assert selected.shape == (19, 15)
+    assert np.any(np.abs(selected[:, 8]) > 0.0)
+    assert np.linalg.matrix_rank(design.reshape((-1, len(modes))), tol=1e-10) == len(modes)
+    assert np.linalg.matrix_rank(historical_design.reshape((-1, len(modes))), tol=1e-10) == 12
 
 
 def _phonopy_displacement_space(reference, amplitude, symprec):

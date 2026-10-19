@@ -246,6 +246,10 @@ class PrefixStdout:
     def flush(self):
         sys.__stdout__.flush()
 
+    def isatty(self):
+        """Preserve terminal detection for commands run through ``RedirectStdout``."""
+        return sys.__stdout__.isatty()
+
 
 class RedirectStdout:
     def __enter__(self):

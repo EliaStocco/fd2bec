@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from fd2bec.acoustic_sum_rule import write_acoustic_sum_rule_diagnostics
 from fd2bec.cli.dPdR.dPdR2bec import (
@@ -6,13 +7,40 @@ from fd2bec.cli.dPdR.dPdR2bec import (
     prepare_args,
     print_dipole_point_residuals,
 )
-from fd2bec.displacements import displacement_directions, displacement_magnitudes
+from fd2bec.displacements import (
+    displacement_directions,
+    displacement_magnitudes,
+    mode_response_design_blocks,
+)
 from fd2bec.fit_diagnostics import (
     frame_residual_diagnostics,
     retained_equation_mask,
     write_dipole_fit_residual_report,
 )
 from fd2bec.linear_system import LinearSystem
+from fd2bec.tensor import BornCharges
+
+
+def test_born_charge_design_uses_tensor_native_response_and_input_axes():
+    tensor = BornCharges(data=np.zeros((2, 3, 3)))
+    modes = np.eye(18)
+    displacement = np.zeros((1, 6))
+    displacement[0, 0] = 1.0
+
+    design = mode_response_design_blocks(displacement, tensor, modes)
+
+    expected = np.zeros((1, 3, 18))
+    expected[0, 0, 0] = 1.0
+    expected[0, 1, 3] = 1.0
+    expected[0, 2, 6] = 1.0
+    np.testing.assert_allclose(design, expected)
+
+
+def test_full_column_rank_requirement_refuses_an_underdetermined_fit():
+    system = LinearSystem(A=np.zeros((3, 4)), b=np.zeros(3))
+
+    with pytest.raises(ValueError, match=r"underdetermined.*rank 0.*4 unknowns"):
+        system.require_full_column_rank(name="Born-charge dipole fit")
 
 
 def test_apply_acoustic_sum_rule_reports_sum_and_zeroes_corrected_tensors():

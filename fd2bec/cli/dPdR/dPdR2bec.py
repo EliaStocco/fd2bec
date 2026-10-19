@@ -19,7 +19,11 @@ from fd2bec.displacement_cache import (
     restore_born_charge_mode_cache,
     save_born_charge_mode_cache,
 )
-from fd2bec.displacements import displacement_directions, displacement_magnitudes
+from fd2bec.displacements import (
+    displacement_directions,
+    displacement_magnitudes,
+    mode_response_design_blocks,
+)
 from fd2bec.fit_diagnostics import (
     FrameResidualDiagnostics,
     frame_residual_diagnostics,
@@ -200,20 +204,23 @@ def main(args):
     else:
         print(f"reused from '{args.cache_dir}'", end="; ")
     mode_basis = component_modes.T
-    A = np.kron(displacements.reshape((Ns, -1)), np.eye(3))
+    response_design = mode_response_design_blocks(
+        displacements.reshape((Ns, -1)), bec, component_modes
+    )
+    if response_design.shape[1] != dipole.shape[1]:
+        raise ValueError(
+            "Born-charge response design has an incompatible response size: "
+            f"{response_design.shape[1]} instead of {dipole.shape[1]}."
+        )
+    A = response_design.reshape((-1, response_design.shape[-1]))
     b = dipole.flatten()
     print("done")
     n_unknown = mode_basis.shape[1]
 
     print("\nMatrix shapes:")
     print(" - b.shape:", b.shape)
-    print(" - A.shape:", A.shape)
+    print(" - canonical projected A.shape:", A.shape)
     print(" - mode_basis.shape:", mode_basis.shape)
-
-    print("\nMatrix shapes with symmetrization:")
-    A = A @ mode_basis
-    print(" - b.shape:", b.shape)
-    print(" - A.shape:", A.shape)
 
     print("\nMatrix for total dipoles:")
     tmp = np.tile(-np.eye(3), Ns).T
@@ -224,6 +231,7 @@ def main(args):
     print("Preparing linear system ... ", end="")
     ls = LinearSystem(A=A, b=b)
     print("done")
+    ls.require_full_column_rank(name="Born-charge dipole fit")
 
     print("Solving linear systems  ... ", end="")
     ls.solve()
@@ -264,6 +272,7 @@ def main(args):
         print("Preparing linear system ... ", end="")
         ls = LinearSystem(A=A, b=b)
         print("done")
+        ls.require_full_column_rank(name="Outlier-excluded Born-charge dipole fit")
 
         print("Solving linear systems  ... ", end="")
         ls.solve()
@@ -303,6 +312,7 @@ def main(args):
         print("Preparing linear system ... ", end="")
         ls = LinearSystem(A=A, b=b)
         print("done")
+        ls.require_full_column_rank(name="Retried Born-charge dipole fit")
 
         print("Solving linear systems  ... ", end="")
         ls.solve()
