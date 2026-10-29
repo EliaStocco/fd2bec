@@ -131,6 +131,51 @@ dFdE2bec -i field-forces.extxyz -o results
 This route is useful when force data under finite electric fields are available
 from the chosen electronic-structure code.
 
+To visualise the directional responses of all Born effective charges in an
+extxyz field (normally `REF_BEC`):
+
+```bash
+plot_bec -i born-charges.extxyz --all-atoms -o born-charge-components.png
+```
+
+This writes a three-column figure with one atom per row. For a displacement
+direction `n`, the columns show the signed longitudinal charge `n_i Z*_ij n_j`,
+the total induced-polarization magnitude `|Z*_ij n_j|`, and the part transverse
+to `n`. Use `--atom INDEX` instead to plot just one atom.
+
+The BaTiO3 generator creates a common-scale grid for each phase from the
+`MACE_BEC` tensors in `examples/domains/structures`:
+
+| Cubic | Tetragonal |
+| --- | --- |
+| ![Cubic BaTiO3 Born effective charge directional responses](docs/source/_static/piezoelectric/bec/batio3-cubic-bec-response-components.png) | ![Tetragonal BaTiO3 Born effective charge directional responses](docs/source/_static/piezoelectric/bec/batio3-tetragonal-bec-response-components.png) |
+| Orthorhombic | Rhombohedral |
+| ![Orthorhombic BaTiO3 Born effective charge directional responses](docs/source/_static/piezoelectric/bec/batio3-orthorhombic-bec-response-components.png) | ![Rhombohedral BaTiO3 Born effective charge directional responses](docs/source/_static/piezoelectric/bec/batio3-rhombohedral-bec-response-components.png) |
+
+For atom-arrow visualisation in OVITO, export an extxyz file for a chosen
+displacement direction. It retains the full tensor and adds `BEC_response`
+(the arrow vector), plus longitudinal, magnitude, and transverse scalar fields:
+
+```bash
+export_bec_visualization -i born-charges.extxyz -o bec-arrows.extxyz \
+  --direction 0 0 1
+```
+
+Load `bec-arrows.extxyz` in OVITO and select `BEC_response` in the Vector
+Visualization modifier. A cube file is not generated because Born effective
+charges are atom-centred tensors, rather than a scalar field on a grid.
+
+Regenerate all checked-in BaTiO3 piezoelectric and Born-charge figures with:
+
+```bash
+./tools/generate_batio3_directional_plots.sh
+```
+
+Pass an output directory as its first argument, or set `PYTHON` to select the
+Python executable used to run the plotting and export commands. The command
+transcript is appended to `logs/generate-batio3-directional-plots.log` within
+that output directory.
+
 # Computing piezoelectric tensors
 
 Generate cell-displaced structures, evaluate their dipoles, and use the
@@ -144,6 +189,44 @@ dPdS2piezo -i dipole-cells.extxyz -r reference.extxyz -o piezoelectric
 
 See `fd2bec/cli/dPdS/README.md` for the strain convention, dipole input,
 Berry-phase branch handling, and clamped-ion workflow.
+
+To visualise the directional anisotropy, plot the proper tensor written by
+that command:
+
+```bash
+plot_piezoelectric -i piezoelectric/proper-piezoelectric.txt \
+  -o piezoelectric/directional-surface.png --unit 'e/Angstrom^2'
+
+# Write longitudinal, total, and transverse induced-polarization surfaces together.
+plot_piezoelectric -i piezoelectric/proper-piezoelectric.txt \
+  -o piezoelectric/directional-responses.png --response all
+```
+
+The surface represents the signed longitudinal coefficient
+`n_i e_ijk n_j n_k` for each unit direction `n`: its radius is the absolute
+coefficient and its colour gives the sign.  The input uses the Voigt order
+`xx, yy, zz, yz, xz, xy` and the package's engineering-shear convention.
+`--response transverse` instead plots the magnitude of the induced
+polarization perpendicular to `n`; `--response all` writes longitudinal,
+total, and transverse surfaces side by side.
+
+The gallery below uses the clamped-ion BaTiO3 example tensors in
+`examples/BaTiO3-piezo-clamped`. All four images use the same radial and colour
+scale (±0.03046 e/Angstrom²), so their lobe sizes are comparable. The cubic
+phase has no piezoelectric response, as expected for its centrosymmetric
+structure.
+
+| Cubic | Tetragonal |
+| --- | --- |
+| ![Cubic BaTiO3 has a zero directional piezoelectric response](docs/source/_static/piezoelectric/piezo/batio3-cubic.png) | ![Tetragonal BaTiO3 longitudinal piezoelectric response](docs/source/_static/piezoelectric/piezo/batio3-tetragonal.png) |
+| Orthorhombic | Rhombohedral |
+| ![Orthorhombic BaTiO3 longitudinal piezoelectric response](docs/source/_static/piezoelectric/piezo/batio3-orthorhombic.png) | ![Rhombohedral BaTiO3 longitudinal piezoelectric response](docs/source/_static/piezoelectric/piezo/batio3-rhombohedral.png) |
+
+For tetragonal BaTiO3, the combined plot makes the transverse contribution
+explicit: left is signed longitudinal response, middle is total induced
+polarization, and right is the magnitude perpendicular to the applied strain.
+
+![Tetragonal BaTiO3 longitudinal, total, and transverse directional piezoelectric responses](docs/source/_static/piezoelectric/piezo/batio3-tetragonal-response-components.png)
 
 For a simple mathematical explanation of the symmetry reduction used
 throughout the package, see the [symmetry-mode documentation](docs/source/symmetry_modes.rst).

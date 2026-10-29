@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from io import StringIO, TextIOWrapper
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Sequence, Tuple
 from zipfile import ZipFile
 
 import numpy as np
@@ -11,7 +11,6 @@ from ase.io import read as ase_read
 
 from fd2bec.displacements import mode_response_design_blocks
 from fd2bec.tensor import BornCharges
-
 
 REQUIRED_FILES = ("start.extxyz", "displacements.txt", "displaced-structures.extxyz")
 COMPLETION_LOGS = ("fd2bec-log.txt", "prepare.log", "summary.txt")
@@ -83,7 +82,11 @@ class _ArchiveContents:
     def names(self) -> Iterable[str]:
         if self.prefix is None:
             return []
-        return [name[len(self.prefix) :] for name in self.zip_file.namelist() if name.startswith(self.prefix)]
+        return [
+            name[len(self.prefix) :]
+            for name in self.zip_file.namelist()
+            if name.startswith(self.prefix)
+        ]
 
     def text(self, name: str) -> str:
         return self.zip_file.read(self._name(name)).decode("utf-8")
@@ -191,7 +194,9 @@ def _audit_bec_rank(contents, audit: PreparationAudit) -> None:
     if metadata.get("what") != "bec":
         return
     if metadata.get("no_symmetry") == "true":
-        audit.details.append("BEC selection rank: not applicable (full Cartesian displacement mode)")
+        audit.details.append(
+            "BEC selection rank: not applicable (full Cartesian displacement mode)"
+        )
         return
 
     required = (
@@ -207,9 +212,7 @@ def _audit_bec_rank(contents, audit: PreparationAudit) -> None:
         return
     try:
         displacements = _load_array(contents, ".fd2bec/displacements.txt")
-        component_modes = _load_component_modes(
-            contents, ".fd2bec/born-charge-component-modes.txt"
-        )
+        component_modes = _load_component_modes(contents, ".fd2bec/born-charge-component-modes.txt")
         atoms = ase_read(StringIO(contents.text("start.extxyz")), format="extxyz")
         tensor = BornCharges(data=np.zeros((len(atoms), 3, 3)), cell=atoms.cell)
         design = mode_response_design_blocks(displacements, tensor, component_modes)

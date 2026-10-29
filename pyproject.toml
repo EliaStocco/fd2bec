@@ -76,6 +76,7 @@ line-length = 100
 [project.scripts]
 
 # --- aims ---
+check_prepared = "fd2bec.cli.aims.check_prepared:main"
 get_basis_functions_fhi_aims = "fd2bec.cli.aims.get_basis_functions_fhi_aims:main"
 post_process_aims = "fd2bec.cli.aims.post_process_aims:main"
 prepare_aims = "fd2bec.cli.aims.prepare_aims:main"
@@ -108,9 +109,12 @@ add_bec = "fd2bec.cli.general.add_bec:main"
 add_piezo = "fd2bec.cli.general.add_piezo:main"
 bec2charges = "fd2bec.cli.general.bec2charges:main"
 bec_extxyz2txt = "fd2bec.cli.general.bec_extxyz2txt:main"
+export_bec_visualization = "fd2bec.cli.general.export_bec_visualization:main"
 info_extxyz2txt = "fd2bec.cli.general.info_extxyz2txt:main"
 optimize = "fd2bec.cli.general.optimize:main"
 overview = "fd2bec.cli.general.overview:main"
+plot_bec = "fd2bec.cli.general.plot_bec:main"
+plot_piezoelectric = "fd2bec.cli.general.plot_piezoelectric:main"
 show_piezo = "fd2bec.cli.general.show_piezo:main"
 solution2bec_txt = "fd2bec.cli.general.solution2bec_txt:main"
 solve_linear_system = "fd2bec.cli.general.solve_linear_system:main"

@@ -5,7 +5,6 @@ from pathlib import Path
 
 from fd2bec.preparation_audit import audit_path, find_preparation_paths
 
-
 description = "Check files and BEC-rank sufficiency in prepared finite-displacement calculations."
 
 
