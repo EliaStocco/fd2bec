@@ -18,6 +18,7 @@ from fd2bec.piezoelectric import (
     piezoelectric_to_voigt,
     proper_piezoelectric_symmetry_basis,
     proper_piezoelectric_tensor,
+    strains_from_cells,
     strain_to_voigt,
     voigt_to_piezoelectric,
     voigt_to_strain,
@@ -30,6 +31,26 @@ def periodic_reference():
         "Si2",
         scaled_positions=[[0, 0, 0], [0.25, 0.25, 0.25]],
         cell=np.diag([4.0, 5.0, 6.0]),
+        pbc=True,
+    )
+
+
+def skew_periodic_reference():
+    """A lower-triangular, non-orthogonal cell like the Amm2 fixture."""
+    return Atoms(
+        "BaTiO3",
+        scaled_positions=[
+            [0.5, 0.5, 0.5],
+            [0.0, 0.4867, 0.4868],
+            [0.0, 0.0150, 0.5219],
+            [0.0, 0.5219, 0.0127],
+            [0.5, 0.0153, 0.0153],
+        ],
+        cell=[
+            [3.9507752, 0.0, 0.0],
+            [0.0, 4.00838346, -0.00160114],
+            [0.0, 0.01615647, 4.00835122],
+        ],
         pbc=True,
     )
 
@@ -127,6 +148,49 @@ def test_dipole_lattice_linear_system_recovers_improper_and_rotations():
     rotated_cell_change = reference.cell.array @ rotation.T
     predicted = np.einsum("iab,ab->i", fit.dipole_lattice_derivative, rotated_cell_change)
     np.testing.assert_allclose(predicted, rotation @ fit.reference_dipole, atol=1e-12)
+
+
+def test_skew_cell_dipole_lattice_fit_recovers_response_and_rotations():
+    """Regression: lattice-row conventions must work for skew reference cells."""
+    reference = skew_periodic_reference()
+    structures = build_strained_structures(reference, amplitude=1e-3)
+    strains = np.asarray([atoms.info["strain"] for atoms in structures])
+    reference_polarization, improper, proper, polarizations = synthetic_response(strains)
+    cells = np.asarray([atoms.cell.array for atoms in structures])
+    dipoles = polarizations * np.abs(np.linalg.det(cells))[:, None]
+
+    fit = evaluate_dipole_lattice_derivative(dipoles, cells, reference.cell.array)
+
+    np.testing.assert_allclose(
+        fit.reference_dipole,
+        reference_polarization * reference.get_volume(),
+        atol=1e-5,
+    )
+    # The skew-cell design matrix is mildly conditioned; retain a tight
+    # absolute bound while allowing round-off amplification in the fit.
+    np.testing.assert_allclose(fit.result.improper.data, improper, atol=1e-7)
+    np.testing.assert_allclose(fit.result.proper.data, proper, atol=1e-7)
+
+    rotation = np.array([[0.0, -2e-4, 3e-4], [2e-4, 0.0, -1e-4], [-3e-4, 1e-4, 0.0]])
+    rotated_cell_change = reference.cell.array @ rotation.T
+    predicted = np.einsum("iab,ab->i", fit.dipole_lattice_derivative, rotated_cell_change)
+    np.testing.assert_allclose(predicted, rotation @ fit.reference_dipole, atol=1e-11)
+
+
+def test_skew_cell_strains_are_recovered_without_rotation_contamination():
+    reference = skew_periodic_reference()
+    strain = np.array(
+        [
+            [1.0e-3, 2.0e-4, -3.0e-4],
+            [2.0e-4, -4.0e-4, 1.5e-4],
+            [-3.0e-4, 1.5e-4, 2.0e-4],
+        ]
+    )
+    deformed = reference.cell.array @ (np.eye(3) + strain).T
+
+    recovered = strains_from_cells(reference.cell.array, deformed[None, ...])[0]
+
+    np.testing.assert_allclose(recovered, strain, atol=1e-15)
 
 
 def test_proper_symmetry_basis_removes_forbidden_cubic_modes():

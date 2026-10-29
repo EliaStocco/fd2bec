@@ -2,13 +2,72 @@ from typing import List, Tuple
 
 import numpy as np
 from ase.geometry import find_mic
-from scipy.optimize import linear_sum_assignment
+from scipy.optimize import Bounds, LinearConstraint, linear_sum_assignment, milp
 
 from fd2bec import ATOL
 
 
 def wrap(x: np.ndarray):
     return (x + 0.5) % 1.0 - 0.5
+
+
+def zero_dipole_fractional_shifts(
+    oxidation_numbers: np.ndarray, fractional_positions: np.ndarray
+) -> np.ndarray:
+    """Return integer shifts that cancel an ionic fractional dipole.
+
+    For oxidation-number row vector ``N`` and fractional-coordinate matrix
+    ``X``, the shifts ``s`` satisfy ``N @ s = -(N @ X)``.
+    """
+    oxidation_numbers = np.asarray(oxidation_numbers, dtype=float)
+    fractional_positions = np.asarray(fractional_positions, dtype=float)
+    if oxidation_numbers.ndim != 1 or not len(oxidation_numbers):
+        raise ValueError("Oxidation numbers must be a non-empty one-dimensional array.")
+    if fractional_positions.shape != (len(oxidation_numbers), 3):
+        raise ValueError(
+            "Fractional positions must have shape "
+            f"({len(oxidation_numbers)}, 3), not {fractional_positions.shape}."
+        )
+    if np.allclose(oxidation_numbers, 0.0, atol=1e-12, rtol=0.0):
+        raise ValueError("At least one oxidation number must be non-zero.")
+    if not np.all(np.isclose(oxidation_numbers, np.rint(oxidation_numbers), atol=1e-8, rtol=0.0)):
+        raise ValueError("Integer shifts require integer oxidation numbers.")
+
+    target = -(oxidation_numbers @ fractional_positions)
+    if not np.all(np.isclose(target, np.rint(target), atol=1e-8, rtol=0.0)):
+        raise ValueError(f"Integer shifts cannot cancel non-integer dipole quanta: {target}.")
+
+    oxidation_numbers = np.rint(oxidation_numbers).astype(int)
+    target = np.rint(target).astype(int)
+    common_divisor = np.gcd.reduce(np.abs(oxidation_numbers))
+    if np.any(target % common_divisor):
+        raise ValueError(
+            "Integer shifts can cancel dipole quanta only when every component is divisible "
+            f"by gcd(|oxidation numbers|) = {common_divisor}; got {target}."
+        )
+    number_of_atoms = len(oxidation_numbers)
+    coefficient = np.zeros((3, 3 * number_of_atoms), dtype=int)
+    for axis in range(3):
+        start = axis * number_of_atoms
+        coefficient[axis, start : start + number_of_atoms] = oxidation_numbers
+
+    result = milp(
+        c=np.ones(6 * number_of_atoms),
+        integrality=np.ones(6 * number_of_atoms),
+        bounds=Bounds(0, np.inf),
+        constraints=LinearConstraint(
+            np.concatenate((coefficient, -coefficient), axis=1), target, target
+        ),
+    )
+    if not result.success:
+        raise ValueError(f"Could not find integer shifts that cancel the dipole: {result.message}")
+
+    variables = np.rint(result.x).astype(int)
+    shifts = variables[: 3 * number_of_atoms] - variables[3 * number_of_atoms :]
+    shifts = shifts.reshape((3, number_of_atoms)).T
+    if not np.array_equal(oxidation_numbers @ shifts, target):
+        raise RuntimeError("Integer-programming result does not cancel the dipole.")
+    return shifts
 
 
 def find_mapping(a, b, atol=ATOL, pbc=False, cell=None):

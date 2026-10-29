@@ -2,8 +2,11 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from ase import Atoms
+from ase.io import write
 
-from fd2bec.cli.structures.tensor_symmetries import prepare_args
+from fd2bec.cli.symmetry import tensor_symmetries
+from fd2bec.cli.symmetry.tensor_symmetries import prepare_args
 from fd2bec.show import print_numeric_tensor
 from fd2bec.tensor_components import (
     _symmetric_basis,
@@ -44,6 +47,28 @@ def test_tensor_keyword_is_optional():
     assert without_keyword.precision is None
     assert with_keyword.keyword == "MACE_BEC"
     assert with_keyword.precision == 6
+
+
+def test_positions_cli_shifts_origin_and_renumbers_remaining_parameters(tmp_path, capsys):
+    structure = Atoms(
+        "HHeLi",
+        cell=[[4.0, 0.0, 0.0], [0.2, 4.0, 0.0], [0.1, 0.3, 4.0]],
+        scaled_positions=[[0.2, 0.3, 0.4], [0.71, 0.82, 0.93], [0.12, 0.23, 0.34]],
+        pbc=True,
+    )
+    input_path = tmp_path / "off_origin.extxyz"
+    write(input_path, structure)
+    args = tensor_symmetries.prepare_args(tensor_symmetries.description).parse_args(
+        ["-i", str(input_path), "-n", "positions"]
+    )
+
+    with pytest.warns(UserWarning, match="shift_origin"):
+        tensor_symmetries.main.__wrapped__(args)
+
+    output = capsys.readouterr().out
+    assert "n. symmetry-inequivalent component(s): 9 out of 9" in output
+    assert "  a:  0.01" in output
+    assert "  a:  0.01" in output
 
 
 def test_tensor_data_is_found_in_arrays_info_and_split_bec_fields():
@@ -119,7 +144,7 @@ def test_piezoelectric_tensor_supports_voigt_and_legacy_cartesian_data(shape):
     np.testing.assert_allclose(tensor.data, voigt_to_piezoelectric(voigt))
 
 
-def test_nonzero_symmetry_forbidden_components_are_rejected():
+def test_symmetry_breaking_residual_is_reported_and_rejected(capsys):
     violations, forbidden_count = forbidden_component_indices([2.5, 0.1, 0.0], ["a", "0", "0"])
 
     assert violations.tolist() == [1]
@@ -127,7 +152,7 @@ def test_nonzero_symmetry_forbidden_components_are_rejected():
 
     from fd2bec.tensor import Vector
 
-    with pytest.raises(ValueError, match="Symmetry-forbidden tensor components are non-zero"):
+    with pytest.raises(ValueError, match="non-zero symmetry-breaking residual"):
         print_numeric_tensor(
             Vector(data=np.asarray([2.5, 0.1, 0.0])),
             "prediction",
@@ -135,6 +160,26 @@ def test_nonzero_symmetry_forbidden_components_are_rejected():
             [0],
             np.asarray(["a", "0", "0"]),
             frame_label="input",
+            symmetry_projected=Vector(data=np.asarray([2.5, 0.0, 0.0])),
+        )
+    assert "Symmetry-breaking residual norm: 1.000000e-01" in capsys.readouterr().out
+
+
+def test_symmetry_breaking_residual_detects_nonzero_component_relations():
+    from fd2bec.tensor import Vector
+
+    tensor = Vector(data=np.asarray([2.5, 0.1, 7.0]))
+    symmetry_projected = Vector(data=np.asarray([1.3, 1.3, 7.0]))
+
+    with pytest.raises(ValueError, match=r"norm is 1.697056e\+00"):
+        print_numeric_tensor(
+            tensor,
+            "prediction",
+            "atoms.info",
+            [0, 2],
+            np.asarray(["a", "a", "b"]),
+            frame_label="input",
+            symmetry_projected=symmetry_projected,
         )
 
 
@@ -218,6 +263,24 @@ def test_symbolic_affine_components_show_ideal_fractional_coordinates_and_displa
         ["0.5", "0.0", "-c"],
         ["0.5", "0.5", "0.5 - d"],
     ]
+
+
+def test_symbolic_affine_components_renumbers_selected_parameters():
+    reference = np.asarray([[0.0, 0.5, 0.5]])
+    modes = np.asarray(
+        [
+            [[1.0, 0.0, 0.0]],
+            [[0.0, 1.0, 0.0]],
+            [[0.0, 0.0, 1.0]],
+        ]
+    )
+
+    components, pivots = symbolic_affine_components(
+        reference, modes, fractional=True, parameter_indices=[1, 2]
+    )
+
+    assert pivots == [1, 2]
+    assert components.tolist() == [["0.0", "0.5 + a", "0.5 + b"]]
 
 
 def test_physical_modes_discards_homogeneous_only_affine_mode():

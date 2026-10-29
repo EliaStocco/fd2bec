@@ -8,8 +8,9 @@ import ast
 import sys
 import tokenize
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
+from fd2bec.cli import cli
 from fd2bec.show import print_scripts
 
 DESCRIPTION = "Search for scripts and their descriptions in 'fd2bec'."
@@ -109,9 +110,9 @@ def find_scripts(
     }
 
 
-def prepare_parser() -> argparse.ArgumentParser:
+def prepare_parser(description: Optional[str] = None) -> argparse.ArgumentParser:
     folders = available_folders()
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(description=description or DESCRIPTION)
     parser.add_argument(
         "-f",
         "--folders",
@@ -140,10 +141,8 @@ def prepare_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = prepare_parser()
-    args = parser.parse_args(argv)
-
+@cli(prepare_parser=prepare_parser, description=DESCRIPTION)
+def main(args: argparse.Namespace) -> int:
     scripts = find_scripts(args.folders)
     print(f"\n\tLooking for scripts in '{CLI_ROOT}'\n")
     print_scripts(
