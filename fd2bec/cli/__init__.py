@@ -22,9 +22,15 @@ KEYWORDS = {
     "piezoelectric": "REF_piezoelectric",
     "displacements": "displacements",
     "strain": "strain",
+    "stress": "REF_stress",
 }
 
 PACKAGE_DIRECTORY = Path(__file__).resolve().parent
+
+ASCII_LOGO = """\
+┏━╸╺┳┓┏━┓┏┓ ┏━╸┏━╸
+┣╸  ┃┃┏━┛┣┻┓┣╸ ┃
+╹  ╺┻┛┗━╸┗━┛┗━╸┗━╸"""
 
 
 def read_input_structures(
@@ -199,6 +205,8 @@ def cli(prepare_parser=None, description=None):
             # --- run main ---
             print("@ Let's start!")
             if description:
+                print()
+                print(textwrap.indent(ASCII_LOGO, "\t"))
                 print("\n\tDescription:")
                 print(textwrap.indent(description, "\t"))
             else:
@@ -237,6 +245,10 @@ class PrefixStdout:
 
     def flush(self):
         sys.__stdout__.flush()
+
+    def isatty(self):
+        """Preserve terminal detection for commands run through ``RedirectStdout``."""
+        return sys.__stdout__.isatty()
 
 
 class RedirectStdout:

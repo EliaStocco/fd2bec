@@ -1,6 +1,8 @@
 """Standardized terminal presentation for fd2bec."""
 
 import argparse
+from contextlib import redirect_stdout
+from io import StringIO
 from itertools import product
 from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 from warnings import warn
@@ -12,10 +14,11 @@ from spglib import SpglibDataset
 
 from fd2bec import ATOL, BEC_NORM_THRESHOLD
 from fd2bec.atomic import AtomicStructure
+from fd2bec.mathematics import find_mapping, wrap
+from fd2bec.symmetry import point_operation_name
 from fd2bec.tensor_components import (
     CARTESIAN_LABELS,
     VOIGT_LABELS,
-    forbidden_component_indices,
     format_numeric_components,
     parameter_name,
 )
@@ -104,17 +107,89 @@ def print_positions(atoms: Atoms, precision: int = 6) -> None:
         print(f"  {index:5d}  {symbol:>4s}  {values}")
 
 
+def print_compact_structure(
+    atoms: Atoms,
+    title: str,
+    precision: int = 6,
+    space_group_symbol: Optional[str] = None,
+    parent: Optional[Atoms] = None,
+) -> None:
+    """Print a compact structure summary and optional differences from a parent."""
+    cell = np.asarray(atoms.cell.array, dtype=float)
+    fractional = np.asarray(atoms.get_scaled_positions(wrap=True), dtype=float)
+    display_tolerance = 0.5 * 10 ** (-precision)
+
+    if parent is not None and (
+        len(parent) != len(atoms) or not np.array_equal(parent.numbers, atoms.numbers)
+    ):
+        raise ValueError("Parent and displayed structure must have the same ordered atoms.")
+
+    def format_vector(vector, *, periodic=False):
+        values = np.asarray(vector, dtype=float).copy()
+        if periodic:
+            values = wrap(values)
+            values[np.abs(values) <= display_tolerance] = 0.0
+            values[values < 0.0] += 1.0
+        else:
+            values[np.abs(values) <= display_tolerance] = 0.0
+        values[np.abs(values) <= display_tolerance] = 0.0
+        width = precision + 5
+        return "[" + " ".join(f"{value:{width}.{precision}f}" for value in values) + "]"
+
+    title = f"{title} ({space_group_symbol})" if space_group_symbol else title
+    print(f"\n{title}:")
+    print("  lattice [Angstrom]:")
+    for vector in cell:
+        print(f"    {format_vector(vector)}")
+    if parent is not None:
+        print("  lattice difference from parent [Angstrom]:")
+        for vector in cell - parent.cell.array:
+            print(f"    {format_vector(vector)}")
+    print("  fractional:")
+    for symbol, position in zip(atoms.get_chemical_symbols(), fractional):
+        print(f"    {symbol:<2} {format_vector(position, periodic=True)}")
+    if parent is not None:
+        parent_fractional = parent.get_scaled_positions(wrap=True)
+        difference = np.empty_like(fractional)
+        for number in np.unique(atoms.numbers):
+            parent_indices = np.flatnonzero(parent.numbers == number)
+            atom_indices = np.flatnonzero(atoms.numbers == number)
+            mapping, _, _ = find_mapping(
+                parent_fractional[parent_indices], fractional[atom_indices], pbc=True
+            )
+            difference[atom_indices] = wrap(
+                fractional[atom_indices] - parent_fractional[parent_indices][mapping]
+            )
+        print("  fractional difference from parent:")
+        for symbol, position in zip(atoms.get_chemical_symbols(), difference):
+            print(f"    {symbol:<2} {format_vector(position)}")
+
+
+def _print_frame(contents: str) -> None:
+    """Print text inside an ASCII frame sized to its widest line."""
+    lines = contents.rstrip().splitlines()
+    width = max(len(line) for line in lines)
+    border = "+" + "-" * (width + 2) + "+"
+    print(border)
+    for line in lines:
+        print(f"| {line:<{width}} |")
+    print(border)
+
+
 def print_structure(atoms: Atoms, title: str = "Structure information") -> None:
-    """Print a common structure summary followed by coordinates and, when periodic, its cell."""
-    print(f"{title} ({atoms.get_chemical_formula()}):")
-    print(f"  atoms = {len(atoms)}")
-    print(f"  periodic boundary conditions = {atoms.get_pbc().tolist()}")
-    print(f"  total mass [amu] = {atoms.get_masses().sum():.8f}")
-    if np.all(atoms.get_pbc()):
+    """Print a framed structure summary, coordinates, and its cell when periodic."""
+    output = StringIO()
+    with redirect_stdout(output):
+        print(f"{title} ({atoms.get_chemical_formula()}):")
+        print(f"  atoms = {len(atoms)}")
+        print(f"  periodic boundary conditions = {atoms.get_pbc().tolist()}")
+        print(f"  total mass [amu] = {atoms.get_masses().sum():.8f}")
+        if np.all(atoms.get_pbc()):
+            print()
+            print_cell(atoms)
         print()
-        print_cell(atoms)
-    print()
-    print_positions(atoms)
+        print_positions(atoms)
+    _print_frame(output.getvalue())
 
 
 def print_displacement_input_structure(atoms: Atoms) -> None:
@@ -137,7 +212,7 @@ def _spglib_text(value: object) -> str:
     return value.decode() if isinstance(value, bytes) else str(value)
 
 
-def print_space_group(dataset: SpglibDataset, atoms: Atoms, symprec: float) -> None:
+def print_space_group(dataset: SpglibDataset, atoms: Atoms, symprec: float) -> dict:
     """Print a standardized summary of a spglib space-group dataset."""
     try:
         bravais_type = atoms.cell.get_bravais_lattice(eps=symprec).longname
@@ -158,18 +233,42 @@ def print_space_group(dataset: SpglibDataset, atoms: Atoms, symprec: float) -> N
     for label, value in fields:
         print(f"  {label:<30}: {value}")
 
+    return dict(fields)
 
-def print_symmetry_operations(dataset: SpglibDataset, precision: int = 2) -> None:
-    """Print spglib symmetry operations in fractional coordinates."""
-    print("Symmetry operations (fractional coordinates x' = R x + t):")
+
+def print_point_operation(
+    rotation: ArrayLike,
+    translation: Optional[ArrayLike] = None,
+    *,
+    label: str = "point operation",
+    precision: int = 6,
+    coordinate_frame: str = "",
+) -> None:
+    """Print a uniformly named point operation and optional affine translation."""
+    rotation = np.asarray(rotation, dtype=int)
+    print(f"\t{label} {point_operation_name(rotation, coordinate_frame=coordinate_frame)}")
+    # if translation is None:
+    #     print("    fractional coordinates: x' = R x")
+    # else:
+    #     translation = np.asarray(translation, dtype=float)
+    #     print("    fractional coordinates: x' = R x + t")
+    print("    R:")
+    for row in rotation:
+        print("      " + " ".join(f"{value:2d}" for value in row))
+    if translation is None:
+        translation = np.zeros(3, dtype=float)
+    print("    t: [" + " ".join(f"{value:.{precision}f}" for value in translation) + "]")
+
+
+def print_symmetry_operations(dataset: SpglibDataset, precision: int = 6) -> None:
+    """Print spglib symmetry operations with the common operation notation."""
+    print("Symmetry operations:")
     for index, (rotation, translation) in enumerate(
         zip(dataset.rotations, dataset.translations), start=1
     ):
-        print(f"  #{index}")
-        print("    rotation:")
-        print_matrix(rotation, precision=precision)
-        print("    translation: ")
-        print_matrix(np.reshape(translation, (1, len(translation))), precision=precision)
+        print_point_operation(
+            rotation, translation, label=f"operation #{index}", precision=precision
+        )
 
 
 def print_symmetry_selection(
@@ -396,11 +495,13 @@ def print_numeric_tensor(
     symbolic: ArrayLike,
     *,
     frame_label: str,
+    symmetry_projected: Any,
     atol: float = ATOL,
     parameter_values: Optional[ArrayLike] = None,
+    display_parameter_indices: Optional[Sequence[int]] = None,
     precision: Optional[int] = None,
 ) -> None:
-    """Print a numeric tensor, its independent values, and its symmetry-zero check."""
+    """Print a numeric tensor, its independent values, and its symmetry residual."""
     print(
         f"\nNumeric tensor from {location}[{keyword!r}] ({tensor.basis} basis, {frame_label} axes):"
     )
@@ -413,28 +514,32 @@ def print_numeric_tensor(
         if values.shape != (len(pivots),):
             raise ValueError("There must be one value per symmetry-inequivalent component.")
         formatted = format_numeric_components(values, precision)
-        for index, value in enumerate(formatted):
-            print(f"  {parameter_name(index)}: {value}")
+        indices = (
+            range(len(pivots)) if display_parameter_indices is None else display_parameter_indices
+        )
+        for index in indices:
+            if index < 0 or index >= len(pivots):
+                raise ValueError("Displayed parameter indices must identify existing parameters.")
+            value = str(formatted[index])
+            sign_padding = "" if value.startswith(("-", "+")) else " "
+            print(f"  {parameter_name(index)}: {sign_padding}{value}")
     else:
         print("  none")
 
-    violations, forbidden_count = forbidden_component_indices(tensor.data, symbolic, atol=atol)
-    if not forbidden_count:
-        print("\nZero-component check: no components are constrained to zero by symmetry.")
-        return
-    if not len(violations):
+    if tensor.data.shape != symmetry_projected.data.shape:
+        raise ValueError("The numeric and symmetry-projected tensors must have the same shape.")
+    residual_norm = float(np.linalg.norm(tensor.data - symmetry_projected.data))
+    if residual_norm <= atol:
         print(
-            f"\nZero-component check: PASS; all {forbidden_count} symmetry-forbidden "
-            f"components are zero within absolute tolerance {atol:.1e}."
+            f"\nSymmetry-breaking residual norm: {residual_norm:.6e}; "
+            f"PASS (<= absolute tolerance {atol:.1e})."
         )
         return
 
-    maximum = np.max(np.abs(flat[violations]))
     print(
-        f"\nZero-component check: FAIL; {len(violations)} of {forbidden_count} "
-        f"symmetry-forbidden components exceed absolute tolerance {atol:.1e}."
+        f"\nSymmetry-breaking residual norm: {residual_norm:.6e}; "
+        f"FAIL (> absolute tolerance {atol:.1e})."
     )
     raise ValueError(
-        "Symmetry-forbidden tensor components are non-zero; "
-        f"maximum absolute value is {maximum:.6e}."
+        f"Numeric tensor has a non-zero symmetry-breaking residual; norm is {residual_norm:.6e}."
     )

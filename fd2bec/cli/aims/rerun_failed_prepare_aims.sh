@@ -21,6 +21,6 @@ while IFS= read -r -d '' folder; do
         echo "Failed: $folder" >&2
         status=1
     fi
-done < <(find "$failed_dir" -mindepth 2 -maxdepth 2 -type d -name 'structure-*' -print0 | sort -z)
+done < <(find -H "$failed_dir" -mindepth 2 -maxdepth 2 -type d -name 'structure-*' -print0 | sort -z)
 
 exit "$status"

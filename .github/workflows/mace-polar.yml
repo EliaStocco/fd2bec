@@ -1,11 +1,6 @@
 name: MACE-POLAR regression
 
-on:
-  pull_request:
-  push:
-    branches:
-      - master
-      - develop
+on: push
 
 concurrency:
   group: mace-polar-${{ github.ref }}
@@ -13,7 +8,7 @@ concurrency:
 
 jobs:
   mace-polar:
-    name: MACE-POLAR dP/dR regression
+    # name: MACE-POLAR dP/dR regression
     runs-on: ubuntu-22.04
 
     steps:

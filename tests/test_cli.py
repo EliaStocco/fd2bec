@@ -1,4 +1,5 @@
 import warnings
+from io import StringIO
 from pathlib import Path
 
 import fd2bec.cli as cli_module
@@ -39,6 +40,13 @@ def test_regular_cli_does_not_warn():
         regular_command()
 
     assert not caught
+
+
+def test_prefix_stdout_preserves_terminal_detection(monkeypatch):
+    output = StringIO()
+    monkeypatch.setattr(cli_module.sys, "__stdout__", output)
+
+    assert cli_module.PrefixStdout().isatty() is False
 
 
 def test_python_environment_detects_conda(monkeypatch):

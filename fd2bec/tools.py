@@ -4,6 +4,7 @@ from ase import Atoms
 from ase.data import atomic_numbers
 from ase.utils import atoms_to_spglib_cell
 
+from fd2bec import ATOL
 from fd2bec.tensor_components import expand_voigt_data
 
 
@@ -119,7 +120,7 @@ def shift_first_atom_to_origin(atoms: Atoms) -> Atoms:
     fractional_positions = atoms.get_scaled_positions(wrap=False)
     fractional_positions -= fractional_positions[0]
     fractional_positions %= 1.0
-    fractional_positions[np.isclose(fractional_positions, 1.0, atol=1e-12, rtol=0.0)] = 0.0
+    fractional_positions[np.isclose(fractional_positions, 1.0, atol=ATOL, rtol=0.0)] = 0.0
     fractional_positions[0] = 0.0
     shifted.set_scaled_positions(fractional_positions)
     return shifted

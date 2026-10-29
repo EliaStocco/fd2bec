@@ -6,6 +6,7 @@ from warnings import warn
 import numpy as np
 from ase import Atoms
 
+from fd2bec import ATOL
 from fd2bec.atomic import AtomicStructure
 from fd2bec.tensor import MAPPING, Tensor
 
@@ -17,6 +18,47 @@ CELL_COMPONENTS = (
     (2, 1),
     (2, 2),
 )
+
+MODE_RANK_TOLERANCE = 1e-10
+
+
+def displacement_directions(displacements: np.ndarray, *, atol: float = ATOL) -> np.ndarray:
+    """Label each displacement as reference, positive, or negative.
+
+    The sign is defined by the first non-zero flattened Cartesian component,
+    giving paired finite displacements a stable, deterministic ``+``/``-``
+    label without requiring external displacement metadata.
+    """
+    displacements = np.asarray(displacements, dtype=float)
+    if displacements.ndim < 2:
+        raise ValueError("Displacements must include a frame and component dimension.")
+    flattened = displacements.reshape((len(displacements), -1))
+    directions = []
+    for displacement in flattened:
+        nonzero = np.flatnonzero(np.abs(displacement) > atol)
+        if not len(nonzero):
+            directions.append("0")
+        elif displacement[nonzero[0]] > 0:
+            directions.append("+")
+        else:
+            directions.append("-")
+    return np.asarray(directions, dtype=object)
+
+
+def displacement_magnitudes(displacements: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Return total and maximum atomic displacement norms for each frame.
+
+    The total norm is calculated over all ``3N`` Cartesian displacement
+    components.  The maximum atomic norm identifies the atom with the largest
+    Cartesian displacement in that frame.
+    """
+    displacements = np.asarray(displacements, dtype=float)
+    if displacements.ndim < 3 or displacements.shape[-1] != 3:
+        raise ValueError("Displacements must have shape (frames, atoms, 3).")
+    per_atom = displacements.reshape((len(displacements), -1, 3))
+    total_norms = np.linalg.norm(per_atom.reshape((len(per_atom), -1)), axis=1)
+    maximum_atomic_norms = np.max(np.linalg.norm(per_atom, axis=2), axis=1)
+    return total_norms, maximum_atomic_norms
 
 
 def target_tensor(name: str, natoms: int) -> Tensor:
@@ -64,11 +106,19 @@ def _rank_increasing_generators(candidates: np.ndarray, design_blocks: np.ndarra
     for candidate, block in zip(candidates, design_blocks):
         block = block.reshape((-1, design_blocks.shape[-1]))
         trial = np.vstack((covered, block))
-        trial_rank = np.linalg.matrix_rank(trial, tol=1e-10)
+        trial_rank = np.linalg.matrix_rank(trial, tol=MODE_RANK_TOLERANCE)
         if trial_rank > rank:
             selected.append(candidate)
             covered = trial
             rank = trial_rank
+    number_of_modes = design_blocks.shape[-1]
+    if rank < number_of_modes:
+        raise ValueError(
+            "Symmetry-reduced displacement selection is underdetermined: "
+            f"projected design-matrix rank {rank} is below the "
+            f"{number_of_modes} symmetry-allowed tensor modes. "
+            "Refusing to generate an incomplete displacement set."
+        )
     return np.asarray(selected, dtype=float).reshape((-1, candidates.shape[1]))
 
 
@@ -141,6 +191,45 @@ def _physical_input_candidates(unit_cell: AtomicStructure, tensor: Tensor):
     return candidates, candidates
 
 
+def mode_response_design_blocks(
+    input_coordinates: np.ndarray, tensor: Tensor, component_modes: np.ndarray
+) -> np.ndarray:
+    """Build projected response-design blocks in the tensor's native axis order.
+
+    ``input_coordinates`` contains one flattened perturbation per frame, ordered
+    according to ``tensor.input_axes``.  The returned array has shape
+    ``(frames, response_components, symmetry_modes)``.  Keeping the tensor
+    input axes at the end before contraction avoids relying on a Kronecker
+    product whose column order can disagree with ``tensor.flatten_full()``.
+    """
+    input_coordinates = np.asarray(input_coordinates, dtype=float)
+    component_modes = np.asarray(component_modes, dtype=float)
+    if input_coordinates.ndim != 2:
+        raise ValueError("Input coordinates must be a two-dimensional array.")
+    if component_modes.ndim != 2:
+        raise ValueError("Component modes must be a two-dimensional array.")
+    if tensor.data is None:
+        raise ValueError("A tensor template with explicit data is required.")
+
+    input_size = int(np.prod(tensor_perturbation_shape(tensor)))
+    tensor_size = tensor.data.size
+    if input_coordinates.shape[1] != input_size:
+        raise ValueError(
+            f"Expected {input_size} input coordinates, got {input_coordinates.shape[1]}."
+        )
+    if component_modes.shape[1] != tensor_size:
+        raise ValueError(
+            f"Expected modes with {tensor_size} tensor components, got {component_modes.shape[1]}."
+        )
+
+    modes = component_modes.reshape((-1, *tensor.data.shape))
+    input_axes = [index + 1 for index in tensor.input_axes]
+    modes = np.moveaxis(modes, input_axes, range(-len(input_axes), 0))
+    response_size = tensor_size // input_size
+    mode_matrix = modes.reshape((len(modes), response_size, input_size))
+    return np.einsum("moi,fi->fom", mode_matrix, input_coordinates)
+
+
 def symmetry_inequivalent_displacements(
     unit_cell: AtomicStructure, tensor: Tensor, component_modes: np.ndarray = None
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -156,13 +245,7 @@ def symmetry_inequivalent_displacements(
             candidates if has_structure_representation else empty
         )
 
-    modes = component_modes.reshape((-1, *tensor.data.shape))
-    input_axes = [index + 1 for index in tensor.input_axes]
-    modes = np.moveaxis(modes, input_axes, range(-len(input_axes), 0))
-    input_size = int(np.prod(tensor_perturbation_shape(tensor)))
-    response_size = modes.size // (len(modes) * input_size)
-    mode_matrix = modes.reshape((len(modes), response_size, input_size))
-    response_design = np.einsum("moi,ki->kom", mode_matrix, input_candidates)
+    response_design = mode_response_design_blocks(input_candidates, tensor, component_modes)
     selected = _rank_increasing_generators(candidates, response_design)
     all_candidates = candidates if has_structure_representation else selected
     return _signed_directions(selected), _signed_directions(all_candidates)
