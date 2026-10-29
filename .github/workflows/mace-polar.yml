@@ -1,11 +1,6 @@
 name: MACE-POLAR regression
 
-on:
-  pull_request:
-  push:
-    branches:
-      - master
-      - develop
+on: push
 
 concurrency:
   group: mace-polar-${{ github.ref }}
