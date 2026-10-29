@@ -8,7 +8,7 @@ concurrency:
 
 jobs:
   mace-polar:
-    name: MACE-POLAR dP/dR regression
+    # name: MACE-POLAR dP/dR regression
     runs-on: ubuntu-22.04
 
     steps:
