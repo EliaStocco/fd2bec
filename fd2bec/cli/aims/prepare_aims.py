@@ -20,6 +20,7 @@ description = "Prepare calculations for FHI-aims."
 
 
 CONTROL_FILE = Path("control.in")
+RESPONSE_QUANTITIES = ("bec", "piezo")
 
 
 def prepare_args(descr):
@@ -27,7 +28,8 @@ def prepare_args(descr):
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
     add_shared_argument(parser, "input_structure")
-    add_shared_argument(parser, "response_quantity")
+    response_quantity = add_shared_argument(parser, "response_quantity")
+    response_quantity.choices = RESPONSE_QUANTITIES + ("both",)
     add_shared_argument(parser, "cartesian_amplitude")
     parser.add_argument(
         "--k-density",
@@ -111,6 +113,17 @@ def prepare_args(descr):
     )
     parser.add_argument("--seed", **argv, type=int, help="random seed used with --number")
     parser.add_argument(
+        "--cache-dir",
+        **argv,
+        default=".fd2bec",
+        help="folder used for cached displacement datasets (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="do not read or write the displacement cache",
+    )
+    parser.add_argument(
         "--structures-output",
         **argv,
         default="displaced-structures.extxyz",
@@ -127,7 +140,10 @@ def prepare_args(descr):
         "--output",
         **argv,
         default="geometries",
-        help="folder for FHI-aims geometry files (default: %(default)s)",
+        help=(
+            "folder for FHI-aims geometry files; with --what both, it contains "
+            "the bec and piezo subfolders (default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "--log",
@@ -137,6 +153,27 @@ def prepare_args(descr):
     )
     add_shared_argument(parser, "symprec")
     return parser
+
+
+def response_file(path: Path, response: str) -> Path:
+    """Add a response suffix to a generated file without changing its folder."""
+    return path.with_name(f"{path.stem}.{response}{path.suffix}")
+
+
+def preparation_paths(args, response: str):
+    """Return non-conflicting generated paths for one response calculation."""
+    structures = Path(args.structures_output)
+    displacements = Path(args.displacements_output)
+    output = Path(args.output)
+    log = Path(getattr(args, "log", "fd2bec-log.txt"))
+    if getattr(args, "what", "bec") != "both":
+        return structures, displacements, output, log
+    return (
+        response_file(structures, response),
+        response_file(displacements, response),
+        output / response,
+        response_file(log, response),
+    )
 
 
 def suggest_kgrid(input_file: str, k_density: float = 5.0):
@@ -379,8 +416,10 @@ def write_control_templates(control_file: Path) -> Tuple[Path, Path, Path]:
     return general_control, first_control, other_control
 
 
-def preparation_commands(args):
+def preparation_commands(args, response: str = None):
     """Build the displacement-generation and geometry-export commands."""
+    response = response or args.what
+    structures_output, displacements_output, output, _ = preparation_paths(args, response)
     generate = [
         sys.executable,
         "-m",
@@ -388,16 +427,19 @@ def preparation_commands(args):
         "-i",
         str(args.input),
         "-w",
-        str(args.what),
+        str(response),
         "-a",
         str(args.amplitude),
         "-sp",
         str(args.symprec),
         "-d",
-        str(args.displacements_output),
+        str(displacements_output),
         "-o",
-        str(args.structures_output),
+        str(structures_output),
     ]
+    generate.extend(("--cache-dir", str(getattr(args, "cache_dir", ".fd2bec"))))
+    if getattr(args, "no_cache", False):
+        generate.append("--no-cache")
     if args.no_symmetry:
         generate.append("--no-symmetry")
     elif args.number is not None:
@@ -410,11 +452,11 @@ def preparation_commands(args):
         "-m",
         "fd2bec.cli.displacements.extxyz2folder",
         "-i",
-        str(args.structures_output),
+        str(structures_output),
         "-f",
         "aims",
         "-o",
-        str(args.output),
+        str(output),
     ]
     return generate, export
 
@@ -469,30 +511,31 @@ def main(args):
     control_templates = write_control_templates(CONTROL_FILE)
     print("Generated control templates: " + ", ".join(path.name for path in control_templates))
 
-    commands = preparation_commands(args)
-    log_file = Path(args.log)
-    for filename in (
-        Path(args.structures_output),
-        Path(args.displacements_output),
-        log_file,
-    ):
-        filename.parent.mkdir(parents=True, exist_ok=True)
-    with log_file.open("w", encoding="utf-8") as stream:
-        for command in commands:
-            subprocess.run(
-                command,
-                stdout=stream,
-                stderr=subprocess.STDOUT,
-                check=True,
-                text=True,
-            )
+    responses = RESPONSE_QUANTITIES if args.what == "both" else (args.what,)
+    structure_counts = {}
+    for response in responses:
+        structures_output, displacements_output, output, log_file = preparation_paths(
+            args, response
+        )
+        for filename in (structures_output, displacements_output, log_file):
+            filename.parent.mkdir(parents=True, exist_ok=True)
+        with log_file.open("w", encoding="utf-8") as stream:
+            for command in preparation_commands(args, response):
+                subprocess.run(
+                    command,
+                    stdout=stream,
+                    stderr=subprocess.STDOUT,
+                    check=True,
+                    text=True,
+                )
 
-    structures = fd2bec_read(args.structures_output, index=":")
-    if not structures:
-        raise ValueError("Displacement generation produced no structures.")
-    print(f"EXPECTED_GEOMETRY_FILES={len(structures)}")
+        structures = fd2bec_read(structures_output, index=":")
+        if not structures:
+            raise ValueError("Displacement generation produced no structures.")
+        structure_counts[response] = len(structures)
+        print(f"EXPECTED_GEOMETRY_FILES_{response.upper()}={len(structures)}")
     requested_csc = args.use_csc
-    if len(structures) == 1:
+    if sum(structure_counts.values()) == 1:
         args.use_csc = False
         if requested_csc:
             print("CSC restart disabled because only one geometry was generated.")
@@ -508,6 +551,7 @@ def main(args):
 
     # Set the default while allowing a submission script to override it.
     content = content.replace("USE_CSC_DEFAULT", "true" if use_csc else "false")
+    content = content.replace("GEOMETRY_DIRECTORY", str(Path(args.output)))
 
     # write output
     dst = Path(".") / "sourceme.sh"
@@ -532,8 +576,10 @@ def main(args):
     print(
         "\nThe provided control.in was updated with the selected k-grid and polarization settings."
     )
-    print(f"Prepared {len(structures)} {args.what} geometries in '{args.output}'.")
-    print(f"Subcommand details were written to '{log_file}'.")
+    for response in responses:
+        _, _, output, log_file = preparation_paths(args, response)
+        print(f"Prepared {structure_counts[response]} {response} geometries in '{output}'.")
+        print(f"Subcommand details were written to '{log_file}'.")
 
 
 if __name__ == "__main__":

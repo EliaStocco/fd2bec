@@ -9,6 +9,7 @@ from fd2bec.cli import cli
 from fd2bec.cli.parser import add_shared_argument
 
 description = "Post process Born-charge or piezoelectric calculations from FHI-aims."
+RESPONSE_QUANTITIES = ("bec", "piezo")
 
 
 def prepare_args(descr):
@@ -16,12 +17,16 @@ def prepare_args(descr):
     parser = argparse.ArgumentParser(description=descr)
     argv = {"metavar": "\b"}
     add_shared_argument(parser, "input_structure")
-    add_shared_argument(parser, "response_quantity")
+    response_quantity = add_shared_argument(parser, "response_quantity")
+    response_quantity.choices = RESPONSE_QUANTITIES + ("both",)
     parser.add_argument(
         "--results",
         **argv,
         default="results",
-        help="folder containing aims.n=<index>.out files (default: %(default)s)",
+        help=(
+            "folder containing aims.n=<index>.out files; with --what both, it "
+            "contains bec and piezo subfolders (default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "--format",
@@ -42,14 +47,20 @@ def prepare_args(descr):
         "--dataset",
         **argv,
         default="dataset.extxyz",
-        help="assembled polarized dataset (default: %(default)s)",
+        help=(
+            "assembled polarized dataset; with --what both, response suffixes "
+            "are added automatically (default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "-o",
         "--output",
         **argv,
         default=".",
-        help="folder for fitted tensor files (default: %(default)s)",
+        help=(
+            "folder for fitted tensor files; with --what both, it contains bec "
+            "and piezo subfolders (default: %(default)s)"
+        ),
     )
     parser.add_argument(
         "--log",
@@ -57,23 +68,55 @@ def prepare_args(descr):
         default="fd2bec-log.pp.txt",
         help="subcommand log file (default: %(default)s)",
     )
+    parser.add_argument(
+        "--cache-dir",
+        **argv,
+        default=".fd2bec",
+        help="folder used for cached symmetry data (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="do not read or write the symmetry-data cache",
+    )
     add_shared_argument(parser, "symprec")
     return parser
 
 
-def postprocess_commands(args):
-    """Build the mode-specific dataset and tensor fitting commands."""
+def response_file(path: Path, response: str) -> Path:
+    """Add a response suffix to a generated file without changing its folder."""
+    return path.with_name(f"{path.stem}.{response}{path.suffix}")
+
+
+def postprocess_paths(args, response: str):
+    """Return isolated input and output paths for one response calculation."""
+    results = Path(args.results)
     dataset = Path(args.dataset)
     output = Path(args.output)
+    log = Path(getattr(args, "log", "fd2bec-log.pp.txt"))
+    if getattr(args, "what", "bec") != "both":
+        return results, dataset, output, log
+    return (
+        results / response,
+        response_file(dataset, response),
+        output / response,
+        response_file(log, response),
+    )
 
-    if getattr(args, "what", "bec") == "piezo":
+
+def postprocess_commands(args, response: str = None):
+    """Build the mode-specific dataset and tensor fitting commands."""
+    response = response or getattr(args, "what", "bec")
+    results, dataset, output, _ = postprocess_paths(args, response)
+
+    if response == "piezo":
         return (
             [
                 sys.executable,
                 "-m",
                 "fd2bec.cli.dPdS.build_dataset4dPdS_aims",
                 "-i",
-                str(args.results),
+                str(results),
                 "--pattern",
                 str(getattr(args, "pattern", "aims.n=*.out")),
                 "-o",
@@ -96,13 +139,13 @@ def postprocess_commands(args):
 
     bec = output / "bec.txt"
     charges = output / "charges.txt"
-    return (
+    commands = (
         [
             sys.executable,
             "-m",
             "fd2bec.cli.dPdR.build_dataset4dPdR",
             "-i",
-            str(args.results),
+            str(results),
             "-r",
             str(args.input),
             "-f",
@@ -116,6 +159,8 @@ def postprocess_commands(args):
             "fd2bec.cli.dPdR.dPdR2bec",
             "-i",
             str(dataset),
+            "--cache-dir",
+            str(getattr(args, "cache_dir", ".fd2bec")),
             "-sp",
             str(args.symprec),
             "-o",
@@ -131,48 +176,49 @@ def postprocess_commands(args):
             str(charges),
         ],
     )
+    if getattr(args, "no_cache", False):
+        commands[1].append("--no-cache")
+    return commands
 
 
 @cli(prepare_args, description)
 def main(args):
     """Build an AIMS finite-difference dataset and evaluate its response tensor."""
-    results = Path(args.results)
-    if not results.is_dir():
-        raise FileNotFoundError(f"AIMS results folder not found: '{results}'.")
-    if not any(path.is_file() for path in results.iterdir()):
-        raise ValueError(f"AIMS results folder is empty: '{results}'.")
+    responses = RESPONSE_QUANTITIES if args.what == "both" else (args.what,)
+    for response in responses:
+        results, dataset, output, log_file = postprocess_paths(args, response)
+        if not results.is_dir():
+            raise FileNotFoundError(f"AIMS results folder not found: '{results}'.")
+        if not any(path.is_file() for path in results.iterdir()):
+            raise ValueError(f"AIMS results folder is empty: '{results}'.")
 
-    dataset = Path(args.dataset)
-    dataset.parent.mkdir(parents=True, exist_ok=True)
-    output = Path(args.output)
-    output.mkdir(parents=True, exist_ok=True)
+        dataset.parent.mkdir(parents=True, exist_ok=True)
+        output.mkdir(parents=True, exist_ok=True)
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        with log_file.open("w", encoding="utf-8") as stream:
+            for command in postprocess_commands(args, response):
+                subprocess.run(
+                    command,
+                    stdout=stream,
+                    stderr=subprocess.STDOUT,
+                    check=True,
+                    text=True,
+                )
 
-    log_file = Path(args.log)
-    log_file.parent.mkdir(parents=True, exist_ok=True)
-    with log_file.open("w", encoding="utf-8") as stream:
-        for command in postprocess_commands(args):
-            subprocess.run(
-                command,
-                stdout=stream,
-                stderr=subprocess.STDOUT,
-                check=True,
-                text=True,
+        print(f"Dataset: '{dataset}'")
+        if response == "piezo":
+            print(f"Piezoelectric tensor: '{output / 'piezoelectric.extxyz'}'")
+            print(f"Improper piezoelectric tensor: '{output / 'improper-piezoelectric.txt'}'")
+            print(f"Proper piezoelectric tensor: '{output / 'proper-piezoelectric.txt'}'")
+            print(
+                "Direct-fit proper piezoelectric tensor: "
+                f"'{output / 'proper-piezoelectric-direct.txt'}'"
             )
-
-    print(f"Dataset: '{dataset}'")
-    if args.what == "piezo":
-        print(f"Piezoelectric tensor: '{output / 'piezoelectric.extxyz'}'")
-        print(f"Improper piezoelectric tensor: '{output / 'improper-piezoelectric.txt'}'")
-        print(f"Proper piezoelectric tensor: '{output / 'proper-piezoelectric.txt'}'")
-        print(
-            "Direct-fit proper piezoelectric tensor: "
-            f"'{output / 'proper-piezoelectric-direct.txt'}'"
-        )
-    else:
-        print(f"Born Effective Charges: '{output / 'bec.extxyz'}'")
-        print(f"Born Effective Charges: '{output / 'bec.txt'}'")
-        print(f"Scalar charges: '{output / 'charges.txt'}'")
-    print(f"Subcommand details: '{log_file}'")
+        else:
+            print(f"Born Effective Charges: '{output / 'bec.extxyz'}'")
+            print(f"Born Effective Charges: '{output / 'bec.txt'}'")
+            print(f"Scalar charges: '{output / 'charges.txt'}'")
+        print(f"Subcommand details: '{log_file}'")
 
 
 if __name__ == "__main__":

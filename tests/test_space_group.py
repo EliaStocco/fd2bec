@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
 from ase import Atoms
+from ase.io import write
 
-from fd2bec.cli.structures.space_group_dataset import (
+from fd2bec.cli.symmetry import space_group as space_group_cli
+from fd2bec.cli.symmetry.space_group_dataset import (
     CSV_COLUMNS,
     collect_space_group_information,
     plot_dataset_statistics,
@@ -48,3 +50,38 @@ def test_dataset_statistics_plot_is_written(tmp_path):
 
     assert output.exists()
     assert output.stat().st_size > 0
+
+
+def test_space_group_cli_prints_named_point_group_generators(tmp_path, capsys):
+    input_path = tmp_path / "cubic.extxyz"
+    atoms = Atoms(
+        "BaTiO3",
+        cell=np.eye(3) * 4.0,
+        scaled_positions=[
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.5],
+            [0.5, 0.5, 0.0],
+            [0.5, 0.0, 0.5],
+            [0.0, 0.5, 0.5],
+        ],
+        pbc=True,
+    )
+    write(input_path, atoms)
+    args = space_group_cli.prepare_args(space_group_cli.description).parse_args(
+        ["-i", str(input_path)]
+    )
+
+    space_group_cli.main.__wrapped__(args)
+
+    output = capsys.readouterr().out
+    assert "Point-group generators (" in output
+    assert "1) 90-degree rotation about z axis" in output
+    assert "2) mirror plane normal to [0 1 -1] direction" in output
+    assert "    R:" in output
+    assert "Character table:" in output
+    assert "6 x C4" in output
+    assert "6 x S4" in output
+    table_output = output.split("Character table:", 1)[1].split(
+        "Entries are characters", 1
+    )[0]
+    assert "..." not in table_output

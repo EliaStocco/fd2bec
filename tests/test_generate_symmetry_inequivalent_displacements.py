@@ -4,9 +4,11 @@ from ase import Atoms
 
 from fd2bec.atomic import AtomicStructure
 from fd2bec.displacements import (
+    _rank_increasing_generators,
     all_cartesian_displacements,
     all_cell_displacements,
     displacements2structures,
+    mode_response_design_blocks,
     random_cartesian_displacements,
     symmetry_inequivalent_displacements,
     target_tensor,
@@ -66,6 +68,19 @@ def test_precomputed_symmetry_modes_select_the_same_displacements():
     expected[1] = 1.0
     np.testing.assert_allclose(selected, [np.zeros(6), expected, -expected])
     np.testing.assert_allclose(candidates, selected)
+
+
+def test_rank_increasing_selection_refuses_an_incomplete_mode_basis():
+    candidates = np.eye(2)
+    design_blocks = np.asarray(
+        [
+            [[1.0, 0.0, 0.0]],
+            [[0.0, 1.0, 0.0]],
+        ]
+    )
+
+    with pytest.raises(ValueError, match=r"underdetermined.*rank 2.*3 symmetry-allowed"):
+        _rank_increasing_generators(candidates, design_blocks)
 
 
 def test_global_tensor_modes_produce_covariant_perturbations():
@@ -173,6 +188,86 @@ def _phase_structure(phase):
         scaled_positions=values["scaled_positions"],
         pbc=True,
     )
+
+
+def test_orthorhombic_bec_selection_spans_all_symmetry_modes():
+    """Guard the Amm2 case that requires the O[2].z displacement."""
+    reference = _phase_structure("orthorhombic")
+    unit_cell = AtomicStructure.from_ase(reference)
+    tensor = BornCharges(data=np.zeros((len(reference), 3, 3)), cell=unit_cell.cell)
+    _, _, modes = unit_cell.get_symmetry_modes(tensor)
+
+    selected, _ = symmetry_inequivalent_displacements(
+        unit_cell, tensor, component_modes=modes
+    )
+    design = mode_response_design_blocks(selected, tensor, modes)
+    historical_selection = selected[np.abs(selected[:, 8]) < 1e-12]
+    historical_design = mode_response_design_blocks(historical_selection, tensor, modes)
+
+    assert selected.shape == (19, 15)
+    assert np.any(np.abs(selected[:, 8]) > 0.0)
+    assert np.linalg.matrix_rank(design.reshape((-1, len(modes))), tol=1e-10) == len(modes)
+    assert np.linalg.matrix_rank(historical_design.reshape((-1, len(modes))), tol=1e-10) == 12
+
+
+def _phonopy_displacement_space(reference, amplitude, symprec):
+    phonopy = pytest.importorskip("phonopy")
+    from phonopy.structure.atoms import PhonopyAtoms
+
+    phonopy_atoms = PhonopyAtoms(
+        symbols=reference.get_chemical_symbols(),
+        cell=reference.cell.array,
+        scaled_positions=reference.get_scaled_positions(wrap=False),
+    )
+    phonon = phonopy.Phonopy(
+        phonopy_atoms,
+        supercell_matrix=np.eye(3, dtype=int),
+        primitive_matrix=np.eye(3),
+        symprec=symprec,
+    )
+    phonon.generate_displacements(
+        distance=amplitude,
+        is_plusminus=True,
+        is_diagonal=False,
+    )
+
+    reference_positions = np.asarray(phonon.supercell.positions)
+    return np.asarray(
+        [
+            np.asarray(displaced.positions) - reference_positions
+            for displaced in phonon.supercells_with_displacements
+        ]
+    ).reshape((-1, 3 * len(reference)))
+
+
+@pytest.mark.parametrize("phase", ("cubic", "tetragonal", "orthorhombic"))
+def test_force_constant_displacements_span_same_space_as_phonopy(phase):
+    """fd2bec and phonopy select equivalent force-constant perturbations."""
+    amplitude = 0.01
+    reference = _phase_structure(phase)
+    unit_cell = AtomicStructure.from_ase(reference)
+    selected, _ = symmetry_inequivalent_displacements(
+        unit_cell, target_tensor("force_constants", len(reference))
+    )
+    fd2bec_structures = displacements2structures(
+        reference, amplitude * selected, atomic=True
+    )
+    fd2bec_displacements = np.asarray(
+        [structure.positions - reference.positions for structure in fd2bec_structures]
+    ).reshape((-1, 3 * len(reference)))
+    phonopy_displacements = _phonopy_displacement_space(
+        reference, amplitude=amplitude, symprec=unit_cell.symprec
+    )
+
+    tolerance = 1e-10
+    fd2bec_rank = np.linalg.matrix_rank(fd2bec_displacements, tol=tolerance)
+    phonopy_rank = np.linalg.matrix_rank(phonopy_displacements, tol=tolerance)
+    combined_rank = np.linalg.matrix_rank(
+        np.vstack((fd2bec_displacements, phonopy_displacements)), tol=tolerance
+    )
+
+    assert fd2bec_rank == phonopy_rank
+    assert combined_rank == fd2bec_rank
 
 
 def _proper_piezoelectric_design(displacements, cell, symmetry_basis):

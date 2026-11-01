@@ -3,13 +3,16 @@
 # Tested by pytest: tests/test_tensor_symmetries.py
 
 import argparse
+import warnings
 
 import numpy as np
 
+from fd2bec import ATOL
 from fd2bec.atomic import AtomicStructure
 from fd2bec.cli import cli, count_with_percentage, positive_int, read_input_structures
 from fd2bec.cli.parser import add_shared_argument
 from fd2bec.displacements import symmetry_inequivalent_displacements
+from fd2bec.mathematics import wrap
 from fd2bec.show import (
     print_independent_components,
     print_numeric_tensor,
@@ -25,10 +28,19 @@ from fd2bec.tensor_components import (
     symbolic_affine_components,
     symbolic_components,
 )
-from fd2bec.tools import tensor_from_atoms
+from fd2bec.tools import shift_first_atom_to_origin, tensor_from_atoms
 
 description = "Show the symmetry-allowed components of a tensor."
 choices = list(MAPPING.keys())
+
+
+def _display_parameter_indices(tensor, pivots, values):
+    """Return parameters to display after fixing the first atom at the origin."""
+    return [
+        index
+        for index, (pivot, value) in enumerate(zip(pivots, values))
+        if pivot >= tensor.data.shape[-1] or not np.isclose(value, 0.0, atol=ATOL, rtol=0.0)
+    ]
 
 
 def prepare_args(descr: str):
@@ -83,6 +95,19 @@ def prepare_args(descr: str):
 def main(args: argparse.Namespace):
     reference = read_input_structures(args.input)
 
+    if args.name == "positions" and np.all(reference.get_pbc()):
+        origin = reference.get_scaled_positions(wrap=False)[0]
+        if not np.allclose(wrap(origin), 0.0, atol=ATOL, rtol=0.0):
+            warnings.warn(
+                "The first atom is not at fractional coordinates (0, 0, 0). "
+                "The coordinates shown below are shifted to that origin; use "
+                "fd2bec/cli/structures/shift_origin.py (the shift_origin command) "
+                "to write the shifted structure.",
+                UserWarning,
+                stacklevel=2,
+            )
+        reference = shift_first_atom_to_origin(reference)
+
     print_reference_structure(reference)
     unit_cell = AtomicStructure.from_ase(reference, symprec=args.symprec)
     basis = selected_tensor_basis(args.name, args.basis)
@@ -122,18 +147,49 @@ def main(args: argparse.Namespace):
         print("\nComputing symmetry-allowed displacement modes ... ", end="")
         _, _, displacement_modes = unit_cell.get_displacement_symmetry_modes(tensor)
         print("done")
+        position_projection = unit_cell.get_symmetry_projection(tensor)
         displacement_modes = displacement_modes.reshape((-1, *shape))
-        components, pivots = symbolic_affine_components(
+        components, all_pivots = symbolic_affine_components(
             tensor.data,
             displacement_modes,
             axes=tensor.axes,
             fractional=basis == "fractional",
         )
+        reference_parameter_values = affine_parameter_values(
+            tensor.data,
+            tensor.data,
+            displacement_modes,
+            axes=tensor.axes,
+            fractional=basis == "fractional",
+        )
+        display_parameter_indices = _display_parameter_indices(
+            tensor, all_pivots, reference_parameter_values
+        )
+        components, pivots = symbolic_affine_components(
+            tensor.data,
+            displacement_modes,
+            axes=tensor.axes,
+            fractional=basis == "fractional",
+            parameter_indices=display_parameter_indices,
+        )
+        reference_parameter_values = reference_parameter_values[display_parameter_indices]
         print(
             "n. symmetry-inequivalent component(s):",
-            count_with_percentage(len(pivots), int(np.prod(shape))),
+            count_with_percentage(len(all_pivots), int(np.prod(shape))),
         )
         tensor.print_components(components)
+        if numeric_tensor is None:
+            print_numeric_tensor(
+                tensor,
+                "positions",
+                "input structure",
+                pivots,
+                components,
+                frame_label="input",
+                symmetry_projected=tensor.symmetrize(position_projection),
+                parameter_values=reference_parameter_values,
+                precision=precision,
+            )
         if numeric_tensor is not None:
             parameter_values = affine_parameter_values(
                 tensor.data,
@@ -142,6 +198,7 @@ def main(args: argparse.Namespace):
                 axes=tensor.axes,
                 fractional=basis == "fractional",
             )
+            parameter_values = parameter_values[display_parameter_indices]
             print_numeric_tensor(
                 numeric_tensor,
                 keyword,
@@ -149,13 +206,14 @@ def main(args: argparse.Namespace):
                 pivots,
                 components,
                 frame_label="input",
+                symmetry_projected=numeric_tensor.symmetrize(position_projection),
                 parameter_values=parameter_values,
                 precision=precision,
             )
         return
 
     print("\nComputing symmetry-allowed components ... ", end="")
-    _, _, component_modes = unit_cell.get_symmetry_modes(tensor=tensor)
+    projection, _, component_modes = unit_cell.get_symmetry_modes(tensor=tensor)
     print("done")
     modes = physical_modes(component_modes, shape, affine=tensor.has_affine_axis)
     print(
@@ -174,6 +232,9 @@ def main(args: argparse.Namespace):
     )
 
     frame_label = "input"
+    symmetry_projected = None
+    if numeric_tensor is not None:
+        symmetry_projected = numeric_tensor.symmetrize(projection)
     if args.conventional_axes:
         coordinate_rotation = np.asarray(
             unit_cell._spglib_dataset.std_rotation_matrix,
@@ -182,6 +243,7 @@ def main(args: argparse.Namespace):
         modes = rotate_modes(tensor, modes, coordinate_rotation)
         if numeric_tensor is not None:
             numeric_tensor = numeric_tensor.rotate(coordinate_rotation)
+            symmetry_projected = symmetry_projected.rotate(coordinate_rotation)
         frame_label = "conventional"
         print("Rotating Cartesian components into conventional crystallographic axes.")
         print("Cartesian coordinate rotation (conventional <- input):")
@@ -203,6 +265,7 @@ def main(args: argparse.Namespace):
             pivots,
             symbolic,
             frame_label=frame_label,
+            symmetry_projected=symmetry_projected,
             precision=precision,
         )
 

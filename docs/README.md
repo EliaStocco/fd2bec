@@ -1,9 +1,9 @@
 # Mathematical documentation
 
-Part I explains how fd2bec represents and compares atomic structures, how it
-uses one affine symmetry formalism for molecules and periodic solids, and the
-mathematics behind `AtomicStructure.get_symmetry_modes`. Part II contains
-automatically generated package, CLI, pytest, and import-dependency maps.
+The documentation explains how fd2bec represents and compares atomic
+structures, how it uses one affine symmetry formalism for molecules and
+periodic solids, and the mathematics behind
+`AtomicStructure.get_symmetry_modes`.
 
 Build the PDF with Sphinx and a LaTeX installation:
 

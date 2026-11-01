@@ -2,8 +2,21 @@ from argparse import Namespace
 from pathlib import Path
 
 from fd2bec import SYMPREC
-from fd2bec.cli.aims.post_process_aims import postprocess_commands
-from fd2bec.cli.aims.prepare_aims import preparation_commands
+from fd2bec.cli.aims import post_process_aims, prepare_aims
+from fd2bec.cli.aims.post_process_aims import postprocess_commands, postprocess_paths
+from fd2bec.cli.aims.prepare_aims import preparation_commands, preparation_paths
+
+
+def test_aims_workflows_accept_the_combined_response_option():
+    preparation = prepare_aims.prepare_args(prepare_aims.description).parse_args(
+        ["-i", "reference.extxyz", "--what", "both"]
+    )
+    postprocessing = post_process_aims.prepare_args(post_process_aims.description).parse_args(
+        ["-i", "reference.extxyz", "--what", "both"]
+    )
+
+    assert preparation.what == "both"
+    assert postprocessing.what == "both"
 
 
 def test_preparation_commands_use_unified_displacement_workflow():
@@ -90,3 +103,75 @@ def test_postprocess_commands_support_piezoelectric_workflow():
         "-o",
         "work/piezoelectric",
     ]
+
+
+def test_preparation_commands_keep_both_response_workflows_separate():
+    args = Namespace(
+        input="reference.extxyz",
+        what="both",
+        amplitude=0.002,
+        no_symmetry=False,
+        number=None,
+        seed=None,
+        displacements_output="displacements.txt",
+        structures_output="displaced-structures.extxyz",
+        output="geometries",
+        log="fd2bec-log.txt",
+        symprec=SYMPREC,
+    )
+
+    bec_paths = preparation_paths(args, "bec")
+    piezo_paths = preparation_paths(args, "piezo")
+    bec_generate, bec_export = preparation_commands(args, "bec")
+    piezo_generate, piezo_export = preparation_commands(args, "piezo")
+
+    assert bec_paths == (
+        Path("displaced-structures.bec.extxyz"),
+        Path("displacements.bec.txt"),
+        Path("geometries/bec"),
+        Path("fd2bec-log.bec.txt"),
+    )
+    assert piezo_paths == (
+        Path("displaced-structures.piezo.extxyz"),
+        Path("displacements.piezo.txt"),
+        Path("geometries/piezo"),
+        Path("fd2bec-log.piezo.txt"),
+    )
+    assert bec_generate[bec_generate.index("-w") + 1] == "bec"
+    assert piezo_generate[piezo_generate.index("-w") + 1] == "piezo"
+    assert bec_export[-1] == "geometries/bec"
+    assert piezo_export[-1] == "geometries/piezo"
+
+
+def test_postprocess_commands_keep_both_response_workflows_separate():
+    args = Namespace(
+        input="reference.extxyz",
+        what="both",
+        results="results",
+        pattern="aims.n=*.out",
+        format="aims_polarization",
+        dataset="dataset.extxyz",
+        output=".",
+        log="fd2bec-log.pp.txt",
+        symprec=SYMPREC,
+    )
+
+    bec_paths = postprocess_paths(args, "bec")
+    piezo_paths = postprocess_paths(args, "piezo")
+    bec_build, _, _ = postprocess_commands(args, "bec")
+    piezo_build, _ = postprocess_commands(args, "piezo")
+
+    assert bec_paths == (
+        Path("results/bec"),
+        Path("dataset.bec.extxyz"),
+        Path("bec"),
+        Path("fd2bec-log.pp.bec.txt"),
+    )
+    assert piezo_paths == (
+        Path("results/piezo"),
+        Path("dataset.piezo.extxyz"),
+        Path("piezo"),
+        Path("fd2bec-log.pp.piezo.txt"),
+    )
+    assert bec_build[bec_build.index("-i") + 1] == "results/bec"
+    assert piezo_build[piezo_build.index("-i") + 1] == "results/piezo"

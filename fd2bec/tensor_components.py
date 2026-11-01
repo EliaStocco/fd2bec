@@ -1,7 +1,7 @@
 """Symbolic tensor-component construction and axis-aware display helpers."""
 
 from itertools import product
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 
@@ -372,6 +372,7 @@ def symbolic_affine_components(
     axes=None,
     *,
     fractional: bool = False,
+    parameter_indices: Optional[Sequence[int]] = None,
     atol: float = 1e-8,
 ):
     """Show affine reference components together with symbolic linear modes.
@@ -392,6 +393,15 @@ def symbolic_affine_components(
         fractional=fractional,
         atol=atol,
     )
+    if parameter_indices is not None:
+        parameter_indices = list(parameter_indices)
+        if any(index < 0 or index >= len(pivots) for index in parameter_indices):
+            raise ValueError("Parameter indices must identify existing symmetry parameters.")
+        coefficients = coefficients[:, parameter_indices]
+        pivots = [pivots[index] for index in parameter_indices]
+        fixed_components = np.all(np.abs(coefficients) <= atol, axis=1).reshape(
+            reference_components.shape
+        )
     if coefficients.size == 0:
         symbolic = np.full(reference_components.shape, "0", dtype=object)
     else:

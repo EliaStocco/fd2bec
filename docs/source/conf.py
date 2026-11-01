@@ -24,7 +24,15 @@ extensions = [
 ]
 
 templates_path = []
-exclude_patterns = []
+# Keep the generated code-map sources available for maintainers without making
+# them standalone Sphinx documents after their chapters were removed from the
+# public manual. This also prevents "document isn't included in any toctree"
+# warnings in warnings-as-errors builds.
+exclude_patterns = [
+    "dependencies.rst",
+    "package_structure.rst",
+    "pytest_map.rst",
+]
 
 html_theme = "alabaster"
 
@@ -67,7 +75,7 @@ latex_elements = {
   \hypersetup{
     pdfauthor={fd2bec contributors},
     pdftitle={fd2bec mathematical documentation},
-    pdfsubject={Mathematics, package structure, tests, and dependencies}
+    pdfsubject={Mathematics of symmetry-constrained finite differences}
   }
   \renewcommand{\familydefault}{\sfdefault}
   \sffamily
@@ -122,7 +130,7 @@ latex_elements = {
 \vspace{2.8cm}
 {\LARGE Technical documentation\par}
 \vspace{0.8cm}
-{\Large Mathematics, package structure, tests, and dependencies\par}
+{\Large Mathematical documentation\par}
 
 \vfill
 \rule{\textwidth}{1pt}
